@@ -68,3 +68,14 @@ Append-only learning log for commits and deploys. Add new entries only at the en
   - apps/web/tsconfig.json
   - package.json
   - package-lock.json
+## 2026-04-21T18:57:23.162Z
+- Trigger: commit
+- Learning: Added two LLM providers: Zhipu GLM (default model glm-5.1 via Zhipu's OpenAI-compatible endpoint at open.bigmodel.cn/api/paas/v4) and OpenRouter (default target anthropic/claude-sonnet-4-6, overridable via OPENROUTER_MODEL env). Unified dispatch in convex/analyze/providers.ts: Anthropic-native tool-use for Claude, OpenAI-compatible function-calling for GLM + OpenRouter. DEFAULT_ANALYZE_PROVIDER env var selects the default (fallback: glm). Schema provider union expanded to claude|glm|openrouter on both analyses and providerRuns tables; recordSuccess and recordAudit now accept the full union (recordAudit previously hardcoded claude and lost provenance on non-Claude failures). Frontend picker on Analyses tab + Settings tiles updated to Claude/GLM/OpenRouter with GLM as the default-active tile. Pricing table approximates GLM at /bin/zsh.6/.8 per MTok; OpenRouter uses the selected model's tokens through the same estimator. To enable: npx convex env set GLM_API_KEY ..., OPENROUTER_API_KEY ..., optionally GLM_MODEL / OPENROUTER_MODEL / DEFAULT_ANALYZE_PROVIDER.
+- Context: feat(analyze): add GLM + OpenRouter providers, default to GLM-5.1
+- Branch: main
+- Actor: Ja3ood <moeghashim@users.noreply.github.com>
+- Changed Paths:
+  - convex
+  - apps/web/app
+  - package.json
+  - package-lock.json

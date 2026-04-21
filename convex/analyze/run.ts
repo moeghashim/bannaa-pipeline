@@ -1,37 +1,46 @@
 "use node";
 
-import Anthropic from "@anthropic-ai/sdk";
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { action } from "../_generated/server";
 import { requireUser } from "../lib/requireUser";
+import { buildUserPrompt } from "./prompts";
 import {
-	ANALYZE_SYSTEM_PROMPT,
-	ANALYZE_TOOL,
-	type AnalyzeToolOutput,
-	buildUserPrompt,
-	estimateCost,
-} from "./prompts";
+	activeModelForProvider,
+	callProvider,
+	defaultProvider,
+	type ProviderId,
+} from "./providers";
 
-const MODEL = "claude-sonnet-4-6";
+const providerValidator = v.union(v.literal("claude"), v.literal("glm"), v.literal("openrouter"));
 
 export const run = action({
-	args: { id: v.id("inboxItems") },
-	handler: async (ctx, { id }) => {
+	args: {
+		id: v.id("inboxItems"),
+		provider: v.optional(providerValidator),
+	},
+	handler: async (ctx, args) => {
 		await requireUser(ctx);
 
-		const apiKey = process.env.ANTHROPIC_API_KEY;
-		if (!apiKey) {
-			throw new Error("ANTHROPIC_API_KEY is not configured in Convex env");
-		}
+		const env = {
+			ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+			GLM_API_KEY: process.env.GLM_API_KEY,
+			GLM_MODEL: process.env.GLM_MODEL,
+			OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
+			OPENROUTER_MODEL: process.env.OPENROUTER_MODEL,
+			DEFAULT_ANALYZE_PROVIDER: process.env.DEFAULT_ANALYZE_PROVIDER,
+		};
 
-		const item = await ctx.runQuery(internal.analyze.internal.loadItem, { id });
+		const provider: ProviderId = args.provider ?? defaultProvider(env);
+		const model = activeModelForProvider(provider, env);
+
+		const item = await ctx.runQuery(internal.analyze.internal.loadItem, { id: args.id });
 		if (!item) throw new Error("Item not found");
 		if (item.state === "analyzing") {
 			throw new Error("Item is already being analyzed");
 		}
 
-		await ctx.runMutation(internal.analyze.internal.markAnalyzing, { id });
+		await ctx.runMutation(internal.analyze.internal.markAnalyzing, { id: args.id });
 
 		const ontology = await ctx.runQuery(internal.analyze.internal.listApprovedConceptNames, {});
 		const userPrompt = buildUserPrompt({
@@ -44,71 +53,47 @@ export const run = action({
 			ontology,
 		});
 
-		const client = new Anthropic({ apiKey });
-
-		let inputTokens = 0;
-		let outputTokens = 0;
-
 		try {
-			const message = await client.messages.create({
-				model: MODEL,
-				max_tokens: 2048,
-				system: ANALYZE_SYSTEM_PROMPT,
-				tools: [ANALYZE_TOOL],
-				tool_choice: { type: "tool", name: ANALYZE_TOOL.name },
-				messages: [{ role: "user", content: userPrompt }],
-			});
-
-			inputTokens = message.usage.input_tokens;
-			outputTokens = message.usage.output_tokens;
-
-			const toolUse = message.content.find((c) => c.type === "tool_use" && c.name === ANALYZE_TOOL.name);
-			if (!toolUse || toolUse.type !== "tool_use") {
-				throw new Error("Model did not call record_analysis tool");
-			}
-
-			const out = toolUse.input as AnalyzeToolOutput;
-			validateOutput(out);
-
-			const cost = estimateCost(inputTokens, outputTokens);
+			const result = await callProvider({ provider, userPrompt, env });
+			validateOutput(result.output);
 
 			await ctx.runMutation(internal.analyze.internal.recordSuccess, {
-				itemId: id,
-				provider: "claude",
-				model: MODEL,
+				itemId: args.id,
+				provider: result.provider,
+				model: result.model,
 				runAt: Date.now(),
-				summary: out.summary,
-				concepts: out.concepts,
-				keyPoints: out.keyPoints,
-				track: out.track,
-				outputs: out.outputs,
-				inputTokens,
-				outputTokens,
-				cost,
+				summary: result.output.summary,
+				concepts: result.output.concepts,
+				keyPoints: result.output.keyPoints,
+				track: result.output.track,
+				outputs: result.output.outputs,
+				inputTokens: result.inputTokens,
+				outputTokens: result.outputTokens,
+				cost: result.cost,
 			});
 
-			return { ok: true as const, cost };
+			return { ok: true as const, provider: result.provider, model: result.model, cost: result.cost };
 		} catch (err) {
 			const message = err instanceof Error ? err.message : String(err);
-			const cost = estimateCost(inputTokens, outputTokens);
 			await ctx.runMutation(internal.analyze.internal.recordAudit, {
-				itemId: id,
-				model: MODEL,
-				inputTokens,
-				outputTokens,
-				cost,
+				itemId: args.id,
+				provider,
+				model,
+				inputTokens: 0,
+				outputTokens: 0,
+				cost: 0,
 				error: message,
 			});
 			await ctx.runMutation(internal.analyze.internal.recordFailure, {
-				id,
+				id: args.id,
 				error: message,
 			});
-			return { ok: false as const, error: message };
+			return { ok: false as const, provider, model, error: message };
 		}
 	},
 });
 
-function validateOutput(out: unknown): asserts out is AnalyzeToolOutput {
+function validateOutput(out: unknown): void {
 	if (!out || typeof out !== "object") throw new Error("Tool output is not an object");
 	const o = out as Record<string, unknown>;
 	if (typeof o.summary !== "string") throw new Error("summary must be a string");

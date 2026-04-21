@@ -47,7 +47,7 @@ export default defineSchema({
 
 	analyses: defineTable({
 		itemId: v.id("inboxItems"),
-		provider: v.literal("claude"),
+		provider: v.union(v.literal("claude"), v.literal("glm"), v.literal("openrouter")),
 		runAt: v.number(),
 		summary: v.string(),
 		concepts: v.array(v.string()),
@@ -72,7 +72,7 @@ export default defineSchema({
 		.index("by_track", ["track"]),
 
 	providerRuns: defineTable({
-		provider: v.literal("claude"),
+		provider: v.union(v.literal("claude"), v.literal("glm"), v.literal("openrouter")),
 		model: v.string(),
 		purpose: v.string(),
 		itemId: v.optional(v.id("inboxItems")),

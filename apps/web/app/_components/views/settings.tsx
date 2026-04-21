@@ -4,16 +4,20 @@ import { Icons } from "../icons";
 import { Chip } from "../primitives";
 
 const PROVIDERS = [
-	{ k: "claude", name: "Claude Sonnet 4.5", note: "default · best quality AR" },
-	{ k: "codex", name: "Codex o4", note: "faster · strong structure" },
-	{ k: "grok", name: "Grok 3.1", note: "freshest X context" },
+	{ k: "glm", name: "GLM 5.1", note: "default · fast · Khaleeji-friendly" },
+	{ k: "claude", name: "Claude Sonnet 4.6", note: "highest quality AR" },
+	{ k: "openrouter", name: "OpenRouter", note: "route to any frontier model" },
 ];
 
 export const SettingsView = () => (
 	<div className="settings-view">
 		<div className="settings-group">
 			<h3>LLM provider</h3>
-			<p className="sub">Default provider used for analyses. You can still switch per-item on the Analyses tab.</p>
+			<p className="sub">
+				Default provider used for analyses. Override in Convex env via{" "}
+				<span className="mono">DEFAULT_ANALYZE_PROVIDER</span>; OpenRouter target via{" "}
+				<span className="mono">OPENROUTER_MODEL</span>.
+			</p>
 			<div className="provider-tiles">
 				{PROVIDERS.map((p, i) => (
 					<button key={p.k} type="button" className={`provider-tile${i === 0 ? " active" : ""}`}>

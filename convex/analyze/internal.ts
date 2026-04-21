@@ -37,7 +37,7 @@ export const recordFailure = internalMutation({
 export const recordSuccess = internalMutation({
 	args: {
 		itemId: v.id("inboxItems"),
-		provider: v.literal("claude"),
+		provider: v.union(v.literal("claude"), v.literal("glm"), v.literal("openrouter")),
 		model: v.string(),
 		runAt: v.number(),
 		summary: v.string(),
@@ -101,6 +101,7 @@ export const recordSuccess = internalMutation({
 export const recordAudit = internalMutation({
 	args: {
 		itemId: v.id("inboxItems"),
+		provider: v.union(v.literal("claude"), v.literal("glm"), v.literal("openrouter")),
 		model: v.string(),
 		inputTokens: v.number(),
 		outputTokens: v.number(),
@@ -109,7 +110,7 @@ export const recordAudit = internalMutation({
 	},
 	handler: async (ctx, args) => {
 		const id: Id<"providerRuns"> = await ctx.db.insert("providerRuns", {
-			provider: "claude",
+			provider: args.provider,
 			model: args.model,
 			purpose: "analyze",
 			itemId: args.itemId,

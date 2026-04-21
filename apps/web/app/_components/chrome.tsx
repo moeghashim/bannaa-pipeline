@@ -77,7 +77,7 @@ export const HintBar = ({
 					today: {fmtUsd(spendToday)} / {fmtUsd(spendCap)} · {runCount} runs
 				</span>
 				<span className="bullet" />
-				<span className="mono">claude-sonnet-4-6</span>
+				<span className="mono">glm-5.1 (default)</span>
 			</div>
 		</div>
 	);

@@ -7,8 +7,8 @@ import type { Analysis, InboxItem } from "../types";
 
 const PROVIDERS = [
 	{ value: "claude", label: "Claude Sonnet 4.6" },
-	{ value: "codex", label: "Codex o4" },
-	{ value: "grok", label: "Grok 3.1" },
+	{ value: "glm", label: "GLM 5.1" },
+	{ value: "openrouter", label: "OpenRouter" },
 ];
 
 export const AnalysesView = ({

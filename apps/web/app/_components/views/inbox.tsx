@@ -474,7 +474,7 @@ const InboxDetail = ({
 				<div className="panel-h">
 					<span className="section-h">Next step</span>
 					<span className="mono" style={{ fontSize: 10.5, color: "var(--muted)" }}>
-						llm: claude-sonnet-4-6 (default)
+						llm: glm-5.1 (default)
 					</span>
 				</div>
 				<div className="panel-body" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
