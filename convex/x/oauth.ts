@@ -1,6 +1,7 @@
-import { getAuthUserId } from "@convex-dev/auth/server";
+import { v } from "convex/values";
 import { internal } from "../_generated/api";
-import { httpAction } from "../_generated/server";
+import { action, httpAction } from "../_generated/server";
+import { requireUser } from "../lib/requireUser";
 
 const SCOPES = ["tweet.read", "bookmark.read", "users.read", "offline.access"].join(" ");
 const AUTHORIZE_URL = "https://x.com/i/oauth2/authorize";
@@ -19,10 +20,6 @@ async function pkcePair(): Promise<{ verifier: string; challenge: string }> {
 	return { verifier, challenge: b64urlFromBytes(new Uint8Array(digest)) };
 }
 
-function randomState(): string {
-	return b64urlFromBytes(crypto.getRandomValues(new Uint8Array(24)));
-}
-
 function redirectUri(): string {
 	const site = process.env.CONVEX_SITE_URL;
 	if (!site) throw new Error("CONVEX_SITE_URL is not configured");
@@ -36,33 +33,34 @@ function basicAuth(): string {
 	return `Basic ${btoa(`${id}:${secret}`)}`;
 }
 
-export const start = httpAction(async (ctx, _request) => {
-	const userId = await getAuthUserId(ctx);
-	if (!userId) return new Response("Not signed in", { status: 401 });
+export const startForCaller = action({
+	args: {},
+	returns: v.string(),
+	handler: async (ctx): Promise<string> => {
+		const userId = await requireUser(ctx);
+		const clientId = process.env.X_CLIENT_ID;
+		if (!clientId) throw new Error("X_CLIENT_ID not configured in Convex env");
 
-	const clientId = process.env.X_CLIENT_ID;
-	if (!clientId) return new Response("X_CLIENT_ID not configured", { status: 500 });
+		const { verifier, challenge } = await pkcePair();
+		const state = b64urlFromBytes(crypto.getRandomValues(new Uint8Array(24)));
 
-	const { verifier, challenge } = await pkcePair();
-	const state = randomState();
+		await ctx.runMutation(internal.x.oauthState.create, {
+			state,
+			codeVerifier: verifier,
+			userId,
+		});
 
-	await ctx.runMutation(internal.x.oauthState.create, {
-		state,
-		codeVerifier: verifier,
-		userId,
-	});
-
-	const params = new URLSearchParams({
-		response_type: "code",
-		client_id: clientId,
-		redirect_uri: redirectUri(),
-		scope: SCOPES,
-		state,
-		code_challenge: challenge,
-		code_challenge_method: "S256",
-	});
-
-	return Response.redirect(`${AUTHORIZE_URL}?${params.toString()}`, 302);
+		const qp = new URLSearchParams({
+			response_type: "code",
+			client_id: clientId,
+			redirect_uri: redirectUri(),
+			scope: SCOPES,
+			state,
+			code_challenge: challenge,
+			code_challenge_method: "S256",
+		});
+		return `${AUTHORIZE_URL}?${qp.toString()}`;
+	},
 });
 
 export const callback = httpAction(async (ctx, request) => {

@@ -6,9 +6,6 @@ import { useState } from "react";
 import { Icons } from "../icons";
 import { Chip } from "../primitives";
 
-const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL ?? "";
-const CONVEX_SITE_URL = CONVEX_URL.replace(".convex.cloud", ".convex.site");
-
 function fmtRelative(ms: number | undefined): string {
 	if (!ms) return "never";
 	const diff = Math.max(0, Date.now() - ms) / 1000;
@@ -32,8 +29,7 @@ const XConnection = () => {
 	const [syncError, setSyncError] = useState<string | null>(null);
 
 	const connect = () => {
-		if (!CONVEX_SITE_URL) return;
-		window.location.href = `${CONVEX_SITE_URL}/auth/x/start`;
+		window.location.href = "/api/auth/x/start";
 	};
 
 	const runSync = async () => {

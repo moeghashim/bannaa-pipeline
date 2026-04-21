@@ -108,3 +108,15 @@ Append-only learning log for commits and deploys. Add new entries only at the en
 - Changed Paths:
   - convex
   - apps/web/app/_components/views/settings.tsx
+## 2026-04-21T23:53:07.101Z
+- Trigger: commit
+- Learning: Connect X was returning 'Not signed in' because Convex Auth's session cookie lives on the Next.js origin, not the Convex site origin — direct browser navigation to convex.site/auth/x/start had no auth context. Fix: OAuth start now runs from a Next.js route handler at apps/web/app/api/auth/x/start/route.ts. The route verifies Next.js session via isAuthenticatedNextjs(), then fetchAction()s a new Convex action x.oauth.startForCaller with the Convex Auth token. The action generates PKCE verifier+challenge via Web Crypto, stores state in xOauthState via the existing internal mutation, builds the X authorize URL using the client_id in Convex env, and returns the URL. The Next.js route then 302s the browser to X. The callback HTTP action stays on Convex site (X calls it directly with code+state, no auth needed since state identifies the user). Removed the broken httpAction start and the unused authorizeUrl helper. Test passed end-to-end: OAuth consent → X redirects to Convex callback → token exchange + /users/me → inbox sync pulled 134 bookmarks with real tweet text as snippet (no more 'fetching…' placeholder).
+- Context: fix(x): move OAuth start to Next.js route with Convex action
+- Branch: main
+- Actor: Ja3ood <moeghashim@users.noreply.github.com>
+- Changed Paths:
+  - apps/web/app/api
+  - convex/x/oauth.ts
+  - convex/http.ts
+  - apps/web/app/_components/views/settings.tsx
+  - apps/web/next-env.d.ts
