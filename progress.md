@@ -24,3 +24,14 @@ Append-only learning log for commits and deploys. Add new entries only at the en
   - apps/web/package.json
   - scripts/native-deps.mjs
   - package-lock.json
+## 2026-04-21T01:39:40.889Z
+- Trigger: commit
+- Learning: Ran npx convex dev --configure new --project bannaa-pipeline --once; created project under team ja3ood with dev deployment shiny-hare-202. CLI wrote CONVEX_DEPLOYMENT / CONVEX_URL / CONVEX_SITE_URL to .env.local (gitignored), scaffolded convex/ with _generated types, and appended .env.local to .gitignore.
+- Context: feat(convex): initialize fresh bannaa-pipeline project
+- Branch: main
+- Actor: Ja3ood <moeghashim@users.noreply.github.com>
+- Changed Paths:
+  - .gitignore
+  - package.json
+  - package-lock.json
+  - convex

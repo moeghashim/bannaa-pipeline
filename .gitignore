@@ -16,3 +16,5 @@ apps/*/node_modules/
 *.swp
 *.swo
 *~
+
+.env.local
