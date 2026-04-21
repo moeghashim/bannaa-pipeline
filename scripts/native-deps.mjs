@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
-const EXPECTED_NODE_MAJOR = 22;
+const EXPECTED_NODE_MAJOR = 24;
 
 function readCommand(command, args) {
 	const result = spawnSync(command, args, { encoding: "utf8" });
@@ -133,7 +133,7 @@ export function printEnvironmentReport({ issues, warnings, nodeVersion, npmVersi
 			console.error(`- ${issue}`);
 		}
 		console.error(
-			"\nSuggested fix: use Node 22 on this machine, then run npm install or npm run reinstall:clean so native dependencies match the current OS and CPU architecture.",
+			"\nSuggested fix: use Node 24 on this machine, then run npm install or npm run reinstall:clean so native dependencies match the current OS and CPU architecture.",
 		);
 	}
 }
