@@ -79,3 +79,14 @@ Append-only learning log for commits and deploys. Add new entries only at the en
   - apps/web/app
   - package.json
   - package-lock.json
+## 2026-04-21T19:55:26.991Z
+- Trigger: commit
+- Learning: Three small gaps closed before starting Phase 2: (1) Open analysis button on Inbox detail now wires to Shell's onOpenAnalysis which sets analysisSel and navigates to the Analyses tab; (2) InboxView's selection now pulls from filtered list (not underlying items) so the detail pane follows the visible rows when filters narrow them — avoids showing a rejected item when filter=new; (3) renamed apps/web/middleware.ts to proxy.ts per Next.js 16 convention, export signature unchanged, Next.js picks it up automatically and the deprecation warning is gone. Palette action shortcuts (Analyze/Approve/Reject/Edit) are still cosmetic — left for Phase 2 since wiring them needs current-selection plumbing into Palette.
+- Context: chore(web): phase 1 polish — Open analysis nav, filter-aware selection, proxy rename
+- Branch: main
+- Actor: Ja3ood <moeghashim@users.noreply.github.com>
+- Changed Paths:
+  - apps/web/app/_components/app.tsx
+  - apps/web/app/_components/views/inbox.tsx
+  - apps/web/middleware.ts
+  - apps/web/proxy.ts

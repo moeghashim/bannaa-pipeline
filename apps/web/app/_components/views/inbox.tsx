@@ -210,6 +210,7 @@ export const InboxView = ({
 	setChecked,
 	onAnalyze,
 	onReject,
+	onOpenAnalysis,
 	filter,
 	sourceFilter,
 	loading,
@@ -225,6 +226,7 @@ export const InboxView = ({
 	setChecked: (s: Set<string>) => void;
 	onAnalyze: (ids: string[]) => void;
 	onReject: (id: string) => void;
+	onOpenAnalysis: (id: string) => void;
 	filter: string;
 	sourceFilter: string;
 	loading?: boolean;
@@ -235,7 +237,7 @@ export const InboxView = ({
 		return true;
 	});
 
-	const sel = items.find((i) => i.id === selected) || filtered[0];
+	const sel = filtered.find((i) => i.id === selected) || filtered[0];
 
 	const toggleChk = (id: string, e: React.MouseEvent) => {
 		e.stopPropagation();
@@ -357,7 +359,12 @@ export const InboxView = ({
 			{loading ? (
 				<InboxDetailLoading />
 			) : sel ? (
-				<InboxDetail item={sel} onAnalyze={() => onAnalyze([sel.id])} onReject={() => onReject(sel.id)} />
+				<InboxDetail
+					item={sel}
+					onAnalyze={() => onAnalyze([sel.id])}
+					onReject={() => onReject(sel.id)}
+					onOpenAnalysis={() => onOpenAnalysis(sel.id)}
+				/>
 			) : (
 				<InboxDetailEmpty />
 			)}
@@ -369,10 +376,12 @@ const InboxDetail = ({
 	item,
 	onAnalyze,
 	onReject,
+	onOpenAnalysis,
 }: {
 	item: InboxItem;
 	onAnalyze: () => void;
 	onReject: () => void;
+	onOpenAnalysis: () => void;
 }) => (
 	<div className="inbox-detail">
 		<div className="inbox-detail-head">
@@ -411,7 +420,7 @@ const InboxDetail = ({
 						</button>
 					)}
 					{(item.state === "draft" || item.state === "approved") && (
-						<button type="button" className="btn sm">
+						<button type="button" className="btn sm" onClick={onOpenAnalysis}>
 							<Icons.Arrow size={12} /> Open analysis
 						</button>
 					)}

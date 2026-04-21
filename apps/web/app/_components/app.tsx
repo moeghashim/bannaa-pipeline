@@ -273,6 +273,11 @@ export function Shell() {
 		await rejectMutation({ id: id as Id<"inboxItems"> });
 	};
 
+	const onOpenAnalysis = (id: string) => {
+		setAnalysisSel(id);
+		navigate("analyses");
+	};
+
 	const onUpdateDraft = (id: string, patch: Partial<Draft>) => {
 		setDrafts((prev) => prev.map((d) => (d.id === id ? { ...d, ...patch } : d)));
 	};
@@ -318,6 +323,7 @@ export function Shell() {
 								setChecked={setInboxChk}
 								onAnalyze={onAnalyze}
 								onReject={onReject}
+								onOpenAnalysis={onOpenAnalysis}
 								filter={inboxFilter}
 								sourceFilter={inboxSource}
 								loading={inboxDocs === undefined}
