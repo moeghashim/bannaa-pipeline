@@ -1,37 +1,60 @@
 "use client";
 
-import { ANALYSES, INBOX_ITEMS } from "../data";
 import { fmtDateTime } from "../format";
 import { Icons } from "../icons";
 import { Chip, Select, SourceBadge } from "../primitives";
 import type { Analysis, InboxItem } from "../types";
 
 const PROVIDERS = [
-	{ value: "claude", label: "Claude Sonnet 4.5" },
+	{ value: "claude", label: "Claude Sonnet 4.6" },
 	{ value: "codex", label: "Codex o4" },
 	{ value: "grok", label: "Grok 3.1" },
 ];
 
-export const AnalysesView = ({ selected, setSelected }: { selected: string; setSelected: (id: string) => void }) => {
-	const analyzable = INBOX_ITEMS.filter((i) => i.state !== "new" && i.state !== "rejected");
+export const AnalysesView = ({
+	selected,
+	setSelected,
+	items,
+	analyses,
+}: {
+	selected: string;
+	setSelected: (id: string) => void;
+	items: InboxItem[];
+	analyses: Analysis[];
+}) => {
+	const analyzable = items.filter((i) => i.state !== "new" && i.state !== "rejected");
 	const sel = analyzable.find((i) => i.id === selected) || analyzable[0];
-	const analysis = ANALYSES.find((a) => a.itemId === sel?.id) || ANALYSES[0];
+	const analysis = sel ? (analyses.find((a) => a.itemId === sel.id) ?? null) : null;
+
+	if (analyzable.length === 0) {
+		return (
+			<div className="analyses-view">
+				<div className="analyses-rail">
+					<div className="inbox-list-head">
+						<span className="mono">0 analyses</span>
+					</div>
+					<div className="empty-state">
+						<div className="icn">
+							<Icons.Beaker size={20} />
+						</div>
+						<h4>No analyses yet</h4>
+						<p>Capture something on the Inbox tab and click Analyze to see structured output here.</p>
+					</div>
+				</div>
+				<div />
+			</div>
+		);
+	}
 
 	return (
 		<div className="analyses-view">
 			<div className="analyses-rail">
 				<div className="inbox-list-head">
 					<span className="mono">{analyzable.length} analyses</span>
-					<div className="row gap-2">
-						<Icons.Clock size={11} style={{ color: "var(--muted)" }} />
-						<span className="mono" style={{ fontSize: 10.5, color: "var(--muted)" }}>
-							3 running
-						</span>
-					</div>
 				</div>
 
 				{analyzable.map((it) => {
-					const a = ANALYSES.find((x) => x.itemId === it.id) || ANALYSES[0];
+					const a = analyses.find((x) => x.itemId === it.id);
 					return (
 						<div
 							key={it.id}
@@ -55,21 +78,57 @@ export const AnalysesView = ({ selected, setSelected }: { selected: string; setS
 								{it.title}
 							</div>
 							<div className="row gap-2" style={{ marginTop: 8, fontSize: 10.5, color: "var(--muted)" }}>
-								<span className="mono">{a.provider}</span>
-								<span className="bullet" />
-								<span className="mono">{a.tokens} tok</span>
-								<span className="bullet" />
-								<span className="mono">{a.cost}</span>
+								<span className="mono">{a?.provider ?? "—"}</span>
+								{a && (
+									<>
+										<span className="bullet" />
+										<span className="mono">{fmtDateTime(a.runAt)}</span>
+									</>
+								)}
 							</div>
 						</div>
 					);
 				})}
 			</div>
 
-			{sel && <AnalysisDiff item={sel} analysis={analysis} />}
+			{sel && (analysis ? <AnalysisDiff item={sel} analysis={analysis} /> : <AnalysisPending item={sel} />)}
 		</div>
 	);
 };
+
+const AnalysisPending = ({ item }: { item: InboxItem }) => (
+	<div className="diff-wrap">
+		<div className="diff-pane left">
+			<div className="diff-h">
+				<div>
+					<div className="label">Source · {item.source}</div>
+					<div
+						style={{
+							fontSize: 15,
+							fontWeight: 600,
+							marginTop: 4,
+							textWrap: "balance",
+							letterSpacing: "-0.01em",
+						}}
+					>
+						{item.title}
+					</div>
+				</div>
+				<SourceBadge source={item.source} handle={item.handle} />
+			</div>
+			<div style={{ fontSize: 13.5, lineHeight: 1.65, color: "var(--ink-2)" }}>{item.snippet}</div>
+		</div>
+		<div className="diff-pane right">
+			<div className="empty-state">
+				<div className="icn">
+					<Icons.Clock size={22} />
+				</div>
+				<h4>Analysis in progress</h4>
+				<p>The LLM is extracting structure from this item. It should appear here shortly.</p>
+			</div>
+		</div>
+	</div>
+);
 
 const AnalysisDiff = ({ item, analysis }: { item: InboxItem; analysis: Analysis }) => (
 	<div className="diff-wrap">
@@ -93,33 +152,6 @@ const AnalysisDiff = ({ item, analysis }: { item: InboxItem; analysis: Analysis 
 			</div>
 
 			<div style={{ fontSize: 13.5, lineHeight: 1.65, color: "var(--ink-2)", marginBottom: 20 }}>{item.snippet}</div>
-
-			<div
-				style={{
-					background: "var(--surface)",
-					border: "1px solid var(--border)",
-					borderRadius: "var(--r-md)",
-					padding: 12,
-					fontFamily: "var(--font-mono)",
-					fontSize: 11,
-					color: "var(--muted)",
-				}}
-			>
-				<div className="row gap-2" style={{ marginBottom: 8 }}>
-					<Icons.Play size={10} />
-					<span>Transcript preview · 00:00 / {item.length}</span>
-				</div>
-				<div style={{ lineHeight: 1.6 }}>
-					<span style={{ color: "var(--muted-2)" }}>00:12</span> the interesting claim in the phi line was always
-					narrower than it sounded in the title —
-					<br />
-					<span style={{ color: "var(--muted-2)" }}>00:21</span> textbooks are all you need for what exactly, and
-					what does 'textbook' even mean
-					<br />
-					<span style={{ color: "var(--muted-2)" }}>00:34</span> if you reread the paper two years later the
-					synthetic-data recipe is the interesting…
-				</div>
-			</div>
 		</div>
 
 		<div className="diff-pane right">
@@ -145,11 +177,7 @@ const AnalysisDiff = ({ item, analysis }: { item: InboxItem; analysis: Analysis 
 			>
 				<span>run {fmtDateTime(analysis.runAt)}</span>
 				<span className="bullet" />
-				<span>{analysis.tokens} tokens</span>
-				<span className="bullet" />
-				<span>{analysis.cost}</span>
-				<span className="bullet" />
-				<span style={{ color: "var(--accent-ink)" }}>re-run ↻</span>
+				<span>track: {analysis.track}</span>
 			</div>
 
 			<div className="section-h" style={{ marginBottom: 6 }}>
@@ -168,12 +196,6 @@ const AnalysisDiff = ({ item, analysis }: { item: InboxItem; analysis: Analysis 
 						{c}
 					</span>
 				))}
-				<span
-					className="concept-tag"
-					style={{ borderStyle: "dashed", color: "var(--muted)", background: "transparent" }}
-				>
-					+ suggest
-				</span>
 			</div>
 
 			<div className="section-h" style={{ marginBottom: 6 }}>
@@ -191,11 +213,11 @@ const AnalysisDiff = ({ item, analysis }: { item: InboxItem; analysis: Analysis 
 				Suggested outputs
 			</div>
 			<div className="col gap-2">
-				{analysis.outputs.map((o) => (
-					<div key={o.kind} className="out-card">
+				{analysis.outputs.map((o, i) => (
+					<div key={`${o.kind}-${i}`} className="out-card">
 						<div className="kind">{o.kind}</div>
 						<div style={{ flex: 1, fontSize: 13, color: "var(--ink-2)", lineHeight: 1.5 }}>{o.hook}</div>
-						<button type="button" className="btn xs">
+						<button type="button" className="btn xs" disabled>
 							<Icons.Arrow size={11} /> Promote
 						</button>
 					</div>

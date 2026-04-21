@@ -209,8 +209,10 @@ export const InboxView = ({
 	checked,
 	setChecked,
 	onAnalyze,
+	onReject,
 	filter,
 	sourceFilter,
+	loading,
 }: {
 	items: InboxItem[];
 	onCapture: (p: CapturePayload, done: () => void) => void;
@@ -222,8 +224,10 @@ export const InboxView = ({
 	checked: Set<string>;
 	setChecked: (s: Set<string>) => void;
 	onAnalyze: (ids: string[]) => void;
+	onReject: (id: string) => void;
 	filter: string;
 	sourceFilter: string;
+	loading?: boolean;
 }) => {
 	const filtered = items.filter((it) => {
 		if (filter !== "all" && it.state !== filter) return false;
@@ -350,12 +354,26 @@ export const InboxView = ({
 				)}
 			</div>
 
-			{sel ? <InboxDetail item={sel} onAnalyze={() => onAnalyze([sel.id])} /> : <InboxDetailEmpty />}
+			{loading ? (
+				<InboxDetailLoading />
+			) : sel ? (
+				<InboxDetail item={sel} onAnalyze={() => onAnalyze([sel.id])} onReject={() => onReject(sel.id)} />
+			) : (
+				<InboxDetailEmpty />
+			)}
 		</div>
 	);
 };
 
-const InboxDetail = ({ item, onAnalyze }: { item: InboxItem; onAnalyze: () => void }) => (
+const InboxDetail = ({
+	item,
+	onAnalyze,
+	onReject,
+}: {
+	item: InboxItem;
+	onAnalyze: () => void;
+	onReject: () => void;
+}) => (
 	<div className="inbox-detail">
 		<div className="inbox-detail-head">
 			<div className="row gap-3" style={{ justifyContent: "space-between" }}>
@@ -369,7 +387,7 @@ const InboxDetail = ({ item, onAnalyze }: { item: InboxItem; onAnalyze: () => vo
 					)}
 				</div>
 				<div className="row gap-2">
-					<button type="button" className="btn ghost sm" title="Reject (R)">
+					<button type="button" className="btn ghost sm" title="Reject (R)" onClick={onReject}>
 						<Icons.X size={12} /> Reject
 					</button>
 					{item.state === "new" && (
@@ -456,7 +474,7 @@ const InboxDetail = ({ item, onAnalyze }: { item: InboxItem; onAnalyze: () => vo
 				<div className="panel-h">
 					<span className="section-h">Next step</span>
 					<span className="mono" style={{ fontSize: 10.5, color: "var(--muted)" }}>
-						llm: claude-sonnet-4.5 (default)
+						llm: claude-sonnet-4-6 (default)
 					</span>
 				</div>
 				<div className="panel-body" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -479,6 +497,18 @@ const InboxDetail = ({ item, onAnalyze }: { item: InboxItem; onAnalyze: () => vo
 					</div>
 				</div>
 			</div>
+		</div>
+	</div>
+);
+
+const InboxDetailLoading = () => (
+	<div className="inbox-detail" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+		<div className="empty-state">
+			<div className="icn">
+				<Icons.Clock size={22} />
+			</div>
+			<h4>Loading…</h4>
+			<p>Fetching captured items from Convex.</p>
 		</div>
 	</div>
 );

@@ -55,3 +55,16 @@ Append-only learning log for commits and deploys. Add new entries only at the en
 - Actor: Ja3ood <moeghashim@users.noreply.github.com>
 - Changed Paths:
   - docs/prd-phase-1.md
+## 2026-04-21T15:02:27.469Z
+- Trigger: commit
+- Learning: Phase-1 backend landed: Convex schema (users via authTables, inboxItems, analyses, concepts, providerRuns), Convex Auth with magic-link via Resend + single-email allowlist for moe@bannaa.co, inbox capture/list/get/reject mutations+queries, analyze action calling Claude Sonnet 4.6 via tool-use (strict record_analysis schema, tracks Foundations/Agents/Media), budget/todaySpend query computing AST-day cost from providerRuns. Frontend swapped SEED_INBOX+SEED_ANALYSES for useQuery/useMutation/useAction; setTimeout simulations removed; hint bar shows live today-spend against the cap and Sonnet 4.6 model; sidebar shows the signed-in operator. Sign-in page at /sign-in, middleware redirects unauthed routes. Seeded 20 starter concepts (approved=true). Still open before live use: ANTHROPIC_API_KEY + RESEND_API_KEY must be set via npx convex env set; AUTH_EMAIL_FROM default is noreply@bannaa.co and requires Resend domain verification. Learned: @convex-dev/auth/providers/Email uses a named (not default) export; Turbopack cannot resolve relative imports with .js extension even under moduleResolution=Bundler so we strip them in apps/web; requireUser helper must use the generated ActionCtx/MutationCtx/QueryCtx types, not GenericDataModel, or it won't accept schema-typed ctx.
+- Context: feat(backend): phase-1 Convex backend + auth + live Inbox/Analyses
+- Branch: main
+- Actor: Ja3ood <moeghashim@users.noreply.github.com>
+- Changed Paths:
+  - convex
+  - apps/web/app
+  - apps/web/middleware.ts
+  - apps/web/tsconfig.json
+  - package.json
+  - package-lock.json

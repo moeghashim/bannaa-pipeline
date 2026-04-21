@@ -48,6 +48,10 @@
 		"node": "24.x"
 	},
 	"dependencies": {
-		"convex": "^1.35.1"
+		"@anthropic-ai/sdk": "^0.90.0",
+		"@auth/core": "^0.37.4",
+		"@convex-dev/auth": "^0.0.91",
+		"convex": "^1.35.1",
+		"resend": "^6.12.2"
 	}
 }

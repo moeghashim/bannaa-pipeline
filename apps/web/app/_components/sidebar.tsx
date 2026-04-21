@@ -23,10 +23,12 @@ export const Sidebar = ({
 	active,
 	onNav,
 	counts,
+	identity,
 }: {
 	active: ViewKey;
 	onNav: (v: ViewKey) => void;
 	counts: Partial<Record<State, number>>;
+	identity: { initial: string; name: string };
 }) => (
 	<aside className="sidebar">
 		<div className="sidebar-brand">
@@ -102,10 +104,20 @@ export const Sidebar = ({
 						fontWeight: 600,
 					}}
 				>
-					M
+					{identity.initial}
 				</div>
 				<div className="col" style={{ gap: 0, flex: 1, minWidth: 0 }}>
-					<div style={{ fontSize: 11.5, fontWeight: 500 }}>Mohammed</div>
+					<div
+						style={{
+							fontSize: 11.5,
+							fontWeight: 500,
+							overflow: "hidden",
+							textOverflow: "ellipsis",
+							whiteSpace: "nowrap",
+						}}
+					>
+						{identity.name}
+					</div>
 					<div className="mono" style={{ fontSize: 10, color: "var(--muted)" }}>
 						operator · AST
 					</div>

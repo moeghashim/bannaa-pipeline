@@ -1,6 +1,8 @@
+import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
 import type { Metadata } from "next";
 import { Inter_Tight, JetBrains_Mono, Newsreader, Noto_Naskh_Arabic } from "next/font/google";
 import type { ReactNode } from "react";
+import { Providers } from "./providers";
 
 import "./globals.css";
 
@@ -36,8 +38,15 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
 	return (
-		<html lang="en" className={`${fontSans.variable} ${fontMono.variable} ${fontSerif.variable} ${fontAr.variable}`}>
-			<body>{children}</body>
-		</html>
+		<ConvexAuthNextjsServerProvider>
+			<html
+				lang="en"
+				className={`${fontSans.variable} ${fontMono.variable} ${fontSerif.variable} ${fontAr.variable}`}
+			>
+				<body>
+					<Providers>{children}</Providers>
+				</body>
+			</html>
+		</ConvexAuthNextjsServerProvider>
 	);
 }

@@ -1,5 +1,9 @@
-export function timeAgo(iso: string): string {
-	const d = new Date(iso);
+function toDate(value: string | number): Date {
+	return typeof value === "number" ? new Date(value) : new Date(value);
+}
+
+export function timeAgo(value: string | number): string {
+	const d = toDate(value);
 	const diff = (Date.now() - d.getTime()) / 1000;
 	if (diff < 60) return `${Math.floor(diff)}s`;
 	if (diff < 3600) return `${Math.floor(diff / 60)}m`;
@@ -7,13 +11,12 @@ export function timeAgo(iso: string): string {
 	return `${Math.floor(diff / 86400)}d`;
 }
 
-export function fmtDate(iso: string): string {
-	const d = new Date(iso);
-	return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+export function fmtDate(value: string | number): string {
+	return toDate(value).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-export function fmtDateTime(iso: string): string {
-	const d = new Date(iso);
+export function fmtDateTime(value: string | number): string {
+	const d = toDate(value);
 	return (
 		d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) +
 		" · " +

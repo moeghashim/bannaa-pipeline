@@ -1,14 +1,16 @@
 "use client";
 
+import { api } from "@convex/_generated/api";
+import type { Doc, Id } from "@convex/_generated/dataModel";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { useMemo, useRef, useState } from "react";
 import { useMountEffect } from "../../lib/use-mount-effect";
 import { HintBar, TopChrome } from "./chrome";
-import { NEWSLETTER, DRAFTS as SEED_DRAFTS, INBOX_ITEMS as SEED_INBOX } from "./data";
-import { Icons } from "./icons";
+import { NEWSLETTER, DRAFTS as SEED_DRAFTS } from "./data";
 import { Palette } from "./palette";
 import { FilterSeg, Select } from "./primitives";
 import { Sidebar } from "./sidebar";
-import type { CapturePayload, Draft, InboxItem, State, ViewKey } from "./types";
+import type { Analysis, CapturePayload, Draft, InboxItem, State, ViewKey } from "./types";
 import { AnalysesView } from "./views/analyses";
 import { DraftsView } from "./views/drafts";
 import { InboxView } from "./views/inbox";
@@ -72,26 +74,67 @@ const isViewKey = (v: string): v is ViewKey =>
 	v === "website" ||
 	v === "settings";
 
+function toLocalInboxItem(doc: Doc<"inboxItems">): InboxItem {
+	return {
+		id: doc._id,
+		source: doc.source,
+		handle: doc.handle,
+		title: doc.title,
+		snippet: doc.snippet,
+		lang: doc.lang,
+		captured: new Date(doc.captured).toISOString(),
+		state: doc.state,
+		url: doc.url,
+		length: doc.length,
+	};
+}
+
+function toLocalAnalysis(doc: Doc<"analyses">): Analysis {
+	return {
+		id: doc._id,
+		itemId: doc.itemId,
+		provider: doc.provider,
+		runAt: new Date(doc.runAt).toISOString(),
+		cost: "",
+		tokens: "",
+		summary: doc.summary,
+		concepts: doc.concepts,
+		track: doc.track,
+		tier: "medium",
+		outputs: doc.outputs,
+		keyPoints: doc.keyPoints,
+	};
+}
+
 export function Shell() {
 	const [view, setView] = useState<ViewKey>("inbox");
 	const [paletteOpen, setPaletteOpen] = useState(false);
 
-	const [inboxItems, setInboxItems] = useState<InboxItem[]>(SEED_INBOX);
-	const [inboxSel, setInboxSel] = useState("in_01");
+	const inboxDocs = useQuery(api.inbox.list.list, {});
+	const analysisDocs = useQuery(api.analyses.list.list, {});
+	const me = useQuery(api.users.me.me, {});
+	const budget = useQuery(api.budget.todaySpend.todaySpend, {});
+
+	const captureMutation = useMutation(api.inbox.capture.capture);
+	const rejectMutation = useMutation(api.inbox.reject.reject);
+	const analyzeAction = useAction(api.analyze.run.run);
+
+	const inboxItems = useMemo(() => (inboxDocs ?? []).map(toLocalInboxItem), [inboxDocs]);
+	const analyses = useMemo(() => (analysisDocs ?? []).map(toLocalAnalysis), [analysisDocs]);
+
+	const [inboxSel, setInboxSel] = useState<string>("");
 	const [inboxFocus, setInboxFocus] = useState(0);
 	const [inboxChk, setInboxChk] = useState<Set<string>>(new Set());
 	const [inboxFilter, setInboxFilter] = useState("all");
 	const [inboxSource, setInboxSource] = useState("all");
-	const [progressIds, setProgressIds] = useState<string[]>([]);
 
-	const [analysisSel, setAnalysisSel] = useState("in_02");
+	const [analysisSel, setAnalysisSel] = useState("");
 
 	const [drafts, setDrafts] = useState<Draft[]>(SEED_DRAFTS);
 	const [draftsChannel, setDraftsChannel] = useState("all");
 
 	const [wsSel, setWsSel] = useState("ws_01");
 
-	// Keep latest state reachable from the mount-only keydown listener.
 	const stateRef = useRef({
 		view,
 		paletteOpen,
@@ -100,14 +143,7 @@ export function Shell() {
 		inboxSource,
 		inboxFocus,
 	});
-	stateRef.current = {
-		view,
-		paletteOpen,
-		inboxItems,
-		inboxFilter,
-		inboxSource,
-		inboxFocus,
-	};
+	stateRef.current = { view, paletteOpen, inboxItems, inboxFilter, inboxSource, inboxFocus };
 
 	const navigate = (v: ViewKey) => {
 		setView(v);
@@ -118,7 +154,6 @@ export function Shell() {
 		}
 	};
 
-	// Hydrate view from localStorage + bind the global keydown listener once.
 	useMountEffect(() => {
 		try {
 			const stored = window.localStorage.getItem(VIEW_STORAGE_KEY);
@@ -217,82 +252,25 @@ export function Shell() {
 		return c;
 	}, [inboxItems]);
 
-	const onAnalyze = (ids: string[]) => {
+	const progressIds = useMemo(() => inboxItems.filter((i) => i.state === "analyzing").map((i) => i.id), [inboxItems]);
+
+	const onAnalyze = async (ids: string[]) => {
 		setInboxChk(new Set());
 		for (const id of ids) {
-			setInboxItems((prev) => prev.map((it) => (it.id === id ? { ...it, state: "analyzing" as const } : it)));
-			setProgressIds((prev) => (prev.includes(id) ? prev : [id, ...prev]));
-			window.setTimeout(() => {
-				setInboxItems((prev) => prev.map((it) => (it.id === id ? { ...it, state: "draft" as const } : it)));
-				window.setTimeout(() => setProgressIds((prev) => prev.filter((p) => p !== id)), 1400);
-			}, 1800);
+			void analyzeAction({ id: id as Id<"inboxItems"> });
 		}
 	};
 
-	const onCapture = (payload: CapturePayload, done: () => void) => {
-		const id = `in_${Math.random().toString(36).slice(2, 7)}`;
-		const now = new Date().toISOString();
-		const title =
-			payload.title ||
-			(payload.source === "x"
-				? `${payload.handle} · captured tweet`
-				: payload.source === "youtube"
-					? "Captured YouTube video"
-					: payload.source === "article"
-						? `Captured article · ${payload.handle}`
-						: "Manual note");
-		const snippet =
-			payload.source === "manual"
-				? payload.raw
-				: "Awaiting fetch & extraction — the LLM will pull the transcript/body and produce a summary, concept tags, and suggested outputs.";
-		const newItem: InboxItem = {
-			id,
-			source: payload.source,
-			handle: payload.handle,
-			title,
-			snippet,
-			lang: "en",
-			captured: now,
-			state: "new",
-			url: payload.url ?? undefined,
-			length: payload.source === "manual" ? payload.raw.split(/\s+/).length : "fetching…",
-		};
-		setInboxItems((prev) => [newItem, ...prev]);
-		setInboxSel(id);
-		setInboxFocus(0);
-		setProgressIds((prev) => [id, ...prev]);
+	const onCapture = async (payload: CapturePayload, done: () => void) => {
+		try {
+			await captureMutation({ raw: payload.raw });
+		} finally {
+			done();
+		}
+	};
 
-		window.setTimeout(() => {
-			setInboxItems((prev) =>
-				prev.map((it) =>
-					it.id === id
-						? {
-								...it,
-								state: "analyzing" as const,
-								snippet:
-									"Running analysis with Claude Sonnet 4.5 — extracting summary, tagging concepts against the 94-concept ontology, proposing social drafts and a website lesson…",
-							}
-						: it,
-				),
-			);
-		}, 700);
-		window.setTimeout(() => {
-			setInboxItems((prev) =>
-				prev.map((it) =>
-					it.id === id
-						? {
-								...it,
-								state: "draft" as const,
-								snippet:
-									"Analysis complete. 3 suggested outputs: 1 tweet · 1 reel idea · 1 website concept. Review in the Analyses tab.",
-							}
-						: it,
-				),
-			);
-		}, 2600);
-		window.setTimeout(() => setProgressIds((prev) => prev.filter((p) => p !== id)), 4000);
-
-		done();
+	const onReject = async (id: string) => {
+		await rejectMutation({ id: id as Id<"inboxItems"> });
 	};
 
 	const onUpdateDraft = (id: string, patch: Partial<Draft>) => {
@@ -310,10 +288,14 @@ export function Shell() {
 		setInboxSource,
 	);
 
+	const identity = me
+		? { initial: (me.name ?? me.email ?? "?").slice(0, 1).toUpperCase(), name: me.name ?? me.email ?? "operator" }
+		: { initial: "·", name: "loading…" };
+
 	return (
 		<>
 			<div className="app">
-				<Sidebar active={view} onNav={navigate} counts={counts} />
+				<Sidebar active={view} onNav={navigate} counts={counts} identity={identity} />
 				<div className="main">
 					<TopChrome
 						title={chrome.title}
@@ -328,18 +310,27 @@ export function Shell() {
 								items={inboxItems}
 								onCapture={onCapture}
 								progressIds={progressIds}
-								selected={inboxSel}
+								selected={inboxSel || inboxItems[0]?.id || ""}
 								setSelected={setInboxSel}
 								focusIdx={inboxFocus}
 								setFocusIdx={setInboxFocus}
 								checked={inboxChk}
 								setChecked={setInboxChk}
 								onAnalyze={onAnalyze}
+								onReject={onReject}
 								filter={inboxFilter}
 								sourceFilter={inboxSource}
+								loading={inboxDocs === undefined}
 							/>
 						)}
-						{view === "analyses" && <AnalysesView selected={analysisSel} setSelected={setAnalysisSel} />}
+						{view === "analyses" && (
+							<AnalysesView
+								selected={analysisSel}
+								setSelected={setAnalysisSel}
+								items={inboxItems}
+								analyses={analyses}
+							/>
+						)}
 						{view === "drafts" && (
 							<DraftsView
 								channel={draftsChannel}
@@ -354,7 +345,12 @@ export function Shell() {
 						{view === "settings" && <SettingsView />}
 					</div>
 				</div>
-				<HintBar hints={HINTS_BY_VIEW[view]} />
+				<HintBar
+					hints={HINTS_BY_VIEW[view]}
+					spendToday={budget?.total ?? 0}
+					spendCap={budget?.cap ?? 6}
+					runCount={budget?.runs ?? 0}
+				/>
 			</div>
 
 			<Palette open={paletteOpen} onClose={() => setPaletteOpen(false)} onNav={navigate} />
@@ -375,7 +371,7 @@ function resolveChrome(
 	if (view === "inbox") {
 		return {
 			title: "Inbox",
-			subtitle: `${inboxItems.length} captured · next cron in 8m`,
+			subtitle: `${inboxItems.length} captured`,
 			filters: (
 				<div className="row gap-2">
 					<FilterSeg
@@ -387,6 +383,7 @@ function resolveChrome(
 							{ value: "analyzing", label: "Analyzing", count: counts.analyzing ?? 0 },
 							{ value: "draft", label: "Draft", count: counts.draft ?? 0 },
 							{ value: "approved", label: "Approved", count: counts.approved ?? 0 },
+							{ value: "rejected", label: "Rejected", count: counts.rejected ?? 0 },
 						]}
 					/>
 					<Select
@@ -403,11 +400,7 @@ function resolveChrome(
 					/>
 				</div>
 			),
-			actions: (
-				<button type="button" className="btn accent sm">
-					<Icons.Sparkle size={12} /> Analyze all new
-				</button>
-			),
+			actions: null,
 		};
 	}
 	if (view === "analyses") return { title: "Analyses", subtitle: "structured extraction · source ↔ output" };
