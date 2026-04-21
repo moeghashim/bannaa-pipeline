@@ -1,0 +1,25 @@
+#!/bin/sh
+
+STAGED_FILES=$(git diff --cached --name-only)
+
+echo "Running formatting, linting, and type checking..."
+npm run check
+if [ $? -ne 0 ]; then
+	echo "Checks failed. Please fix the errors before committing."
+	exit 1
+fi
+
+for file in $STAGED_FILES; do
+	if [ -f "$file" ]; then
+		git add "$file"
+	fi
+done
+
+echo "Checking progress log append-only policy..."
+node scripts/progress-append-only-check.mjs
+if [ $? -ne 0 ]; then
+	echo "progress.md append-only check failed."
+	exit 1
+fi
+
+echo "All pre-commit checks passed!"

@@ -1,0 +1,24 @@
+{
+	"name": "@bannaa-pipeline/core",
+	"version": "0.0.2",
+	"description": "Core library",
+	"license": "MIT",
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"files": [
+		"dist/**/*",
+		"README.md",
+		"CHANGELOG.md"
+	],
+	"scripts": {
+		"clean": "rm -rf dist",
+		"build": "tsgo -p tsconfig.build.json",
+		"dev": "tsgo -p tsconfig.build.json --watch --preserveWatchOutput",
+		"test": "tsx --test test/**/*.test.ts",
+		"prepublishOnly": "npm run clean && npm run build"
+	},
+	"engines": {
+		"node": ">=20.0.0"
+	}
+}

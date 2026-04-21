@@ -1,0 +1,24 @@
+{
+	"name": "@bannaa-pipeline/web",
+	"version": "0.0.2",
+	"private": true,
+	"scripts": {
+		"clean": "rm -rf .next",
+		"dev": "next dev",
+		"build": "next build",
+		"start": "next start",
+		"check": "tsc -p tsconfig.json --noEmit"
+	},
+	"dependencies": {
+		"next": "16.2.1",
+		"react": "19.2.4",
+		"react-dom": "19.2.4"
+	},
+	"devDependencies": {
+		"@types/react": "19.2.14",
+		"@types/react-dom": "19.2.3"
+	},
+	"engines": {
+		"node": "22.x"
+	}
+}

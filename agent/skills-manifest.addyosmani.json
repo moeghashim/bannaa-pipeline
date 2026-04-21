@@ -1,0 +1,49 @@
+{
+  "sourceRepo": "https://github.com/addyosmani/agent-skills",
+  "pinnedCommit": "a806c635fbabaaf8eca077a2cc1689ceb85fb393",
+  "files": [
+    {
+      "type": "directory",
+      "upstreamPath": "skills/context-engineering",
+      "localPath": "agent/skills/addyosmani/context-engineering",
+      "strategy": "reference",
+      "sha256": "1d95e8f7147b7cc58e23987dc0d4d15f832f6da478dfb21da4320cfc59763596"
+    },
+    {
+      "type": "directory",
+      "upstreamPath": "skills/test-driven-development",
+      "localPath": "agent/skills/addyosmani/test-driven-development",
+      "strategy": "reference",
+      "sha256": "0f1863f607eb48edc1d0a9be86db4f2198569c438d155c93cb136516bfca1c75"
+    },
+    {
+      "type": "directory",
+      "upstreamPath": "skills/code-review-and-quality",
+      "localPath": "agent/skills/addyosmani/code-review-and-quality",
+      "strategy": "reference",
+      "sha256": "1f0577b867a2a3e961c089fb9df157b1eae82387097698f23fda6f01d536ad1a"
+    },
+    {
+      "type": "directory",
+      "upstreamPath": "skills/documentation-and-adrs",
+      "localPath": "agent/skills/addyosmani/documentation-and-adrs",
+      "strategy": "reference",
+      "sha256": "b5d4bdfaffae2a0cfcba3497a5318c0b277db9eccd9733b2dd96ec7b17538605"
+    },
+    {
+      "type": "directory",
+      "upstreamPath": "skills/security-and-hardening",
+      "localPath": "agent/skills/addyosmani/security-and-hardening",
+      "strategy": "reference",
+      "sha256": "567851f6ea5622ef70eaeac995e742803fe73eaf99914937232ecc114cae479f"
+    }
+  ],
+  "localOverrides": [
+    "docs/agent-skills.md",
+    "docs/agent-workflow.md",
+    "docs/README.md",
+    "README.md",
+    "AGENTS.md",
+    ".codex/prompts/**"
+  ]
+}

@@ -1,0 +1,50 @@
+{
+	"name": "bannaa-pipeline",
+	"private": true,
+	"license": "MIT",
+	"type": "module",
+	"packageManager": "npm@11.6.2",
+	"workspaces": [
+		"apps/*",
+		"packages/*"
+	],
+	"scripts": {
+		"clean": "npm run clean --workspaces --if-present",
+		"build": "npm run build --workspaces --if-present",
+		"test": "npm run test --workspaces --if-present",
+		"preflight:native-deps": "node scripts/preflight-native-deps.mjs",
+		"check": "npm run preflight:native-deps && biome check --write --error-on-warnings . && node scripts/check-file-length.mjs && tsgo --noEmit && npm run check --workspaces --if-present",
+		"doctor": "node scripts/doctor.mjs",
+		"docs:list": "node scripts/docs-list.mjs",
+		"agent:verify-sync": "node scripts/agent-sync.mjs verify",
+		"agent:sync": "node scripts/agent-sync.mjs sync",
+		"skills:verify-sync": "node scripts/agent-sync.mjs verify --manifest agent/skills-manifest.json",
+		"skills:sync": "node scripts/agent-sync.mjs sync --manifest agent/skills-manifest.json",
+		"skills:addy:verify-sync": "node scripts/agent-sync.mjs verify --manifest agent/skills-manifest.addyosmani.json",
+		"skills:addy:sync": "node scripts/agent-sync.mjs sync --manifest agent/skills-manifest.addyosmani.json",
+		"skills:verify-sync:all": "npm run skills:verify-sync && npm run skills:addy:verify-sync",
+		"skills:sync:all": "npm run skills:sync && npm run skills:addy:sync",
+		"agent:check": "node scripts/agent-check.mjs",
+		"commit:selective": "bash scripts/committer",
+		"commit:with-progress": "node scripts/commit-with-progress.mjs",
+		"reinstall:clean": "node scripts/reinstall-clean.mjs",
+		"version:patch": "npm version patch -ws --no-git-tag-version && node scripts/sync-versions.js && rm -rf node_modules apps/*/node_modules packages/*/node_modules package-lock.json && npm install",
+		"version:minor": "npm version minor -ws --no-git-tag-version && node scripts/sync-versions.js && rm -rf node_modules apps/*/node_modules packages/*/node_modules package-lock.json && npm install",
+		"version:major": "npm version major -ws --no-git-tag-version && node scripts/sync-versions.js && rm -rf node_modules apps/*/node_modules packages/*/node_modules package-lock.json && npm install",
+		"release:patch": "node scripts/release.mjs patch",
+		"release:minor": "node scripts/release.mjs minor",
+		"release:major": "node scripts/release.mjs major",
+		"prepare": "husky"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.3.5",
+		"@types/node": "^22.10.5",
+		"@typescript/native-preview": "7.0.0-dev.20260120.1",
+		"husky": "^9.1.7",
+		"tsx": "^4.20.3",
+		"typescript": "^5.9.2"
+	},
+	"engines": {
+		"node": "22.x"
+	}
+}

@@ -1,0 +1,31 @@
+{
+  "sourceRepo": "https://github.com/steipete/agent-scripts",
+  "pinnedCommit": "4e28dd5",
+  "files": [
+    {
+      "upstreamPath": "scripts/committer",
+      "localPath": "scripts/committer",
+      "strategy": "verbatim",
+      "sha256": "dce6b64688dd234f8e92f315c653e1bb23123eb672b12eb5faeb2bfb9a1595aa"
+    },
+    {
+      "upstreamPath": "scripts/docs-list.ts",
+      "localPath": "agent/upstream/scripts/docs-list.ts",
+      "strategy": "reference",
+      "sha256": "eedbfa268fafaad6aaca210674eeef4d9ffa2b6041fc0618548a1960fe468236"
+    }
+  ],
+  "localOverrides": [
+    "scripts/docs-list.ts",
+    "scripts/docs-list.mjs",
+    "scripts/native-deps.mjs",
+    "scripts/preflight-native-deps.mjs",
+    "scripts/agent-sync.mjs",
+    "scripts/agent-check.mjs",
+    "scripts/docs-frontmatter-check.mjs",
+    "agent/skills-manifest.json",
+    "AGENTS.md",
+    "docs/**",
+    ".codex/prompts/**"
+  ]
+}

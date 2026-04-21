@@ -1,0 +1,41 @@
+{
+  "sourceRepo": "https://github.com/vercel-labs/agent-skills",
+  "pinnedCommit": "73140fc5b3a214ad3222bcf557b397b3c02d11c1",
+  "files": [
+    {
+      "type": "directory",
+      "upstreamPath": "skills/react-best-practices",
+      "localPath": "agent/skills/vercel-labs/react-best-practices",
+      "strategy": "reference",
+      "sha256": "86472e8abef8dbb2e2e7513851468bd92c706fe3adbb9a7dd1a60d660490f545"
+    },
+    {
+      "type": "directory",
+      "upstreamPath": "skills/composition-patterns",
+      "localPath": "agent/skills/vercel-labs/composition-patterns",
+      "strategy": "reference",
+      "sha256": "ad46bef218ea122498c4cb9d590904514f361a92fa4160255a4ef6a1e5ddc59e"
+    },
+    {
+      "type": "directory",
+      "upstreamPath": "skills/react-view-transitions",
+      "localPath": "agent/skills/vercel-labs/react-view-transitions",
+      "strategy": "reference",
+      "sha256": "300d41e4c2bc518f0ca8106777f0ffbb4e15755a558cc89a9025f1861311b44e"
+    },
+    {
+      "type": "directory",
+      "upstreamPath": "skills/web-design-guidelines",
+      "localPath": "agent/skills/vercel-labs/web-design-guidelines",
+      "strategy": "reference",
+      "sha256": "3759484ee014cc054ea5187696f04f55365516fa7dbd31cd6f0fa1c57edc2979"
+    }
+  ],
+  "localOverrides": [
+    "docs/agent-skills.md",
+    "AGENTS.md",
+    "README.md",
+    "docs/**",
+    ".codex/prompts/**"
+  ]
+}
