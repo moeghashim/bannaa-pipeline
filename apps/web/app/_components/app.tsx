@@ -74,6 +74,12 @@ const isViewKey = (v: string): v is ViewKey =>
 	v === "website" ||
 	v === "settings";
 
+function providerLabel(provider: "claude" | "glm" | "openrouter" | undefined): string {
+	if (provider === "claude") return "claude-sonnet-4-6";
+	if (provider === "openrouter") return "openrouter";
+	return "glm-5.1";
+}
+
 function toLocalInboxItem(doc: Doc<"inboxItems">): InboxItem {
 	return {
 		id: doc._id,
@@ -114,6 +120,7 @@ export function Shell() {
 	const analysisDocs = useQuery(api.analyses.list.list, {});
 	const me = useQuery(api.users.me.me, {});
 	const budget = useQuery(api.budget.todaySpend.todaySpend, {});
+	const settings = useQuery(api.settings.doc.get, {});
 
 	const captureMutation = useMutation(api.inbox.capture.capture);
 	const rejectMutation = useMutation(api.inbox.reject.reject);
@@ -356,6 +363,7 @@ export function Shell() {
 					spendToday={budget?.total ?? 0}
 					spendCap={budget?.cap ?? 6}
 					runCount={budget?.runs ?? 0}
+					providerLabel={providerLabel(settings?.defaultProvider)}
 				/>
 			</div>
 

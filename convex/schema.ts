@@ -71,6 +71,12 @@ export default defineSchema({
 		.index("by_name", ["name"])
 		.index("by_track", ["track"]),
 
+	settings: defineTable({
+		key: v.string(),
+		defaultProvider: v.union(v.literal("claude"), v.literal("glm"), v.literal("openrouter")),
+		updatedAt: v.number(),
+	}).index("by_key", ["key"]),
+
 	providerRuns: defineTable({
 		provider: v.union(v.literal("claude"), v.literal("glm"), v.literal("openrouter")),
 		model: v.string(),

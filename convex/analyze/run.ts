@@ -2,6 +2,7 @@
 
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
+import type { Doc } from "../_generated/dataModel";
 import { action } from "../_generated/server";
 import { requireUser } from "../lib/requireUser";
 import { buildUserPrompt } from "./prompts";
@@ -14,12 +15,16 @@ import {
 
 const providerValidator = v.union(v.literal("claude"), v.literal("glm"), v.literal("openrouter"));
 
+type RunResult =
+	| { ok: true; provider: ProviderId; model: string; cost: number }
+	| { ok: false; provider: ProviderId; model: string; error: string };
+
 export const run = action({
 	args: {
 		id: v.id("inboxItems"),
 		provider: v.optional(providerValidator),
 	},
-	handler: async (ctx, args) => {
+	handler: async (ctx, args): Promise<RunResult> => {
 		await requireUser(ctx);
 
 		const env = {
@@ -31,7 +36,8 @@ export const run = action({
 			DEFAULT_ANALYZE_PROVIDER: process.env.DEFAULT_ANALYZE_PROVIDER,
 		};
 
-		const provider: ProviderId = args.provider ?? defaultProvider(env);
+		const settings: Doc<"settings"> | null = await ctx.runQuery(internal.settings.doc.getInternal, {});
+		const provider: ProviderId = args.provider ?? settings?.defaultProvider ?? defaultProvider(env);
 		const model = activeModelForProvider(provider, env);
 
 		const item = await ctx.runQuery(internal.analyze.internal.loadItem, { id: args.id });

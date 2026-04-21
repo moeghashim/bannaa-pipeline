@@ -90,3 +90,12 @@ Append-only learning log for commits and deploys. Add new entries only at the en
   - apps/web/app/_components/views/inbox.tsx
   - apps/web/middleware.ts
   - apps/web/proxy.ts
+## 2026-04-21T20:19:36.386Z
+- Trigger: commit
+- Learning: Phase 2 kickoff (track C): default analyze provider now lives in a settings singleton doc in Convex, not an env var. Settings tab's provider tiles became click-to-set (Convex mutation persists the choice); Analyses tab's per-item LLM picker became a read-only label (per-item override is out of scope now); HintBar model string is driven by the same setting so it always reflects what Analyze will actually use. analyze.run reads settings.doc.getInternal first, then falls back to DEFAULT_ANALYZE_PROVIDER env, then 'glm'. TypeScript gotcha: the action's handler needed an explicit Promise<RunResult> annotation — without it, useAction(api.analyze.run.run) in the frontend triggered Convex's recursive type inference and TS7022/7023 cascaded into unrelated files. Lesson: whenever an action's handler reads internal.* queries that reference the same generated api, add an explicit return type.
+- Context: feat(settings): global default provider stored in Convex, interactive tiles
+- Branch: main
+- Actor: Ja3ood <moeghashim@users.noreply.github.com>
+- Changed Paths:
+  - convex
+  - apps/web/app/_components

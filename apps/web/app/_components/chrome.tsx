@@ -51,11 +51,13 @@ export const HintBar = ({
 	spendToday,
 	spendCap,
 	runCount,
+	providerLabel,
 }: {
 	hints: Hint[];
 	spendToday: number;
 	spendCap: number;
 	runCount: number;
+	providerLabel: string;
 }) => {
 	const overCap = spendToday >= spendCap;
 	return (
@@ -77,7 +79,7 @@ export const HintBar = ({
 					today: {fmtUsd(spendToday)} / {fmtUsd(spendCap)} · {runCount} runs
 				</span>
 				<span className="bullet" />
-				<span className="mono">glm-5.1 (default)</span>
+				<span className="mono">{providerLabel}</span>
 			</div>
 		</div>
 	);

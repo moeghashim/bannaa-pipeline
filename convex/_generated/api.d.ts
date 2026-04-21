@@ -24,6 +24,7 @@ import type * as inbox_get from "../inbox/get.js";
 import type * as inbox_list from "../inbox/list.js";
 import type * as inbox_reject from "../inbox/reject.js";
 import type * as lib_requireUser from "../lib/requireUser.js";
+import type * as settings_doc from "../settings/doc.js";
 import type * as users_me from "../users/me.js";
 
 import type {
@@ -49,6 +50,7 @@ declare const fullApi: ApiFromModules<{
   "inbox/list": typeof inbox_list;
   "inbox/reject": typeof inbox_reject;
   "lib/requireUser": typeof lib_requireUser;
+  "settings/doc": typeof settings_doc;
   "users/me": typeof users_me;
 }>;
 

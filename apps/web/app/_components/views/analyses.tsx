@@ -2,14 +2,14 @@
 
 import { fmtDateTime } from "../format";
 import { Icons } from "../icons";
-import { Chip, Select, SourceBadge } from "../primitives";
-import type { Analysis, InboxItem } from "../types";
+import { Chip, SourceBadge } from "../primitives";
+import type { Analysis, InboxItem, ProviderId } from "../types";
 
-const PROVIDERS = [
-	{ value: "claude", label: "Claude Sonnet 4.6" },
-	{ value: "glm", label: "GLM 5.1" },
-	{ value: "openrouter", label: "OpenRouter" },
-];
+const PROVIDER_LABEL: Record<ProviderId, string> = {
+	claude: "Claude Sonnet 4.6",
+	glm: "GLM 5.1",
+	openrouter: "OpenRouter",
+};
 
 export const AnalysesView = ({
 	selected,
@@ -162,7 +162,20 @@ const AnalysisDiff = ({ item, analysis }: { item: InboxItem; analysis: Analysis 
 						Structured analysis
 					</div>
 				</div>
-				<Select compact label="LLM" value={analysis.provider} onChange={() => {}} options={PROVIDERS} />
+				<span
+					className="mono"
+					style={{
+						fontSize: 11,
+						padding: "3px 8px",
+						border: "1px solid var(--border)",
+						borderRadius: "var(--r-md)",
+						background: "var(--surface-2)",
+						color: "var(--ink-2)",
+					}}
+					title="Switch provider in Settings"
+				>
+					LLM · {PROVIDER_LABEL[analysis.provider]}
+				</span>
 			</div>
 
 			<div
