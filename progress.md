@@ -47,3 +47,11 @@ Append-only learning log for commits and deploys. Add new entries only at the en
   - apps/web/app/page.tsx
   - apps/web/app/_components
   - biome.json
+## 2026-04-21T14:19:34.543Z
+- Trigger: commit
+- Learning: Phase 1 scope locks to: Convex schema (users/inboxItems/analyses/concepts/providerRuns), Convex Auth magic-link with single-email allowlist, manual-capture mutation, Claude analyze action with strict tool-use schema, live Inbox+Analyses wiring to Convex. Explicitly deferred: crons, ingest adapters, drafts/reel/newsletter generation, HyperFrames, Postiz, Resend send, GitHub PRs, multi-provider, budget enforcement. Seeded ontology is minimal (~20 concepts from design demo data) since bannaa.co has no real content — corrected from earlier assumption that bannaa.co was populated. Open questions tracked in the PRD for later phases: budget over-cap policy, Media track scope, Website Proposals direction, ontology provenance, FB+LinkedIn channels in Drafts.
+- Context: docs(prd): add phase-1 backend PRD
+- Branch: main
+- Actor: Ja3ood <moeghashim@users.noreply.github.com>
+- Changed Paths:
+  - docs/prd-phase-1.md
