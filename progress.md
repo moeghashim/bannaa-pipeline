@@ -35,3 +35,15 @@ Append-only learning log for commits and deploys. Add new entries only at the en
   - package.json
   - package-lock.json
   - convex
+## 2026-04-21T02:04:46.584Z
+- Trigger: commit
+- Learning: Ported the seven-tab operator dashboard (Inbox, Analyses, Drafts, Reel Ideas, Newsletter, Website Proposals, Settings) from the Claude Design HTML/JSX bundle to Next.js 15 App Router + TypeScript. Kept CSS-variable design tokens verbatim in globals.css; wired next/font for Inter Tight + JetBrains Mono + Newsreader + Noto Naskh Arabic; state-chip, keyboard (J/K, G-chain, CMD-K), command palette, capture bar with pipeline-progress animation, bilingual RTL website editor all live. Relaxed Biome useSemanticElements + noStaticElementInteractions for apps/web — the design intentionally uses styled div rows + scrim patterns that break if forced to <button>. Also dropped .js extensions from relative imports under apps/web; Turbopack cannot resolve .js->.tsx even with moduleResolution=Bundler.
+- Context: feat(web): port Bannaa Pipeline dashboard from Claude Design handoff
+- Branch: main
+- Actor: Ja3ood <moeghashim@users.noreply.github.com>
+- Changed Paths:
+  - apps/web/app/globals.css
+  - apps/web/app/layout.tsx
+  - apps/web/app/page.tsx
+  - apps/web/app/_components
+  - biome.json

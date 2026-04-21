@@ -1,18 +1,32 @@
 import type { Metadata } from "next";
-import { Instrument_Serif, Space_Grotesk } from "next/font/google";
+import { Inter_Tight, JetBrains_Mono, Newsreader, Noto_Naskh_Arabic } from "next/font/google";
 import type { ReactNode } from "react";
 
 import "./globals.css";
 
-const displayFont = Instrument_Serif({
+const fontSans = Inter_Tight({
 	subsets: ["latin"],
-	weight: "400",
-	variable: "--font-display",
+	weight: ["400", "500", "600", "700"],
+	variable: "--font-sans-raw",
 });
 
-const sansFont = Space_Grotesk({
+const fontMono = JetBrains_Mono({
 	subsets: ["latin"],
-	variable: "--font-sans",
+	weight: ["400", "500", "600"],
+	variable: "--font-mono-raw",
+});
+
+const fontSerif = Newsreader({
+	subsets: ["latin"],
+	weight: ["400", "500", "600"],
+	style: ["normal", "italic"],
+	variable: "--font-serif-raw",
+});
+
+const fontAr = Noto_Naskh_Arabic({
+	subsets: ["arabic"],
+	weight: ["400", "500", "600", "700"],
+	variable: "--font-ar-raw",
 });
 
 export const metadata: Metadata = {
@@ -22,8 +36,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
 	return (
-		<html lang="en">
-			<body className={`${displayFont.variable} ${sansFont.variable}`}>{children}</body>
+		<html lang="en" className={`${fontSans.variable} ${fontMono.variable} ${fontSerif.variable} ${fontAr.variable}`}>
+			<body>{children}</body>
 		</html>
 	);
 }

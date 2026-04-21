@@ -44,6 +44,10 @@
 			"includes": ["apps/web/**/*.ts", "apps/web/**/*.tsx"],
 			"linter": {
 				"rules": {
+					"a11y": {
+						"useSemanticElements": "off",
+						"noStaticElementInteractions": "off"
+					},
 					"style": {
 						"noRestrictedImports": {
 							"level": "error",

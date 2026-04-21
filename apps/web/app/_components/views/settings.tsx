@@ -1,0 +1,167 @@
+"use client";
+
+import { Icons } from "../icons";
+import { Chip } from "../primitives";
+
+const PROVIDERS = [
+	{ k: "claude", name: "Claude Sonnet 4.5", note: "default · best quality AR" },
+	{ k: "codex", name: "Codex o4", note: "faster · strong structure" },
+	{ k: "grok", name: "Grok 3.1", note: "freshest X context" },
+];
+
+export const SettingsView = () => (
+	<div className="settings-view">
+		<div className="settings-group">
+			<h3>LLM provider</h3>
+			<p className="sub">Default provider used for analyses. You can still switch per-item on the Analyses tab.</p>
+			<div className="provider-tiles">
+				{PROVIDERS.map((p, i) => (
+					<button key={p.k} type="button" className={`provider-tile${i === 0 ? " active" : ""}`}>
+						<div className="row gap-2" style={{ marginBottom: 6, justifyContent: "space-between" }}>
+							<span style={{ fontSize: 12.5, fontWeight: 600 }}>{p.name}</span>
+							{i === 0 && <Icons.Check size={13} sw={2} style={{ color: "var(--accent-ink)" }} />}
+						</div>
+						<div className="mono" style={{ fontSize: 10.5, color: "var(--muted)" }}>
+							{p.note}
+						</div>
+					</button>
+				))}
+			</div>
+		</div>
+
+		<div className="settings-group">
+			<h3>Connections</h3>
+			<p className="sub">Credentials for the pipeline's upstream and downstream hops.</p>
+			<div className="setting-row">
+				<div>
+					<div className="lbl">X (bookmarks)</div>
+					<div className="hlp">Cron reads your bookmarks every 15 min.</div>
+				</div>
+				<div className="row gap-2">
+					<Chip state="approved" label="connected" />
+					<span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
+						@operator · expires in 62 days
+					</span>
+				</div>
+			</div>
+			<div className="setting-row">
+				<div>
+					<div className="lbl">YouTube</div>
+					<div className="hlp">Channels and watch-later ingestion.</div>
+				</div>
+				<div className="row gap-2">
+					<Chip state="approved" label="connected" />
+					<span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
+						3 subscriptions monitored
+					</span>
+				</div>
+			</div>
+			<div className="setting-row">
+				<div>
+					<div className="lbl">Resend</div>
+					<div className="hlp">Newsletter delivery.</div>
+				</div>
+				<div className="row gap-2">
+					<Chip state="approved" label="connected" />
+					<span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
+						list · bannaa weekly · 2,184 subscribers
+					</span>
+				</div>
+			</div>
+			<div className="setting-row">
+				<div>
+					<div className="lbl">Postiz</div>
+					<div className="hlp">Social scheduling (X / IG / TikTok / YT).</div>
+				</div>
+				<div className="row gap-2">
+					<Chip state="analyzing" label="reconnecting" />
+					<button type="button" className="btn xs">
+						Reauth
+					</button>
+				</div>
+			</div>
+			<div className="setting-row">
+				<div>
+					<div className="lbl">GitHub</div>
+					<div className="hlp">PRs against bannaa.co content repo.</div>
+				</div>
+				<div className="row gap-2">
+					<Chip state="approved" label="connected" />
+					<span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
+						bannaa/bannaa.co · main
+					</span>
+				</div>
+			</div>
+		</div>
+
+		<div className="settings-group">
+			<h3>Cron schedule</h3>
+			<p className="sub">Automated ingestion and analysis jobs.</p>
+			<div className="setting-row">
+				<div>
+					<div className="lbl">X bookmarks sync</div>
+				</div>
+				<div className="row gap-2">
+					<span className="mono" style={{ fontSize: 12 }}>
+						every 15 min
+					</span>
+					<span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
+						next in 8m
+					</span>
+				</div>
+			</div>
+			<div className="setting-row">
+				<div>
+					<div className="lbl">YouTube sync</div>
+				</div>
+				<div className="row gap-2">
+					<span className="mono" style={{ fontSize: 12 }}>
+						hourly
+					</span>
+				</div>
+			</div>
+			<div className="setting-row">
+				<div>
+					<div className="lbl">Auto-analyze new items</div>
+					<div className="hlp">If on, items are analyzed as soon as they arrive.</div>
+				</div>
+				<div>
+					<label className="row gap-2" style={{ fontSize: 12 }}>
+						<input type="checkbox" defaultChecked style={{ accentColor: "var(--accent)" }} />
+						Enabled · budget cap <span className="mono">$6.00/day</span>
+					</label>
+				</div>
+			</div>
+		</div>
+
+		<div className="settings-group">
+			<h3>Content scope</h3>
+			<p className="sub">Strict AI-education scope. Three tracks, 94 concepts, 38 templates.</p>
+			<div className="setting-row">
+				<div>
+					<div className="lbl">Tracks</div>
+				</div>
+				<div className="row gap-2" style={{ flexWrap: "wrap" }}>
+					{["Foundations", "Agents", "Media"].map((t) => (
+						<span key={t} className="concept-tag">
+							{t}
+						</span>
+					))}
+				</div>
+			</div>
+			<div className="setting-row">
+				<div>
+					<div className="lbl">Ontology</div>
+				</div>
+				<div className="row gap-2">
+					<span className="mono" style={{ fontSize: 12 }}>
+						94 concepts · 38 templates
+					</span>
+					<button type="button" className="btn xs">
+						Edit
+					</button>
+				</div>
+			</div>
+		</div>
+	</div>
+);
