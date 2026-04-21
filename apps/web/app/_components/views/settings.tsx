@@ -1,15 +1,104 @@
 "use client";
 
 import { api } from "@convex/_generated/api";
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
+import { useState } from "react";
 import { Icons } from "../icons";
 import { Chip } from "../primitives";
+
+const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL ?? "";
+const CONVEX_SITE_URL = CONVEX_URL.replace(".convex.cloud", ".convex.site");
+
+function fmtRelative(ms: number | undefined): string {
+	if (!ms) return "never";
+	const diff = Math.max(0, Date.now() - ms) / 1000;
+	if (diff < 60) return `${Math.floor(diff)}s ago`;
+	if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+	if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+	return `${Math.floor(diff / 86400)}d ago`;
+}
 
 const PROVIDERS = [
 	{ k: "glm" as const, name: "GLM 5.1", note: "fast · Khaleeji-friendly" },
 	{ k: "claude" as const, name: "Claude Sonnet 4.6", note: "highest quality AR" },
 	{ k: "openrouter" as const, name: "OpenRouter", note: "route to any frontier model" },
 ];
+
+const XConnection = () => {
+	const status = useQuery(api.x.accounts.mineStatus, {});
+	const sync = useAction(api.x.sync.syncMine);
+	const [syncing, setSyncing] = useState(false);
+	const [lastRun, setLastRun] = useState<{ inserted: number; scanned: number } | null>(null);
+	const [syncError, setSyncError] = useState<string | null>(null);
+
+	const connect = () => {
+		if (!CONVEX_SITE_URL) return;
+		window.location.href = `${CONVEX_SITE_URL}/auth/x/start`;
+	};
+
+	const runSync = async () => {
+		setSyncing(true);
+		setSyncError(null);
+		try {
+			const r = await sync({});
+			setLastRun(r);
+		} catch (err) {
+			setSyncError(err instanceof Error ? err.message : String(err));
+		} finally {
+			setSyncing(false);
+		}
+	};
+
+	return (
+		<div className="setting-row">
+			<div>
+				<div className="lbl">X (bookmarks)</div>
+				<div className="hlp">Cron reads your bookmarks every 15 min. OAuth 2.0 PKCE.</div>
+			</div>
+			<div className="row gap-2" style={{ flexWrap: "wrap" }}>
+				{status?.connected ? (
+					<>
+						<Chip state="approved" label="connected" />
+						<span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
+							@{status.xHandle} · last sync {fmtRelative(status.lastSyncAt)}
+						</span>
+						<button type="button" className="btn xs" onClick={runSync} disabled={syncing}>
+							{syncing ? (
+								<>
+									<Icons.Clock size={11} /> syncing…
+								</>
+							) : (
+								<>
+									<Icons.Sparkle size={11} /> Sync now
+								</>
+							)}
+						</button>
+						<button type="button" className="btn ghost xs" onClick={connect}>
+							Reconnect
+						</button>
+						{lastRun && (
+							<span className="mono" style={{ fontSize: 10.5, color: "var(--accent-ink)" }}>
+								+{lastRun.inserted} new · {lastRun.scanned} scanned
+							</span>
+						)}
+						{(syncError || status.lastSyncError) && (
+							<span className="mono" style={{ fontSize: 10.5, color: "var(--st-rejected-fg)" }}>
+								{syncError ?? status.lastSyncError}
+							</span>
+						)}
+					</>
+				) : (
+					<>
+						<Chip state="new" label="not connected" />
+						<button type="button" className="btn xs accent" onClick={connect}>
+							<Icons.Plus size={11} /> Connect X
+						</button>
+					</>
+				)}
+			</div>
+		</div>
+	);
+};
 
 export const SettingsView = () => {
 	const settings = useQuery(api.settings.doc.get, {});
@@ -51,18 +140,8 @@ export const SettingsView = () => {
 			<div className="settings-group">
 				<h3>Connections</h3>
 				<p className="sub">Credentials for the pipeline's upstream and downstream hops.</p>
-				<div className="setting-row">
-					<div>
-						<div className="lbl">X (bookmarks)</div>
-						<div className="hlp">Cron reads your bookmarks every 15 min.</div>
-					</div>
-					<div className="row gap-2">
-						<Chip state="approved" label="connected" />
-						<span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
-							@operator · expires in 62 days
-						</span>
-					</div>
-				</div>
+				<XConnection />
+				<div className="setting-row" style={{ display: "none" }} />
 				<div className="setting-row">
 					<div>
 						<div className="lbl">YouTube</div>

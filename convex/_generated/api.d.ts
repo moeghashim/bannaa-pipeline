@@ -18,6 +18,7 @@ import type * as budget_todaySpend from "../budget/todaySpend.js";
 import type * as concepts_list from "../concepts/list.js";
 import type * as concepts_seed from "../concepts/seed.js";
 import type * as config_active from "../config/active.js";
+import type * as crons from "../crons.js";
 import type * as http from "../http.js";
 import type * as inbox_capture from "../inbox/capture.js";
 import type * as inbox_get from "../inbox/get.js";
@@ -26,6 +27,11 @@ import type * as inbox_reject from "../inbox/reject.js";
 import type * as lib_requireUser from "../lib/requireUser.js";
 import type * as settings_doc from "../settings/doc.js";
 import type * as users_me from "../users/me.js";
+import type * as x_accounts from "../x/accounts.js";
+import type * as x_inbox from "../x/inbox.js";
+import type * as x_oauth from "../x/oauth.js";
+import type * as x_oauthState from "../x/oauthState.js";
+import type * as x_sync from "../x/sync.js";
 
 import type {
   ApiFromModules,
@@ -44,6 +50,7 @@ declare const fullApi: ApiFromModules<{
   "concepts/list": typeof concepts_list;
   "concepts/seed": typeof concepts_seed;
   "config/active": typeof config_active;
+  crons: typeof crons;
   http: typeof http;
   "inbox/capture": typeof inbox_capture;
   "inbox/get": typeof inbox_get;
@@ -52,6 +59,11 @@ declare const fullApi: ApiFromModules<{
   "lib/requireUser": typeof lib_requireUser;
   "settings/doc": typeof settings_doc;
   "users/me": typeof users_me;
+  "x/accounts": typeof x_accounts;
+  "x/inbox": typeof x_inbox;
+  "x/oauth": typeof x_oauth;
+  "x/oauthState": typeof x_oauthState;
+  "x/sync": typeof x_sync;
 }>;
 
 /**

@@ -99,3 +99,12 @@ Append-only learning log for commits and deploys. Add new entries only at the en
 - Changed Paths:
   - convex
   - apps/web/app/_components
+## 2026-04-21T20:40:19.586Z
+- Trigger: commit
+- Learning: X ingest end-to-end: Convex HTTP routes /auth/x/start + /auth/x/callback run the OAuth 2.0 PKCE dance against x.com/i/oauth2/authorize (confidential client, offline.access for refresh, scopes tweet.read bookmark.read users.read offline.access). PKCE verifier/challenge generated via Web Crypto (crypto.subtle.digest + btoa for base64url) so everything stays in Convex V8 runtime — no 'use node' — which means the HTTP router in http.ts can import it cleanly. Tokens persist in new xAccounts table (userId indexed); xOauthState is a short-lived CSRF+verifier table with TTL check on consume. Bookmarks sync (internal.x.sync.syncAll on 15-min cron + action.syncMine for manual trigger) calls GET /2/users/:id/bookmarks paginated with next_token (capped at 5 pages per run), dedupes against inboxItems via new by_xTweetId index, and inserts new rows with real tweet text as snippet (no more 'Awaiting fetch' placeholder for X). Refresh token logic runs automatically when access token is within 1min of expiry. Settings tab now has a live XConnection widget showing @handle + last sync relative time + 'Sync now' button. Gotcha: useQuery(api.x.accounts.mineStatus) sits on a public query that calls requireUser, so it's scoped to the signed-in operator. The Connect button navigates directly to the Convex site URL's /auth/x/start — Convex Auth's HTTP-only cookie on the site origin lets getAuthUserId resolve without passing a token through the URL.
+- Context: feat(x): OAuth 2.0 PKCE + bookmarks cron ingesting into inboxItems
+- Branch: main
+- Actor: Ja3ood <moeghashim@users.noreply.github.com>
+- Changed Paths:
+  - convex
+  - apps/web/app/_components/views/settings.tsx

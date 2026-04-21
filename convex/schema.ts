@@ -40,10 +40,34 @@ export default defineSchema({
 		capturedBy: v.id("users"),
 		captured: v.number(),
 		error: v.optional(v.string()),
+		xTweetId: v.optional(v.string()),
 	})
 		.index("by_state", ["state"])
 		.index("by_capturedBy", ["capturedBy"])
-		.index("by_captured", ["captured"]),
+		.index("by_captured", ["captured"])
+		.index("by_xTweetId", ["xTweetId"]),
+
+	xAccounts: defineTable({
+		userId: v.id("users"),
+		xUserId: v.string(),
+		xHandle: v.string(),
+		accessToken: v.string(),
+		refreshToken: v.string(),
+		expiresAt: v.number(),
+		scope: v.string(),
+		connectedAt: v.number(),
+		lastSyncAt: v.optional(v.number()),
+		lastSyncError: v.optional(v.string()),
+	})
+		.index("by_user", ["userId"])
+		.index("by_xUserId", ["xUserId"]),
+
+	xOauthState: defineTable({
+		state: v.string(),
+		codeVerifier: v.string(),
+		userId: v.id("users"),
+		createdAt: v.number(),
+	}).index("by_state", ["state"]),
 
 	analyses: defineTable({
 		itemId: v.id("inboxItems"),
