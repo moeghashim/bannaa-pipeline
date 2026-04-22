@@ -108,23 +108,67 @@ function parseTimedTextXml(xml: string): string {
 	return segments.join(" ").replace(/\s+/g, " ").trim();
 }
 
+// Primary path: InnerTube API with the Android YouTube client spoof.
+// Much more reliable than the watch-page scraper because YouTube treats
+// the Android app as a first-class client and returns caption tracks
+// regardless of server region — the watch-page variant is geo-gated
+// and strips captionTracks for some IPs. Falls through to the scraper
+// if this returns empty.
+const INNERTUBE_ANDROID_VERSION = "20.10.38";
+async function fetchTracksViaInnerTube(videoId: string): Promise<CaptionTrack[] | null> {
+	try {
+		const resp = await fetch(
+			"https://www.youtube.com/youtubei/v1/player?prettyPrint=false",
+			{
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					"User-Agent": `com.google.android.youtube/${INNERTUBE_ANDROID_VERSION} (Linux; U; Android 14)`,
+				},
+				body: JSON.stringify({
+					context: {
+						client: {
+							clientName: "ANDROID",
+							clientVersion: INNERTUBE_ANDROID_VERSION,
+						},
+					},
+					videoId,
+				}),
+			},
+		);
+		if (!resp.ok) return null;
+		const json = (await resp.json()) as Record<string, unknown>;
+		const tracks = extractCaptionTracks(json);
+		return tracks.length > 0 ? tracks : null;
+	} catch {
+		return null;
+	}
+}
+
 async function fetchTranscriptText(videoId: string): Promise<string> {
-	const watchResp = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
-		headers: { "User-Agent": BROWSER_UA, "Accept-Language": "en-US,en;q=0.9" },
-	});
-	if (!watchResp.ok) {
-		throw new Error(`YouTube watch page ${watchResp.status}`);
+	// Try InnerTube first (region-agnostic). Fall back to the watch-page
+	// scraper only if that returns nothing.
+	let tracks = await fetchTracksViaInnerTube(videoId);
+
+	if (!tracks) {
+		const watchResp = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
+			headers: { "User-Agent": BROWSER_UA, "Accept-Language": "en-US,en;q=0.9" },
+		});
+		if (!watchResp.ok) {
+			throw new Error(`YouTube watch page ${watchResp.status}`);
+		}
+		const html = await watchResp.text();
+		if (html.includes('class="g-recaptcha"')) {
+			throw new Error("YouTube is requiring a captcha for this IP — try again later");
+		}
+		const player = extractInlineJson(html, "ytInitialPlayerResponse");
+		if (!player) {
+			throw new Error("Could not locate ytInitialPlayerResponse — YouTube may have changed the page shape");
+		}
+		tracks = extractCaptionTracks(player);
 	}
-	const html = await watchResp.text();
-	if (html.includes('class="g-recaptcha"')) {
-		throw new Error("YouTube is requiring a captcha for this IP — try again later");
-	}
-	const player = extractInlineJson(html, "ytInitialPlayerResponse");
-	if (!player) {
-		throw new Error("Could not locate ytInitialPlayerResponse — YouTube may have changed the page shape");
-	}
-	const tracks = extractCaptionTracks(player);
-	if (tracks.length === 0) {
+
+	if (!tracks || tracks.length === 0) {
 		throw new Error("No caption tracks on this video (captions may be disabled)");
 	}
 	// Prefer English if present, else take the first track YouTube gives us.
@@ -194,6 +238,10 @@ async function fetchVideoBody(ctx: ActionCtx, itemId: Id<"inboxItems">): Promise
 		});
 	} catch (err) {
 		const msg = err instanceof Error ? err.message : String(err);
+		// Log so a failed-silently outcome is debuggable from the Convex
+		// dashboard — the UI only shows "fetch failed" today, and the
+		// full error string lives in the DB row's `error` field.
+		console.error(`[fetchYoutube] video ${videoId} failed: ${msg}`);
 		await ctx.runMutation(internal.inbox.fetchInternal.markFetchError, {
 			id: itemId,
 			error: msg,
