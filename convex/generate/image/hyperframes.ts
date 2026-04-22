@@ -28,15 +28,23 @@ import satori from "satori";
 const CANVAS = 1080;
 
 // Google Fonts returns TTF URLs to unknown user-agents and woff2 to modern
-// browsers. satori's opentype dependency handles both but woff2 is ~4×
-// smaller, so we pretend to be a recent Chromium.
+// browsers. satori's opentype parser does NOT decompress woff2 (crashes with
+// "Unsupported OpenType signature wOF2") — it needs raw SFNT (TTF/OTF). So we
+// deliberately identify as a legacy UA to get a TTF href from the CSS.
 const GOOGLE_FONTS_UA =
-	"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+	"Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)";
 
 // Stable CSS2 endpoints — Google rotates hashed binary URLs inside the CSS
 // response but the endpoint signatures themselves don't change.
-const NOTO_NASKH_AR_CSS =
-	"https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@500&display=swap";
+//
+// Arabic face is Cairo (not Noto Naskh Arabic) because satori's bundled
+// opentype.js chokes on Noto Naskh Arabic v44 with
+// `lookupType: 5 - substFormat: 3 is not yet supported` — that's the modern
+// contextual-substitution GSUB lookup used for Arabic shaping. Cairo uses a
+// simpler GSUB table that satori parses cleanly, has a Khaleeji-friendly
+// modern aesthetic, and keeps RTL + ligature behavior intact for our copy.
+const CAIRO_AR_CSS =
+	"https://fonts.googleapis.com/css2?family=Cairo:wght@600&display=swap";
 const JETBRAINS_MONO_CSS =
 	"https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@600&display=swap";
 
@@ -71,26 +79,28 @@ async function resolveGoogleFontBuffer(
 	// Google's CSS response is a sequence of @font-face blocks, each with a
 	// different `unicode-range`. Pick the block whose range covers the code
 	// points we actually render — U+0600 for Arabic, U+0000 for Latin — and
-	// pull its woff2 src. Fall back to any woff2 in the response if the hint
-	// doesn't match (defensive against future CSS reshuffling).
+	// pull its TTF src (requested via legacy UA since satori can't parse
+	// woff2). Fall back to any TTF in the response if the hint doesn't match.
 	const blocks = css.split(/@font-face\s*\{/);
 	let binaryUrl: string | null = null;
 	for (const block of blocks) {
 		if (!block.includes("unicode-range")) continue;
 		if (!block.includes(rangeHint)) continue;
-		const match = block.match(/src:\s*url\((https:[^)]+\.woff2)\)/);
+		const match = block.match(/src:\s*url\((https:[^)]+\.ttf)\)/);
 		if (match?.[1]) {
 			binaryUrl = match[1];
 			break;
 		}
 	}
 	if (!binaryUrl) {
-		const fallback = css.match(/url\((https:[^)]+\.woff2)\)/);
+		const fallback = css.match(/url\((https:[^)]+\.ttf)\)/);
 		binaryUrl = fallback?.[1] ?? null;
 	}
-	if (!binaryUrl) throw new Error(`${label} CSS contained no woff2 URL`);
+	if (!binaryUrl) throw new Error(`${label} CSS contained no ttf URL`);
 
-	const fontResp = await fetch(binaryUrl);
+	// Google Fonts serves the binary based on UA too — pass the legacy UA so
+	// we don't get redirected to a woff2 file that satori can't parse.
+	const fontResp = await fetch(binaryUrl, { headers: { "user-agent": GOOGLE_FONTS_UA } });
 	if (!fontResp.ok) {
 		throw new Error(
 			`${label} font ${fontResp.status}: ${await fontResp.text().catch(() => "")}`,
@@ -101,7 +111,7 @@ async function resolveGoogleFontBuffer(
 
 async function loadArabicFont(): Promise<ArrayBuffer> {
 	if (cachedAr) return cachedAr;
-	cachedAr = await resolveGoogleFontBuffer(NOTO_NASKH_AR_CSS, "Noto Naskh Arabic font", "U+0600");
+	cachedAr = await resolveGoogleFontBuffer(CAIRO_AR_CSS, "Cairo Arabic font", "U+0600");
 	return cachedAr;
 }
 
@@ -165,7 +175,7 @@ export async function composite(input: CompositeInput): Promise<Uint8Array> {
 				width: CANVAS,
 				height: CANVAS,
 				position: "relative",
-				fontFamily: "Noto Naskh Arabic",
+				fontFamily: "Cairo",
 				display: "flex",
 			},
 			children: [
@@ -243,12 +253,12 @@ export async function composite(input: CompositeInput): Promise<Uint8Array> {
 								key: "ar-text",
 								props: {
 									dir: "rtl",
-									lang: "ar",
+									lang: "ar-AR",
 									style: {
-										fontFamily: "Noto Naskh Arabic",
+										fontFamily: "Cairo",
 										fontSize: 64,
 										lineHeight: 1.4,
-										fontWeight: 500,
+										fontWeight: 600,
 										color: "#fff8ec",
 										textAlign: "right",
 										display: "flex",
@@ -284,7 +294,7 @@ export async function composite(input: CompositeInput): Promise<Uint8Array> {
 		width: CANVAS,
 		height: CANVAS,
 		fonts: [
-			{ name: "Noto Naskh Arabic", data: arBytes, weight: 500, style: "normal", lang: "ar" },
+			{ name: "Cairo", data: arBytes, weight: 600, style: "normal", lang: "ar-AR" },
 			{ name: "JetBrains Mono", data: monoBytes, weight: 600, style: "normal" },
 		],
 		embedFont: true,
