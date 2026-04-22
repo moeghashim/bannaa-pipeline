@@ -147,6 +147,10 @@ export default defineSchema({
 		concepts: v.array(v.string()),
 		capturedBy: v.id("users"),
 		createdAt: v.number(),
+		// Unix ms the operator picked in the scheduler. Undefined until they
+		// hit Schedule. Postiz owns the actual firing — we just record what
+		// we sent so the UI can show "scheduled for …" until the webhook
+		// flips state to `published`.
 		scheduled: v.optional(v.number()),
 		genRunId: v.id("providerRuns"),
 		mediaKind: v.optional(mediaKindType),
@@ -155,11 +159,36 @@ export default defineSchema({
 		// B.3 carousel: style anchor shared across all slides so a future
 		// regeneration of one slide stays coherent with the rest.
 		styleAnchor: v.optional(v.string()),
+		// Phase C publish fields. All optional — a draft that hasn't been
+		// scheduled yet has none of these set.
+		//
+		// `publishSelection` mirrors the base/overlay preview toggle on the
+		// draft card — whichever the operator has selected when they hit
+		// Schedule is what gets uploaded to Postiz. Default is "overlay"
+		// when a composite exists, "base" otherwise — resolved at upload
+		// time, not stored by default.
+		publishSelection: v.optional(v.union(v.literal("base"), v.literal("overlay"))),
+		// Postiz `integrations[].id` — which of the operator's connected
+		// socials to publish through. One draft → one integration (we don't
+		// fan-out a single draft to multiple socials today).
+		publishIntegrationId: v.optional(v.string()),
+		postizPostId: v.optional(v.string()),
+		postizStatus: v.optional(
+			v.union(
+				v.literal("scheduled"),
+				v.literal("publishing"),
+				v.literal("published"),
+				v.literal("failed"),
+			),
+		),
+		postizPermalink: v.optional(v.string()),
+		postizError: v.optional(v.string()),
 	})
 		.index("by_analysis", ["analysisId"])
 		.index("by_state", ["state"])
 		.index("by_channel", ["channel"])
-		.index("by_createdAt", ["createdAt"]),
+		.index("by_createdAt", ["createdAt"])
+		.index("by_postizPostId", ["postizPostId"]),
 
 	// B.3 carousel script rows — one per slide. Kept separate from `drafts`
 	// so the mediaAssets table stays generic and the per-slide AR text +

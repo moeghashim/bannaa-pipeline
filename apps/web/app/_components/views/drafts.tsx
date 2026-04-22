@@ -9,6 +9,8 @@ import { Icons } from "../icons";
 import { Chip, HyperFrame } from "../primitives";
 import type { Channel, ImageProvider } from "../types";
 import { CarouselStrip, carouselStatusLabel } from "./draftsCarousel";
+import { ImageProviderPicker } from "./draftsImagePicker";
+import { SchedulePopover } from "./draftsScheduler";
 
 const CHANNELS: { value: Channel | "all"; label: string }[] = [
 	{ value: "all", label: "All channels" },
@@ -19,14 +21,6 @@ const CHANNELS: { value: Channel | "all"; label: string }[] = [
 	{ value: "yt-shorts", label: "YT Shorts" },
 	{ value: "fb-page", label: "FB Page" },
 	{ value: "linkedin-page", label: "LinkedIn" },
-];
-
-const IMAGE_PROVIDERS: { k: ImageProvider; name: string }[] = [
-	{ k: "nano-banana", name: "Nano Banana" },
-	{ k: "gpt-image", name: "GPT Image" },
-	{ k: "grok", name: "Grok" },
-	{ k: "ideogram", name: "Ideogram" },
-	{ k: "openrouter", name: "OpenRouter" },
 ];
 
 const VIDEO_CHANNELS: readonly Channel[] = ["ig-reel", "tiktok", "yt-shorts"];
@@ -142,6 +136,7 @@ const DraftCard = ({
 	const [compositing, setCompositing] = useState(false);
 	const [genError, setGenError] = useState<string | null>(null);
 	const [view, setView] = useState<"overlay" | "base">("overlay");
+	const [schedulerOpen, setSchedulerOpen] = useState(false);
 
 	const runGenerate = async (provider: ImageProvider) => {
 		setPicker(false);
@@ -324,12 +319,36 @@ const DraftCard = ({
 			<div className="foot" style={{ position: "relative" }}>
 				<div className="mono" style={{ fontSize: 10.5, color: "var(--muted)" }}>
 					{draft.chars} chars · AR
-					{draft.scheduled && (
+					{draft.postizStatus === "published" && draft.postizPermalink ? (
+						<>
+							{" · "}
+							<a
+								href={draft.postizPermalink}
+								target="_blank"
+								rel="noopener noreferrer"
+								style={{ color: "var(--accent-ink)" }}
+							>
+								published ↗
+							</a>
+						</>
+					) : draft.postizStatus === "publishing" ? (
+						<>
+							{" · "}
+							<span style={{ color: "var(--accent-ink)" }}>publishing…</span>
+						</>
+					) : draft.postizStatus === "failed" ? (
+						<>
+							{" · "}
+							<span style={{ color: "var(--st-rejected-fg)" }}>
+								publish failed · {draft.postizError ?? "unknown"}
+							</span>
+						</>
+					) : draft.scheduled ? (
 						<>
 							{" · "}
 							<span style={{ color: "var(--accent-ink)" }}>scheduled {fmtDate(draft.scheduled)}</span>
 						</>
-					)}
+					) : null}
 				</div>
 				<div className="row gap-1">
 					{videoChannel ? (
@@ -378,6 +397,27 @@ const DraftCard = ({
 							<Icons.Check size={11} sw={2} /> Approve
 						</button>
 					)}
+					{draft.state === "approved" &&
+						(!draft.postizStatus || draft.postizStatus === "failed") &&
+						(videoChannel ? (
+							<button
+								type="button"
+								className="btn ghost xs"
+								disabled
+								title="video pending — use IG carousel instead"
+							>
+								<Icons.Film size={11} /> video pending
+							</button>
+						) : (
+							<button
+								type="button"
+								className="btn accent xs"
+								onClick={() => setSchedulerOpen((s) => !s)}
+								title="Schedule publish via Postiz"
+							>
+								<Icons.Clock size={11} /> Schedule
+							</button>
+						))}
 					<button type="button" className="btn ghost xs" title="Edit (E)" disabled>
 						<Icons.Edit size={11} />
 					</button>
@@ -393,6 +433,15 @@ const DraftCard = ({
 						active={defaultImageProvider}
 						onPick={runGenerate}
 						onClose={() => setPicker(false)}
+					/>
+				)}
+				{schedulerOpen && (
+					<SchedulePopover
+						draftId={draft._id}
+						channel={draft.channel}
+						selection={view}
+						onClose={() => setSchedulerOpen(false)}
+						onScheduled={() => setSchedulerOpen(false)}
 					/>
 				)}
 			</div>
@@ -480,74 +529,6 @@ const ReadyImage = ({
 				flexShrink: 0,
 			}}
 		/>
-	);
-};
-
-const ImageProviderPicker = ({
-	active,
-	onPick,
-	onClose,
-}: {
-	active: ImageProvider;
-	onPick: (provider: ImageProvider) => void;
-	onClose: () => void;
-}) => {
-	return (
-		<div
-			role="menu"
-			aria-label="Choose image provider"
-			style={{
-				position: "absolute",
-				bottom: "calc(100% + 4px)",
-				right: 0,
-				zIndex: 5,
-				background: "var(--surface)",
-				border: "1px solid var(--border)",
-				borderRadius: "var(--r-md)",
-				padding: 6,
-				minWidth: 180,
-				boxShadow: "var(--shadow-md)",
-			}}
-		>
-			<div
-				className="mono"
-				style={{
-					fontSize: 10,
-					color: "var(--muted)",
-					padding: "4px 6px",
-					textTransform: "uppercase",
-					letterSpacing: "0.08em",
-				}}
-			>
-				choose provider
-			</div>
-			{IMAGE_PROVIDERS.map((p) => (
-				<button
-					key={p.k}
-					type="button"
-					className="btn ghost xs"
-					onClick={() => onPick(p.k)}
-					style={{
-						display: "flex",
-						justifyContent: "space-between",
-						width: "100%",
-						padding: "6px 8px",
-						fontSize: 12,
-					}}
-				>
-					<span>{p.name}</span>
-					{active === p.k && <Icons.Check size={11} sw={2} style={{ color: "var(--accent-ink)" }} />}
-				</button>
-			))}
-			<button
-				type="button"
-				className="btn ghost xs"
-				onClick={onClose}
-				style={{ width: "100%", marginTop: 4, fontSize: 11 }}
-			>
-				cancel
-			</button>
-		</div>
 	);
 };
 

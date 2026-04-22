@@ -1,36 +1,34 @@
 "use node";
 
-// Postiz hosted-plan publish adapter (Phase C scaffold).
+// Postiz hosted-plan publish adapter (Phase C).
 //
-// Two ops we'll expose to drafts/approve:
-//   • `uploadMedia(bytes)` → returns a Postiz `mediaId` we can reference
-//     in a schedule call. For carousels we upload every slide composite in
-//     orderIndex order and collect the ids into a list.
-//   • `schedulePost({ channel, text, mediaIds, scheduledAt? })` → creates
-//     a post in Postiz; returns the Postiz `postId` we store on the draft
-//     row. If `scheduledAt` is omitted Postiz publishes immediately.
+// Thin HTTP client against api.postiz.com/public/v1. Exposes three ops
+// that the publish action + scheduler UI drive:
 //
-// The adapter runs in the **Node runtime** only because the multipart upload
-// body (Blob) is more ergonomic in Node fetch than V8; everything else here
-// is plain JSON and would work in V8 too if we wanted to move it later.
+//   • listIntegrations() → connected socials with their Postiz-side IDs,
+//     so the operator can pick which account to publish through.
+//   • uploadMedia({bytes, contentType, filename}) → returns a Postiz
+//     media ID + CDN url for one asset. Carousels upload each slide
+//     sequentially in order.
+//   • schedulePost({...}) → creates a scheduled post with N media refs
+//     and the Khaleeji-AR copy, returns the Postiz post ID we store on
+//     the draft row.
 //
-// NOT wired to any action yet — the draft approve button still just flips
-// state to `approved` locally. Phase C next steps will build `convex/publish/
-// publishDraft.ts` that calls these two functions + stores the returned
-// Postiz ids + sets up webhook-driven state transitions.
+// Runs in the Node runtime so multipart uploads work cleanly with the
+// global FormData + Blob (V8 has both, but Node's streaming upload path
+// is more forgiving on large PNGs).
+//
+// Auth: Postiz's public API uses a bare `Authorization: <key>` header, NOT
+// `Authorization: Bearer <key>`. That took a 401 round-trip to find out.
+//
+// Error model: every op returns `{ ok: true, ... } | { ok: false, error }`
+// instead of throwing, so the calling action can update the draft's
+// `postizError` field with something human-readable. The only exception
+// is `requireApiKey` which throws synchronously — that's a config problem,
+// not a runtime failure.
 
 const POSTIZ_API_BASE = "https://api.postiz.com/public/v1";
 
-// Maps our internal channel union to the Postiz provider identifier the
-// hosted API expects on POST /posts. These strings match Postiz's public
-// REST docs; if they rev the slugs we'll catch it via the schedulePost
-// error path (their API echoes "unknown provider: x" in the 400 body).
-//
-// Note: we don't yet have slugs confirmed for IG Reels vs IG feed — Postiz
-// treats IG as a single provider with a `postType` flag in the body. Same
-// for YT Shorts (routed via their YouTube provider with a type marker).
-// TODO: confirm the exact flag names once the Postiz dashboard is live and
-// we can inspect a real outbound payload.
 export type PostizProvider =
 	| "x"
 	| "instagram"
@@ -39,69 +37,21 @@ export type PostizProvider =
 	| "facebook"
 	| "linkedin";
 
-export type UploadMediaInput = {
-	bytes: Uint8Array;
-	contentType: string; // e.g. "image/png"
-	filename: string; // Postiz uses this as the asset label in their dashboard
+// --- Integrations ----------------------------------------------------------
+
+export type PostizIntegration = {
+	id: string;
+	name: string;
+	providerIdentifier: string; // e.g. "instagram", "x", "tiktok"
+	picture: string | null; // avatar URL if Postiz has one, null otherwise
+	disabled: boolean;
 };
 
-export type UploadMediaResult = {
-	mediaId: string;
-	url: string; // Postiz-hosted CDN URL — useful for preview + audit
-};
-
-export type SchedulePostInput = {
-	provider: PostizProvider;
-	text: string; // the Khaleeji-AR copy from the draft
-	mediaIds: string[]; // from uploadMedia; 1 for single-image, 3-5 for carousel
-	scheduledAt?: number; // unix ms; omit for immediate publish
-	// Channel-specific knobs; add as we need them. Postiz's REST surface
-	// supports a freeform `settings` object per provider (e.g. IG carousel
-	// vs single, YT short vs long, TikTok draft vs publish). We'll grow
-	// this into a discriminated union once we've seen the real payloads.
-	settings?: Record<string, unknown>;
-};
-
-export type SchedulePostResult = {
-	postId: string;
-	permalink: string | null; // null until the provider actually publishes
-	status: "scheduled" | "publishing" | "published" | "failed";
-};
-
-function requireApiKey(): string {
-	const key = process.env.POSTIZ_API_KEY;
-	if (!key) {
-		throw new Error("POSTIZ_API_KEY is not set in Convex environment");
-	}
-	return key;
-}
-
-// --- STUBS -----------------------------------------------------------------
-// Both of these throw until Phase C wiring lands the real API calls. The
-// shapes above are the stable part — call sites can be written against them
-// today and will light up as soon as the implementations ship.
-
-export async function uploadMedia(_input: UploadMediaInput): Promise<UploadMediaResult> {
-	requireApiKey();
-	throw new Error("Postiz uploadMedia not yet implemented — Phase C pending API key verification");
-}
-
-export async function schedulePost(_input: SchedulePostInput): Promise<SchedulePostResult> {
-	requireApiKey();
-	throw new Error("Postiz schedulePost not yet implemented — Phase C pending API key verification");
-}
-
-// Exposed for the Settings tile's self-test ping. Hits `GET /integrations`
-// — Postiz's canonical "what do I have connected" endpoint. Returns the
-// provider slugs + names so we can surface "connected to X, IG, TikTok" in
-// the UI. A 200 with an empty list means the key works but no socials are
-// connected yet; a 401/403 means the key is wrong or the plan tier lacks
-// API access.
-export type PostizSelfCheck =
-	| { ok: true; providers: string[] }
+export type ListIntegrationsResult =
+	| { ok: true; integrations: PostizIntegration[] }
 	| { ok: false; error: string };
 
-export async function selfCheck(): Promise<PostizSelfCheck> {
+export async function listIntegrations(): Promise<ListIntegrationsResult> {
 	const key = process.env.POSTIZ_API_KEY;
 	if (!key) return { ok: false, error: "POSTIZ_API_KEY not set" };
 	try {
@@ -110,32 +60,178 @@ export async function selfCheck(): Promise<PostizSelfCheck> {
 		});
 		if (!resp.ok) {
 			const body = await resp.text().catch(() => "");
-			return { ok: false, error: `Postiz /integrations ${resp.status}${body ? ` — ${body.slice(0, 200)}` : ""}` };
+			return {
+				ok: false,
+				error: `Postiz /integrations ${resp.status}${body ? ` — ${body.slice(0, 200)}` : ""}`,
+			};
 		}
-		// Postiz historically returns either a bare array or `{ integrations: [...] }`
-		// depending on the API version — handle both to avoid a breakage on rev.
 		const json = (await resp.json()) as unknown;
-		const list = Array.isArray(json)
+		const list: unknown[] = Array.isArray(json)
 			? json
 			: Array.isArray((json as { integrations?: unknown }).integrations)
 				? (json as { integrations: unknown[] }).integrations
 				: [];
-		const providers = list
-			.map((row) => {
-				if (typeof row !== "object" || row === null) return null;
-				const r = row as Record<string, unknown>;
-				return typeof r.providerIdentifier === "string"
-					? r.providerIdentifier
-					: typeof r.provider === "string"
-						? r.provider
-						: typeof r.name === "string"
-							? r.name
-							: null;
-			})
-			.filter((x): x is string => typeof x === "string");
-		return { ok: true, providers };
+		const integrations: PostizIntegration[] = [];
+		for (const row of list) {
+			if (typeof row !== "object" || row === null) continue;
+			const r = row as Record<string, unknown>;
+			const id = typeof r.id === "string" ? r.id : null;
+			if (!id) continue;
+			integrations.push({
+				id,
+				name: typeof r.name === "string" ? r.name : "(unnamed)",
+				providerIdentifier:
+					typeof r.providerIdentifier === "string"
+						? r.providerIdentifier
+						: typeof r.provider === "string"
+							? r.provider
+							: "unknown",
+				picture: typeof r.picture === "string" ? r.picture : null,
+				disabled: Boolean(r.disabled),
+			});
+		}
+		return { ok: true, integrations };
 	} catch (err) {
-		const msg = err instanceof Error ? err.message : String(err);
-		return { ok: false, error: msg };
+		return { ok: false, error: err instanceof Error ? err.message : String(err) };
 	}
+}
+
+// --- Media upload ----------------------------------------------------------
+
+export type UploadMediaInput = {
+	bytes: Uint8Array;
+	contentType: string; // "image/png" for HyperFrames composites
+	filename: string; // shown in Postiz's asset library — we pass the draft id
+};
+
+export type UploadMediaResult =
+	| { ok: true; id: string; path: string }
+	| { ok: false; error: string };
+
+export async function uploadMedia(input: UploadMediaInput): Promise<UploadMediaResult> {
+	const key = process.env.POSTIZ_API_KEY;
+	if (!key) return { ok: false, error: "POSTIZ_API_KEY not set" };
+	try {
+		const blob = new Blob([input.bytes as BlobPart], { type: input.contentType });
+		const form = new FormData();
+		form.append("file", blob, input.filename);
+		const resp = await fetch(`${POSTIZ_API_BASE}/upload`, {
+			method: "POST",
+			headers: { Authorization: key },
+			body: form,
+		});
+		if (!resp.ok) {
+			const body = await resp.text().catch(() => "");
+			return {
+				ok: false,
+				error: `Postiz /upload ${resp.status}${body ? ` — ${body.slice(0, 200)}` : ""}`,
+			};
+		}
+		const json = (await resp.json()) as Record<string, unknown>;
+		const id = typeof json.id === "string" ? json.id : null;
+		const path = typeof json.path === "string" ? json.path : null;
+		if (!id || !path) {
+			return { ok: false, error: `Postiz /upload returned malformed body: ${JSON.stringify(json).slice(0, 200)}` };
+		}
+		return { ok: true, id, path };
+	} catch (err) {
+		return { ok: false, error: err instanceof Error ? err.message : String(err) };
+	}
+}
+
+// --- Schedule post ---------------------------------------------------------
+
+export type SchedulePostInput = {
+	integrationId: string; // from listIntegrations — which Postiz social to use
+	text: string; // Khaleeji-AR copy
+	media: Array<{ id: string; path: string }>; // from uploadMedia, in order
+	scheduledAt: number; // unix ms; Postiz requires an ISO date even for "publish now"
+	settings: Record<string, unknown>; // from channelMatrix — provider-specific knobs
+};
+
+export type SchedulePostResult =
+	| { ok: true; postId: string }
+	| { ok: false; error: string };
+
+export async function schedulePost(input: SchedulePostInput): Promise<SchedulePostResult> {
+	const key = process.env.POSTIZ_API_KEY;
+	if (!key) return { ok: false, error: "POSTIZ_API_KEY not set" };
+	try {
+		// Postiz's /posts body is a nested structure — one top-level post
+		// can contain multi-platform + multi-slot drafts, but we always
+		// ship a single-platform single-slot variant (one integration,
+		// one `value` entry, all media on that entry).
+		const body = {
+			type: "schedule" as const,
+			date: new Date(input.scheduledAt).toISOString(),
+			posts: [
+				{
+					integration: { id: input.integrationId },
+					value: [
+						{
+							content: input.text,
+							image: input.media.map((m) => ({ id: m.id, path: m.path })),
+						},
+					],
+					settings: input.settings,
+				},
+			],
+		};
+		const resp = await fetch(`${POSTIZ_API_BASE}/posts`, {
+			method: "POST",
+			headers: {
+				Authorization: key,
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify(body),
+		});
+		if (!resp.ok) {
+			const respBody = await resp.text().catch(() => "");
+			return {
+				ok: false,
+				error: `Postiz /posts ${resp.status}${respBody ? ` — ${respBody.slice(0, 300)}` : ""}`,
+			};
+		}
+		const json = (await resp.json()) as unknown;
+		// /posts returns different shapes across Postiz versions — try a few
+		// locations for the post id before giving up.
+		const postId = extractPostId(json);
+		if (!postId) {
+			return {
+				ok: false,
+				error: `Postiz /posts returned no postId: ${JSON.stringify(json).slice(0, 300)}`,
+			};
+		}
+		return { ok: true, postId };
+	} catch (err) {
+		return { ok: false, error: err instanceof Error ? err.message : String(err) };
+	}
+}
+
+function extractPostId(json: unknown): string | null {
+	if (typeof json !== "object" || json === null) return null;
+	const j = json as Record<string, unknown>;
+	if (typeof j.id === "string") return j.id;
+	if (typeof j.postId === "string") return j.postId;
+	if (Array.isArray(j.posts) && j.posts.length > 0) {
+		const first = j.posts[0];
+		if (typeof first === "object" && first !== null) {
+			const f = first as Record<string, unknown>;
+			if (typeof f.id === "string") return f.id;
+			if (typeof f.postId === "string") return f.postId;
+		}
+	}
+	return null;
+}
+
+// --- Self-check (reused by Settings) --------------------------------------
+
+export type PostizSelfCheck =
+	| { ok: true; providers: string[] }
+	| { ok: false; error: string };
+
+export async function selfCheck(): Promise<PostizSelfCheck> {
+	const r = await listIntegrations();
+	if (!r.ok) return { ok: false, error: r.error };
+	return { ok: true, providers: r.integrations.map((i) => i.name) };
 }
