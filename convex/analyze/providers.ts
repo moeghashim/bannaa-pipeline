@@ -4,16 +4,22 @@ import { ANALYZE_SYSTEM_PROMPT, ANALYZE_TOOL, type AnalyzeToolOutput } from "./p
 
 export type ProviderId = "claude" | "glm" | "openrouter";
 
-export type ProviderCall = {
+export type ToolSpec = {
+	name: string;
+	description: string;
+	input_schema: Record<string, unknown>;
+};
+
+export type ProviderCall<T = AnalyzeToolOutput> = {
 	provider: ProviderId;
 	model: string;
-	output: AnalyzeToolOutput;
+	output: T;
 	inputTokens: number;
 	outputTokens: number;
 	cost: number;
 };
 
-type ProviderEnv = {
+export type ProviderEnv = {
 	ANTHROPIC_API_KEY?: string;
 	GLM_API_KEY?: string;
 	GLM_MODEL?: string;
@@ -57,17 +63,26 @@ export function activeModelForProvider(provider: ProviderId, env: ProviderEnv): 
 	return env.OPENROUTER_MODEL ?? DEFAULT_OPENROUTER_MODEL;
 }
 
-export async function callProvider(args: {
+export async function callProvider<T = AnalyzeToolOutput>(args: {
 	provider: ProviderId;
+	systemPrompt?: string;
+	tool?: ToolSpec;
 	userPrompt: string;
 	env: ProviderEnv;
-}): Promise<ProviderCall> {
-	if (args.provider === "claude") return callClaude(args.userPrompt, args.env);
-	if (args.provider === "glm") return callGLM(args.userPrompt, args.env);
-	return callOpenRouter(args.userPrompt, args.env);
+}): Promise<ProviderCall<T>> {
+	const systemPrompt = args.systemPrompt ?? ANALYZE_SYSTEM_PROMPT;
+	const tool = (args.tool ?? ANALYZE_TOOL) as ToolSpec;
+	if (args.provider === "claude") return callClaude<T>(systemPrompt, tool, args.userPrompt, args.env);
+	if (args.provider === "glm") return callGLM<T>(systemPrompt, tool, args.userPrompt, args.env);
+	return callOpenRouter<T>(systemPrompt, tool, args.userPrompt, args.env);
 }
 
-async function callClaude(userPrompt: string, env: ProviderEnv): Promise<ProviderCall> {
+async function callClaude<T>(
+	systemPrompt: string,
+	tool: ToolSpec,
+	userPrompt: string,
+	env: ProviderEnv,
+): Promise<ProviderCall<T>> {
 	const apiKey = env.ANTHROPIC_API_KEY;
 	if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not configured in Convex env");
 
@@ -75,31 +90,42 @@ async function callClaude(userPrompt: string, env: ProviderEnv): Promise<Provide
 	const message = await client.messages.create({
 		model: CLAUDE_MODEL,
 		max_tokens: 2048,
-		system: ANALYZE_SYSTEM_PROMPT,
-		tools: [ANALYZE_TOOL],
-		tool_choice: { type: "tool", name: ANALYZE_TOOL.name },
+		system: systemPrompt,
+		tools: [
+			{
+				name: tool.name,
+				description: tool.description,
+				input_schema: tool.input_schema as Anthropic.Tool.InputSchema,
+			},
+		],
+		tool_choice: { type: "tool", name: tool.name },
 		messages: [{ role: "user", content: userPrompt }],
 	});
 
 	const inputTokens = message.usage.input_tokens;
 	const outputTokens = message.usage.output_tokens;
 
-	const toolUse = message.content.find((c) => c.type === "tool_use" && c.name === ANALYZE_TOOL.name);
+	const toolUse = message.content.find((c) => c.type === "tool_use" && c.name === tool.name);
 	if (!toolUse || toolUse.type !== "tool_use") {
-		throw new Error("Claude did not call record_analysis tool");
+		throw new Error(`Claude did not call ${tool.name} tool`);
 	}
 
 	return {
 		provider: "claude",
 		model: CLAUDE_MODEL,
-		output: toolUse.input as AnalyzeToolOutput,
+		output: toolUse.input as T,
 		inputTokens,
 		outputTokens,
 		cost: estimateCost(CLAUDE_MODEL, inputTokens, outputTokens),
 	};
 }
 
-async function callGLM(userPrompt: string, env: ProviderEnv): Promise<ProviderCall> {
+async function callGLM<T>(
+	systemPrompt: string,
+	tool: ToolSpec,
+	userPrompt: string,
+	env: ProviderEnv,
+): Promise<ProviderCall<T>> {
 	const apiKey = env.GLM_API_KEY;
 	if (!apiKey) throw new Error("GLM_API_KEY is not configured in Convex env");
 
@@ -109,15 +135,22 @@ async function callGLM(userPrompt: string, env: ProviderEnv): Promise<ProviderCa
 		baseURL: "https://open.bigmodel.cn/api/paas/v4",
 	});
 
-	return callOpenAICompatible({
+	return callOpenAICompatible<T>({
 		client,
 		model,
 		provider: "glm",
+		systemPrompt,
+		tool,
 		userPrompt,
 	});
 }
 
-async function callOpenRouter(userPrompt: string, env: ProviderEnv): Promise<ProviderCall> {
+async function callOpenRouter<T>(
+	systemPrompt: string,
+	tool: ToolSpec,
+	userPrompt: string,
+	env: ProviderEnv,
+): Promise<ProviderCall<T>> {
 	const apiKey = env.OPENROUTER_API_KEY;
 	if (!apiKey) throw new Error("OPENROUTER_API_KEY is not configured in Convex env");
 
@@ -131,40 +164,44 @@ async function callOpenRouter(userPrompt: string, env: ProviderEnv): Promise<Pro
 		},
 	});
 
-	return callOpenAICompatible({
+	return callOpenAICompatible<T>({
 		client,
 		model,
 		provider: "openrouter",
+		systemPrompt,
+		tool,
 		userPrompt,
 	});
 }
 
-async function callOpenAICompatible(args: {
+async function callOpenAICompatible<T>(args: {
 	client: OpenAI;
 	model: string;
 	provider: ProviderId;
+	systemPrompt: string;
+	tool: ToolSpec;
 	userPrompt: string;
-}): Promise<ProviderCall> {
+}): Promise<ProviderCall<T>> {
 	const response = await args.client.chat.completions.create({
 		model: args.model,
 		max_tokens: 2048,
 		messages: [
-			{ role: "system", content: ANALYZE_SYSTEM_PROMPT },
+			{ role: "system", content: args.systemPrompt },
 			{ role: "user", content: args.userPrompt },
 		],
 		tools: [
 			{
 				type: "function",
 				function: {
-					name: ANALYZE_TOOL.name,
-					description: ANALYZE_TOOL.description,
-					parameters: ANALYZE_TOOL.input_schema,
+					name: args.tool.name,
+					description: args.tool.description,
+					parameters: args.tool.input_schema,
 				},
 			},
 		],
 		tool_choice: {
 			type: "function",
-			function: { name: ANALYZE_TOOL.name },
+			function: { name: args.tool.name },
 		},
 	});
 
@@ -172,15 +209,17 @@ async function callOpenAICompatible(args: {
 	if (!choice) throw new Error(`${args.provider} returned no choices`);
 
 	const toolCall = choice.message.tool_calls?.[0];
-	if (!toolCall || toolCall.type !== "function" || toolCall.function.name !== ANALYZE_TOOL.name) {
-		throw new Error(`${args.provider} did not call record_analysis tool`);
+	if (!toolCall || toolCall.type !== "function" || toolCall.function.name !== args.tool.name) {
+		throw new Error(`${args.provider} did not call ${args.tool.name} tool`);
 	}
 
-	let parsed: AnalyzeToolOutput;
+	let parsed: T;
 	try {
-		parsed = JSON.parse(toolCall.function.arguments) as AnalyzeToolOutput;
+		parsed = JSON.parse(toolCall.function.arguments) as T;
 	} catch (err) {
-		throw new Error(`${args.provider} returned invalid JSON tool arguments: ${err instanceof Error ? err.message : String(err)}`);
+		throw new Error(
+			`${args.provider} returned invalid JSON tool arguments: ${err instanceof Error ? err.message : String(err)}`,
+		);
 	}
 
 	const usage = response.usage;

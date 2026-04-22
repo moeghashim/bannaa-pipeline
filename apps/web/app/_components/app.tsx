@@ -6,11 +6,11 @@ import { useAction, useMutation, useQuery } from "convex/react";
 import { useMemo, useRef, useState } from "react";
 import { useMountEffect } from "../../lib/use-mount-effect";
 import { HintBar, TopChrome } from "./chrome";
-import { NEWSLETTER, DRAFTS as SEED_DRAFTS } from "./data";
+import { NEWSLETTER } from "./data";
 import { Palette } from "./palette";
 import { FilterSeg, Select } from "./primitives";
 import { Sidebar } from "./sidebar";
-import type { Analysis, CapturePayload, Draft, InboxItem, State, ViewKey } from "./types";
+import type { Analysis, CapturePayload, InboxItem, State, ViewKey } from "./types";
 import { AnalysesView } from "./views/analyses";
 import { DraftsView } from "./views/drafts";
 import { InboxView } from "./views/inbox";
@@ -137,7 +137,6 @@ export function Shell() {
 
 	const [analysisSel, setAnalysisSel] = useState("");
 
-	const [drafts, setDrafts] = useState<Draft[]>(SEED_DRAFTS);
 	const [draftsChannel, setDraftsChannel] = useState("all");
 
 	const [wsSel, setWsSel] = useState("ws_01");
@@ -285,20 +284,7 @@ export function Shell() {
 		navigate("analyses");
 	};
 
-	const onUpdateDraft = (id: string, patch: Partial<Draft>) => {
-		setDrafts((prev) => prev.map((d) => (d.id === id ? { ...d, ...patch } : d)));
-	};
-
-	const chrome = resolveChrome(
-		view,
-		inboxItems,
-		drafts,
-		counts,
-		inboxFilter,
-		setInboxFilter,
-		inboxSource,
-		setInboxSource,
-	);
+	const chrome = resolveChrome(view, inboxItems, counts, inboxFilter, setInboxFilter, inboxSource, setInboxSource);
 
 	const identity = me
 		? { initial: (me.name ?? me.email ?? "?").slice(0, 1).toUpperCase(), name: me.name ?? me.email ?? "operator" }
@@ -344,14 +330,7 @@ export function Shell() {
 								analyses={analyses}
 							/>
 						)}
-						{view === "drafts" && (
-							<DraftsView
-								channel={draftsChannel}
-								setChannel={setDraftsChannel}
-								drafts={drafts}
-								onUpdate={onUpdateDraft}
-							/>
-						)}
+						{view === "drafts" && <DraftsView channel={draftsChannel} setChannel={setDraftsChannel} />}
 						{view === "reels" && <ReelsView />}
 						{view === "newsletter" && <NewsletterView />}
 						{view === "website" && <WebsiteView selected={wsSel} setSelected={setWsSel} />}
@@ -375,7 +354,6 @@ export function Shell() {
 function resolveChrome(
 	view: ViewKey,
 	inboxItems: InboxItem[],
-	drafts: Draft[],
 	counts: Partial<Record<State, number>>,
 	inboxFilter: string,
 	setInboxFilter: (v: string) => void,
@@ -418,7 +396,7 @@ function resolveChrome(
 		};
 	}
 	if (view === "analyses") return { title: "Analyses", subtitle: "structured extraction · source ↔ output" };
-	if (view === "drafts") return { title: "Drafts", subtitle: `${drafts.length} across 5 channels · review gate` };
+	if (view === "drafts") return { title: "Drafts", subtitle: "across 7 channels · review gate" };
 	if (view === "reels") return { title: "Reel Ideas", subtitle: "ideation feed · short pitch cards" };
 	if (view === "newsletter")
 		return { title: "Newsletter", subtitle: `issue #${NEWSLETTER.issue} · resend · sun 09:00 AST` };

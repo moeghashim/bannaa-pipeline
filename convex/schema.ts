@@ -24,6 +24,16 @@ const trackType = v.union(
 	v.literal("Media"),
 );
 
+const channelType = v.union(
+	v.literal("x"),
+	v.literal("ig"),
+	v.literal("ig-reel"),
+	v.literal("tiktok"),
+	v.literal("yt-shorts"),
+	v.literal("fb-page"),
+	v.literal("linkedin-page"),
+);
+
 export default defineSchema({
 	...authTables,
 
@@ -94,6 +104,25 @@ export default defineSchema({
 	})
 		.index("by_name", ["name"])
 		.index("by_track", ["track"]),
+
+	drafts: defineTable({
+		channel: channelType,
+		ar: v.string(),
+		en: v.string(),
+		chars: v.number(),
+		state: stateType,
+		analysisId: v.id("analyses"),
+		sourceItemId: v.id("inboxItems"),
+		concepts: v.array(v.string()),
+		capturedBy: v.id("users"),
+		createdAt: v.number(),
+		scheduled: v.optional(v.number()),
+		genRunId: v.id("providerRuns"),
+	})
+		.index("by_analysis", ["analysisId"])
+		.index("by_state", ["state"])
+		.index("by_channel", ["channel"])
+		.index("by_createdAt", ["createdAt"]),
 
 	settings: defineTable({
 		key: v.string(),

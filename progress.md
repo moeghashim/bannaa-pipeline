@@ -120,3 +120,12 @@ Append-only learning log for commits and deploys. Add new entries only at the en
   - convex/http.ts
   - apps/web/app/_components/views/settings.tsx
   - apps/web/next-env.d.ts
+## 2026-04-22T00:01:30.463Z
+- Trigger: commit
+- Learning: Phase 2B.1 landed: drafts schema (channel with 7 values, ar/en, chars, analysisId, sourceItemId, genRunId for audit, createdAt, optional scheduled); channel-specific prompt templates in convex/generate/prompts.ts with per-channel length/tone/format briefs (X 280 punchy, IG feed 150-400, IG Reels caption 60-200, TikTok 80-300, YT Shorts 60-200, FB Page 200-600, LinkedIn 400-800, all Khaleeji-leaning AR); generate.draft.fromAnalysisOutput action reuses the analyze provider dispatch but passes a distinct DRAFT_TOOL + DRAFT_SYSTEM_PROMPT (providers.ts refactored to accept tool+system as args — backwards compatible, analyze still works). Promote button on Analyses tab is now wired — clicking a tweet output generates an X draft, reel output generates IG-Reel; website kind disabled until Phase 3. Drafts tab swapped seed data for live Convex queries (list + counts + approve/reject mutations) and expanded channel tabs to all 7 Postiz channels. Drafts grid now loads from Convex and shows state chips + Approve/Reject mutations wired. Shell no longer holds draft state locally — DraftsView fetches directly via useQuery. providerRuns rows track generate-draft runs separately from analyze runs via a 'purpose' field — budget.todaySpend aggregates across both naturally.
+- Context: feat(drafts): text draft generation + 7-channel Drafts tab live on Convex
+- Branch: main
+- Actor: Ja3ood <moeghashim@users.noreply.github.com>
+- Changed Paths:
+  - convex
+  - apps/web/app/_components
