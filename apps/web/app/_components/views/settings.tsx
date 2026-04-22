@@ -235,6 +235,103 @@ const ImageConnections = () => {
 	);
 };
 
+const PostizConnection = () => {
+	const keyPresent = useAction(api.env.postiz.postizKeyPresent);
+	const statusCheck = useAction(api.publish.status.postizStatus);
+	const [configured, setConfigured] = useState<boolean | null>(null);
+	const [live, setLive] = useState<{ ok: true; providers: string[] } | { ok: false; error: string } | null>(null);
+	const [checking, setChecking] = useState(false);
+
+	useMountEffect(() => {
+		let cancelled = false;
+		keyPresent({})
+			.then((r) => {
+				if (cancelled) return;
+				setConfigured(r.apiKey);
+				if (r.apiKey) {
+					// Only ping Postiz if the key is even set — no point wasting
+					// an HTTP call on a pre-flight that will definitely 401.
+					setChecking(true);
+					statusCheck({})
+						.then((s) => {
+							if (cancelled) return;
+							setLive(s.ok ? { ok: true, providers: s.providers } : { ok: false, error: s.error });
+						})
+						.catch((err) => {
+							if (cancelled) return;
+							setLive({ ok: false, error: err instanceof Error ? err.message : String(err) });
+						})
+						.finally(() => {
+							if (!cancelled) setChecking(false);
+						});
+				}
+			})
+			.catch(() => {
+				if (!cancelled) setConfigured(false);
+			});
+		return () => {
+			cancelled = true;
+		};
+	});
+
+	return (
+		<div className="setting-row">
+			<div>
+				<div className="lbl">Postiz</div>
+				<div className="hlp">
+					Social scheduling (X / IG / TikTok / YT / FB Page / LinkedIn Page). Hosted plan — connect socials in the
+					Postiz dashboard.
+				</div>
+			</div>
+			<div className="row gap-2" style={{ flexWrap: "wrap" }}>
+				{configured === null ? (
+					<span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
+						checking…
+					</span>
+				) : !configured ? (
+					<>
+						<Chip state="new" label="not configured" />
+						<span className="mono" style={{ fontSize: 10.5, color: "var(--muted)" }}>
+							run <code>npx convex env set POSTIZ_API_KEY …</code>
+						</span>
+					</>
+				) : checking ? (
+					<>
+						<Chip state="approved" label="key set" />
+						<span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
+							verifying…
+						</span>
+					</>
+				) : live?.ok ? (
+					<>
+						<Chip state="approved" label="connected" />
+						<span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
+							{live.providers.length === 0
+								? "0 socials connected — link them in the Postiz dashboard"
+								: `${live.providers.length} social${live.providers.length === 1 ? "" : "s"}: ${live.providers.join(", ")}`}
+						</span>
+						<a
+							className="btn ghost xs"
+							href="https://app.postiz.com/launches"
+							target="_blank"
+							rel="noopener noreferrer"
+						>
+							Open Postiz
+						</a>
+					</>
+				) : live ? (
+					<>
+						<Chip state="rejected" label="check failed" />
+						<span className="mono" style={{ fontSize: 10.5, color: "var(--st-rejected-fg)" }}>
+							{live.error}
+						</span>
+					</>
+				) : null}
+			</div>
+		</div>
+	);
+};
+
 const XConnection = () => {
 	const status = useQuery(api.x.accounts.mineStatus, {});
 	const sync = useAction(api.x.sync.syncMine);
@@ -404,18 +501,7 @@ export const SettingsView = () => {
 						</span>
 					</div>
 				</div>
-				<div className="setting-row">
-					<div>
-						<div className="lbl">Postiz</div>
-						<div className="hlp">Social scheduling (X / IG / TikTok / YT / FB Page / LinkedIn Page).</div>
-					</div>
-					<div className="row gap-2">
-						<Chip state="analyzing" label="reconnecting" />
-						<button type="button" className="btn xs">
-							Reauth
-						</button>
-					</div>
-				</div>
+				<PostizConnection />
 				<div className="setting-row">
 					<div>
 						<div className="lbl">GitHub</div>
