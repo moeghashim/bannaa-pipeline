@@ -125,6 +125,7 @@ export const insertCompositeAsset = internalMutation({
 		width: v.number(),
 		height: v.number(),
 		model: v.string(),
+		orderIndex: v.optional(v.number()),
 	},
 	returns: v.id("mediaAssets"),
 	handler: async (ctx, args): Promise<Id<"mediaAssets">> => {
@@ -138,7 +139,7 @@ export const insertCompositeAsset = internalMutation({
 			state: "ready",
 			width: args.width,
 			height: args.height,
-			orderIndex: 0,
+			orderIndex: args.orderIndex ?? 0,
 			createdAt: Date.now(),
 			overlaidFrom: args.overlaidFrom,
 		});

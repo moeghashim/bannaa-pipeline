@@ -77,6 +77,67 @@ export const firstBaseReady = internalQuery({
 	},
 });
 
+// B.3 carousel: one ordered mediaAsset per slot, preferring a composite when
+// one exists. `firstReadyByDraft` stays untouched so the single-image path
+// behaves exactly as before.
+export const slidesForDraft = query({
+	args: { draftId: v.id("drafts") },
+	handler: async (ctx, { draftId }): Promise<Doc<"mediaAssets">[]> => {
+		await requireUser(ctx);
+		const rows = await ctx.db
+			.query("mediaAssets")
+			.withIndex("by_draft", (q) => q.eq("draftId", draftId))
+			.collect();
+
+		const byIndex = new Map<number, Doc<"mediaAssets">[]>();
+		for (const r of rows) {
+			if (r.state !== "ready") continue;
+			const arr = byIndex.get(r.orderIndex) ?? [];
+			arr.push(r);
+			byIndex.set(r.orderIndex, arr);
+		}
+
+		const slots: Doc<"mediaAssets">[] = [];
+		const indices = [...byIndex.keys()].sort((a, b) => a - b);
+		for (const idx of indices) {
+			const group = byIndex.get(idx);
+			if (!group) continue;
+			const composite = group.find((a) => a.overlaidFrom);
+			slots.push(composite ?? group[0]!);
+		}
+		return slots;
+	},
+});
+
+// Base-only variant for the base/overlay toggle on carousel cards.
+export const slidesBaseForDraft = query({
+	args: { draftId: v.id("drafts") },
+	handler: async (ctx, { draftId }): Promise<Doc<"mediaAssets">[]> => {
+		await requireUser(ctx);
+		const rows = await ctx.db
+			.query("mediaAssets")
+			.withIndex("by_draft", (q) => q.eq("draftId", draftId))
+			.collect();
+		return rows
+			.filter((r) => r.state === "ready" && !r.overlaidFrom)
+			.sort((a, b) => a.orderIndex - b.orderIndex);
+	},
+});
+
+// All mediaAssets for a carousel draft, including generating/failed rows —
+// used by the UI to show per-slot progress ("2/3 generating, 1 failed").
+export const slidesStatusForDraft = query({
+	args: { draftId: v.id("drafts") },
+	handler: async (ctx, { draftId }): Promise<Doc<"mediaAssets">[]> => {
+		await requireUser(ctx);
+		const rows = await ctx.db
+			.query("mediaAssets")
+			.withIndex("by_draft", (q) => q.eq("draftId", draftId))
+			.collect();
+		return rows.sort((a, b) => a.orderIndex - b.orderIndex);
+	},
+});
+
 // Re-export so the generated api knows about this helper type too.
 export type MediaAssetDoc = Doc<"mediaAssets">;
 export type MediaAssetId = Id<"mediaAssets">;

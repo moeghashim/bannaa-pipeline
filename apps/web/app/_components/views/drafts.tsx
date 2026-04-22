@@ -8,6 +8,7 @@ import { fmtDate, timeAgo } from "../format";
 import { Icons } from "../icons";
 import { Chip, HyperFrame } from "../primitives";
 import type { Channel, ImageProvider } from "../types";
+import { CarouselStrip, carouselStatusLabel } from "./draftsCarousel";
 
 const CHANNELS: { value: Channel | "all"; label: string }[] = [
 	{ value: "all", label: "All channels" },
@@ -126,12 +127,16 @@ const DraftCard = ({
 	const variant = channelFrame(draft.channel);
 	const videoChannel = isVideoChannel(draft.channel);
 
-	const asset = useQuery(api.mediaAssets.list.firstReadyByDraft, { draftId: draft._id });
-	const baseAsset = useQuery(api.mediaAssets.list.baseReadyByDraft, { draftId: draft._id });
-	const assetLoaded = asset !== undefined;
+	const isCarousel = draft.mediaKind === "carousel";
+
+	const asset = useQuery(api.mediaAssets.list.firstReadyByDraft, isCarousel ? "skip" : { draftId: draft._id });
+	const baseAsset = useQuery(api.mediaAssets.list.baseReadyByDraft, isCarousel ? "skip" : { draftId: draft._id });
+	const assetLoaded = isCarousel ? true : asset !== undefined;
 
 	const generate = useAction(api.generate.image.action.generateForDraft);
 	const overlay = useAction(api.generate.image.composite.overlayForDraft);
+	const generateCarousel = useAction(api.generate.image.carouselAction.generateCarouselForDraft);
+	const overlayCarousel = useAction(api.generate.image.compositeCarouselAction.overlayCarouselForDraft);
 	const [picker, setPicker] = useState(false);
 	const [submitting, setSubmitting] = useState(false);
 	const [compositing, setCompositing] = useState(false);
@@ -143,7 +148,9 @@ const DraftCard = ({
 		setSubmitting(true);
 		setGenError(null);
 		try {
-			const r = await generate({ draftId: draft._id, provider });
+			const r = isCarousel
+				? await generateCarousel({ draftId: draft._id, provider })
+				: await generate({ draftId: draft._id, provider });
 			if (!r.ok) setGenError(r.error);
 		} catch (err) {
 			setGenError(err instanceof Error ? err.message : String(err));
@@ -156,7 +163,7 @@ const DraftCard = ({
 		setCompositing(true);
 		setGenError(null);
 		try {
-			const r = await overlay({ draftId: draft._id });
+			const r = isCarousel ? await overlayCarousel({ draftId: draft._id }) : await overlay({ draftId: draft._id });
 			if (!r.ok) setGenError(r.error);
 		} catch (err) {
 			setGenError(err instanceof Error ? err.message : String(err));
@@ -165,13 +172,43 @@ const DraftCard = ({
 		}
 	};
 
-	const showGenerateButton = !videoChannel && assetLoaded && (!asset || asset.state === "failed");
+	// Carousel-specific queries. `useQuery` with `"skip"` short-circuits to
+	// `undefined` so we don't fetch carousel data for single-image drafts.
+	const carouselSlots = useQuery(api.mediaAssets.list.slidesForDraft, isCarousel ? { draftId: draft._id } : "skip");
+	const carouselBaseSlots = useQuery(
+		api.mediaAssets.list.slidesBaseForDraft,
+		isCarousel ? { draftId: draft._id } : "skip",
+	);
+	const carouselStatus = useQuery(
+		api.mediaAssets.list.slidesStatusForDraft,
+		isCarousel ? { draftId: draft._id } : "skip",
+	);
+	const carouselScript = useQuery(
+		api.carouselSlides.list.scriptForDraft,
+		isCarousel ? { draftId: draft._id } : "skip",
+	);
+
+	const carouselReadyBaseCount = (carouselBaseSlots ?? []).length;
+	const carouselReadyCompositeCount = (carouselSlots ?? []).filter((a) => !!a.overlaidFrom).length;
+	const carouselExpectedCount = (carouselScript ?? []).length;
+	const carouselGenerating = (carouselStatus ?? []).filter((a) => a.state === "generating").length;
+	const carouselFailed = (carouselStatus ?? []).filter((a) => a.state === "failed").length;
+
+	const showGenerateButton = isCarousel
+		? !!carouselScript &&
+			carouselReadyBaseCount === 0 &&
+			carouselReadyCompositeCount === 0 &&
+			carouselGenerating === 0
+		: !videoChannel && assetLoaded && (!asset || asset.state === "failed");
 	// Overlay button shows when the *current* visible asset is a ready base
 	// (no composite yet). Once a composite lands, `asset` flips to it and the
 	// button hides — the toggle takes over.
 	const currentIsBase = !!asset && asset.state === "ready" && !asset.overlaidFrom;
-	const showOverlayButton = !videoChannel && currentIsBase;
-	const hasComposite = !!asset && asset.state === "ready" && !!asset.overlaidFrom;
+	const carouselHasComposite = carouselReadyCompositeCount > 0;
+	const carouselNeedsOverlay =
+		isCarousel && carouselReadyBaseCount > 0 && carouselReadyCompositeCount < carouselReadyBaseCount;
+	const showOverlayButton = isCarousel ? carouselNeedsOverlay : !videoChannel && currentIsBase;
+	const hasComposite = isCarousel ? carouselHasComposite : !!asset && asset.state === "ready" && !!asset.overlaidFrom;
 	const displayedAsset = hasComposite && view === "base" && baseAsset ? baseAsset : asset;
 
 	return (
@@ -193,32 +230,81 @@ const DraftCard = ({
 			</div>
 
 			<div className="body">
-				<div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
-					<DraftMedia
-						asset={displayedAsset ?? null}
-						assetLoaded={assetLoaded}
-						variant={variant}
-						ar={draft.ar}
-						channel={draft.channel}
-					/>
-					{hasComposite && <BaseOverlayToggle value={view} onChange={setView} />}
-				</div>
-				<div className="copy">
-					<div className="ar-text" style={{ fontSize: 14, textWrap: "pretty" }}>
-						{draft.ar}
-					</div>
-					<div className="en-text">{draft.en}</div>
-					<div className="row gap-2" style={{ marginTop: "auto", flexWrap: "wrap" }}>
-						{draft.concepts.map((c) => (
-							<span key={c} className="concept-tag" style={{ height: 18, fontSize: 10, padding: "0 6px" }}>
-								{c}
+				{isCarousel ? (
+					<div style={{ display: "flex", flexDirection: "column", gap: 8, flex: 1, minWidth: 0 }}>
+						<CarouselStrip
+							script={carouselScript ?? []}
+							slots={carouselSlots ?? []}
+							baseSlots={carouselBaseSlots ?? []}
+							status={carouselStatus ?? []}
+							view={view}
+						/>
+						<div className="row gap-2" style={{ alignItems: "center" }}>
+							<span
+								className="mono"
+								style={{
+									fontSize: 10,
+									color: "var(--muted)",
+									textTransform: "uppercase",
+									letterSpacing: "0.08em",
+								}}
+							>
+								carousel · {carouselExpectedCount || 3} slides
 							</span>
-						))}
+							<span className="bullet" />
+							<span className="mono" style={{ fontSize: 10, color: "var(--muted-2)" }}>
+								{carouselStatusLabel({
+									expected: carouselExpectedCount,
+									ready: carouselReadyBaseCount,
+									composited: carouselReadyCompositeCount,
+									generating: carouselGenerating,
+									failed: carouselFailed,
+								})}
+							</span>
+							{hasComposite && <BaseOverlayToggle value={view} onChange={setView} />}
+						</div>
+						<div className="ar-text" style={{ fontSize: 13, textWrap: "pretty" }}>
+							{draft.ar}
+						</div>
+						<div className="en-text">{draft.en}</div>
+						<div className="row gap-2" style={{ marginTop: "auto", flexWrap: "wrap" }}>
+							{draft.concepts.map((c) => (
+								<span key={c} className="concept-tag" style={{ height: 18, fontSize: 10, padding: "0 6px" }}>
+									{c}
+								</span>
+							))}
+						</div>
 					</div>
-				</div>
+				) : (
+					<>
+						<div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
+							<DraftMedia
+								asset={displayedAsset ?? null}
+								assetLoaded={assetLoaded}
+								variant={variant}
+								ar={draft.ar}
+								channel={draft.channel}
+							/>
+							{hasComposite && <BaseOverlayToggle value={view} onChange={setView} />}
+						</div>
+						<div className="copy">
+							<div className="ar-text" style={{ fontSize: 14, textWrap: "pretty" }}>
+								{draft.ar}
+							</div>
+							<div className="en-text">{draft.en}</div>
+							<div className="row gap-2" style={{ marginTop: "auto", flexWrap: "wrap" }}>
+								{draft.concepts.map((c) => (
+									<span key={c} className="concept-tag" style={{ height: 18, fontSize: 10, padding: "0 6px" }}>
+										{c}
+									</span>
+								))}
+							</div>
+						</div>
+					</>
+				)}
 			</div>
 
-			{(genError || asset?.state === "failed") && (
+			{(genError || (!isCarousel && asset?.state === "failed") || (isCarousel && carouselFailed > 0)) && (
 				<div
 					className="mono"
 					style={{
@@ -228,7 +314,10 @@ const DraftCard = ({
 						borderTop: "1px solid var(--border-faint)",
 					}}
 				>
-					{genError ?? asset?.error ?? "image generation failed"}
+					{genError ??
+						(isCarousel
+							? `${carouselFailed} slide${carouselFailed === 1 ? "" : "s"} failed`
+							: (asset?.error ?? "image generation failed"))}
 				</div>
 			)}
 
@@ -253,7 +342,7 @@ const DraftCard = ({
 							className="btn xs"
 							disabled={submitting}
 							onClick={() => setPicker((p) => !p)}
-							title="Generate image"
+							title={isCarousel ? "Generate carousel images" : "Generate image"}
 						>
 							{submitting ? (
 								<>
@@ -261,7 +350,7 @@ const DraftCard = ({
 								</>
 							) : (
 								<>
-									<Icons.Sparkle size={11} /> Generate image
+									<Icons.Sparkle size={11} /> {isCarousel ? "Generate carousel images" : "Generate image"}
 								</>
 							)}
 						</button>

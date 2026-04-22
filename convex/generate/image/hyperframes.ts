@@ -84,10 +84,14 @@ export type CompositeInput = {
 	baseImage: Uint8Array;
 	ar: string;
 	channel: string;
-	// handle is accepted but unused for B.4 — reserved for B.3 where the
-	// composite may render a per-slide attribution. Keeping the arg in the
-	// signature avoids a breaking change later.
+	// handle is accepted but unused for B.4 — reserved for later phases where
+	// the composite may render a per-slide attribution.
 	handle?: string;
+	// B.3 carousel: when both are present, the top-right chip renders
+	// `${slideIndex}/${slideTotal}` instead of the static "AR" marker.
+	// 1-based. If only one or neither is provided, falls back to "AR".
+	slideIndex?: number;
+	slideTotal?: number;
 };
 
 export async function composite(input: CompositeInput): Promise<Uint8Array> {
@@ -96,6 +100,10 @@ export async function composite(input: CompositeInput): Promise<Uint8Array> {
 
 	const dataUrl = `data:image/png;base64,${bytesToBase64(input.baseImage)}`;
 	const channelLabel = input.channel;
+	const langChip =
+		typeof input.slideIndex === "number" && typeof input.slideTotal === "number"
+			? `${input.slideIndex}/${input.slideTotal}`
+			: "AR";
 
 	// Visual language mirrors apps/web/app/_components/primitives.tsx's
 	// `HyperFrame` component so the preview and the export look the same.
@@ -163,7 +171,7 @@ export async function composite(input: CompositeInput): Promise<Uint8Array> {
 						},
 						children: [
 							{ type: "span", key: "brand", props: { children: `bannaa · ${channelLabel}` } },
-							{ type: "span", key: "lang", props: { children: "AR" } },
+							{ type: "span", key: "lang", props: { children: langChip } },
 						],
 					},
 				},

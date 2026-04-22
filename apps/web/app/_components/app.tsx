@@ -284,6 +284,11 @@ export function Shell() {
 		navigate("analyses");
 	};
 
+	const onOpenDrafts = (channel: string) => {
+		setDraftsChannel(channel);
+		navigate("drafts");
+	};
+
 	const chrome = resolveChrome(view, inboxItems, counts, inboxFilter, setInboxFilter, inboxSource, setInboxSource);
 
 	const identity = me
@@ -328,6 +333,7 @@ export function Shell() {
 								setSelected={setAnalysisSel}
 								items={inboxItems}
 								analyses={analyses}
+								onOpenDrafts={onOpenDrafts}
 							/>
 						)}
 						{view === "drafts" && <DraftsView channel={draftsChannel} setChannel={setDraftsChannel} />}

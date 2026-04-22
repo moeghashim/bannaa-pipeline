@@ -179,3 +179,24 @@ Append-only learning log for commits and deploys. Add new entries only at the en
   - package.json
   - package-lock.json
   - convex/_generated/api.d.ts
+## 2026-04-22T01:12:05.952Z
+- Trigger: commit
+- Learning: Carousel draft creation is split from image generation so the operator has a review gate on the script before spending on N image calls; styleAnchor + per-slide imagePrompt is the coherence vector since most image providers do not accept seeds; a dedicated carouselSlides table beats stuffing slides into drafts JSON because mediaAssets stays generic and future regeneration of one slide stays transactional; slidesForDraft query returns per-slot ordered results with composite-preferred, keeping firstReadyByDraft untouched for the single-image path; hyperframes composite() now accepts slideIndex/slideTotal and renders N/M in the top-right chip instead of AR; carousels ship for ig only in B.3 — FB and LinkedIn carousels deferred.
+- Context: feat(carousel): IG carousel drafts with style-anchor + multi-slide HyperFrames overlay
+- Branch: main
+- Actor: Ja3ood <moeghashim@users.noreply.github.com>
+- Changed Paths:
+  - convex/schema.ts
+  - convex/generate/carousel.ts
+  - convex/generate/carouselPrompts.ts
+  - convex/generate/carouselInternal.ts
+  - convex/generate/image/carouselAction.ts
+  - convex/generate/image/compositeCarouselAction.ts
+  - convex/generate/image/hyperframes.ts
+  - convex/generate/image/internal.ts
+  - convex/mediaAssets/list.ts
+  - convex/carouselSlides/list.ts
+  - apps/web/app/_components/app.tsx
+  - apps/web/app/_components/views/analyses.tsx
+  - apps/web/app/_components/views/drafts.tsx
+  - apps/web/app/_components/views/draftsCarousel.tsx

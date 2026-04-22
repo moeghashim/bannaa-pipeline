@@ -26,11 +26,13 @@ export const AnalysesView = ({
 	setSelected,
 	items,
 	analyses,
+	onOpenDrafts,
 }: {
 	selected: string;
 	setSelected: (id: string) => void;
 	items: InboxItem[];
 	analyses: Analysis[];
+	onOpenDrafts?: (channel: string) => void;
 }) => {
 	const analyzable = items.filter((i) => i.state !== "new" && i.state !== "rejected");
 	const sel = analyzable.find((i) => i.id === selected) || analyzable[0];
@@ -101,7 +103,12 @@ export const AnalysesView = ({
 				})}
 			</div>
 
-			{sel && (analysis ? <AnalysisDiff item={sel} analysis={analysis} /> : <AnalysisPending item={sel} />)}
+			{sel &&
+				(analysis ? (
+					<AnalysisDiff item={sel} analysis={analysis} onOpenDrafts={onOpenDrafts} />
+				) : (
+					<AnalysisPending item={sel} />
+				))}
 		</div>
 	);
 };
@@ -140,7 +147,15 @@ const AnalysisPending = ({ item }: { item: InboxItem }) => (
 	</div>
 );
 
-const AnalysisDiff = ({ item, analysis }: { item: InboxItem; analysis: Analysis }) => (
+const AnalysisDiff = ({
+	item,
+	analysis,
+	onOpenDrafts,
+}: {
+	item: InboxItem;
+	analysis: Analysis;
+	onOpenDrafts?: (channel: string) => void;
+}) => (
 	<div className="diff-wrap">
 		<div className="diff-pane left">
 			<div className="diff-h">
@@ -246,6 +261,11 @@ const AnalysisDiff = ({ item, analysis }: { item: InboxItem; analysis: Analysis 
 					/>
 				))}
 			</div>
+
+			<div className="section-h" style={{ marginBottom: 8, marginTop: 22 }}>
+				Carousel
+			</div>
+			<PromoteCarouselRow analysisId={analysis.id} onOpenDrafts={onOpenDrafts} />
 		</div>
 	</div>
 );
@@ -334,6 +354,103 @@ const PromoteRow = ({
 					<Icons.Arrow size={11} /> Promote
 				</button>
 			)}
+		</div>
+	);
+};
+
+const SLIDE_OPTIONS: number[] = [3, 4, 5];
+
+const PromoteCarouselRow = ({
+	analysisId,
+	onOpenDrafts,
+}: {
+	analysisId: string;
+	onOpenDrafts?: (channel: string) => void;
+}) => {
+	const promoteCarousel = useAction(api.generate.carousel.fromAnalysis);
+	const [slideCount, setSlideCount] = useState<number>(3);
+	const [status, setStatus] = useState<"idle" | "promoting" | "done" | "error">("idle");
+	const [message, setMessage] = useState<string | null>(null);
+
+	const onClick = async () => {
+		setStatus("promoting");
+		setMessage(null);
+		try {
+			const res = await promoteCarousel({
+				analysisId: analysisId as Id<"analyses">,
+				slideCount,
+			});
+			if (res.ok) {
+				setStatus("done");
+				setMessage(`drafted carousel (${res.slideCount} slides)`);
+				if (onOpenDrafts) {
+					// Give the operator a beat to read the success chip, then
+					// hop to the Drafts tab filtered to IG so the new draft is
+					// visible.
+					setTimeout(() => onOpenDrafts("ig"), 500);
+				}
+			} else {
+				setStatus("error");
+				setMessage(res.error);
+			}
+		} catch (err) {
+			setStatus("error");
+			setMessage(err instanceof Error ? err.message : String(err));
+		}
+	};
+
+	return (
+		<div className="out-card">
+			<div className="kind">carousel</div>
+			<div style={{ flex: 1, fontSize: 13, color: "var(--ink-2)", lineHeight: 1.5 }}>
+				IG feed carousel with a shared style anchor across slides.
+				{message && (
+					<div
+						className="mono"
+						style={{
+							marginTop: 6,
+							fontSize: 10.5,
+							color: status === "error" ? "var(--st-rejected-fg)" : "var(--accent-ink)",
+						}}
+					>
+						{message}
+					</div>
+				)}
+			</div>
+			<div role="group" aria-label="Slide count" className="filter-seg" style={{ fontSize: 11, marginRight: 8 }}>
+				{SLIDE_OPTIONS.map((n) => (
+					<button
+						key={n}
+						type="button"
+						className={slideCount === n ? "active" : ""}
+						onClick={() => setSlideCount(n)}
+						disabled={status === "promoting" || status === "done"}
+					>
+						{n}
+					</button>
+				))}
+			</div>
+			<button
+				type="button"
+				className="btn xs"
+				onClick={onClick}
+				disabled={status === "promoting" || status === "done"}
+				title="Promote as IG carousel"
+			>
+				{status === "promoting" ? (
+					<>
+						<Icons.Clock size={11} /> promoting…
+					</>
+				) : status === "done" ? (
+					<>
+						<Icons.Check size={11} sw={2} /> drafted
+					</>
+				) : (
+					<>
+						<Icons.Arrow size={11} /> Promote as IG carousel
+					</>
+				)}
+			</button>
 		</div>
 	);
 };

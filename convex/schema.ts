@@ -152,11 +152,25 @@ export default defineSchema({
 		mediaKind: v.optional(mediaKindType),
 		imageProvider: v.optional(imageGeneratorType),
 		imageModel: v.optional(v.string()),
+		// B.3 carousel: style anchor shared across all slides so a future
+		// regeneration of one slide stays coherent with the rest.
+		styleAnchor: v.optional(v.string()),
 	})
 		.index("by_analysis", ["analysisId"])
 		.index("by_state", ["state"])
 		.index("by_channel", ["channel"])
 		.index("by_createdAt", ["createdAt"]),
+
+	// B.3 carousel script rows — one per slide. Kept separate from `drafts`
+	// so the mediaAssets table stays generic and the per-slide AR text +
+	// image prompt survive the text-vs-image-generation split.
+	carouselSlides: defineTable({
+		draftId: v.id("drafts"),
+		orderIndex: v.number(),
+		ar: v.string(),
+		imagePrompt: v.string(),
+		createdAt: v.number(),
+	}).index("by_draft", ["draftId"]),
 
 	mediaAssets: defineTable({
 		draftId: v.id("drafts"),
