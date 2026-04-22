@@ -1,30 +1,41 @@
 "use node";
 
 // YouTube transcript fetcher — pulls the auto-generated or manual
-// transcript when an operator pastes a youtube.com / youtu.be URL into
-// the capture bar. Mirrors convex/inbox/fetch.ts (the X variant) but for
-// a totally different upstream:
+// transcript when an operator pastes a youtube.com / youtu.be / shorts
+// URL into the capture bar.
 //
-//   • Title + author: via YouTube's public oEmbed endpoint (no key).
-//   • Transcript: via the `youtube-transcript` npm package, which
-//     scrapes the same endpoint the web player uses. Works for most
-//     videos with captions; returns [] (we treat as an error) for
-//     videos that have captions disabled or are region-blocked.
+// Originally used the `youtube-transcript` npm package. Dropped it
+// because the package declares `"type": "module"` but ships a CJS `main`
+// that uses `exports.X =`, which Convex's esbuild refuses to treat as
+// having exports — leaving `YoutubeTranscript` undefined at bundle time.
+// The ESM bundle works but pointing at it directly breaks types
+// resolution. The scraping logic is small enough (~80 lines) to own
+// outright, so we just inline it here.
 //
-// Runs in Node because `youtube-transcript` uses Node-only APIs
-// internally (it worked in V8 on paper but has crashed during bundle
-// analysis when pulled into a V8 module). `"use node"` on this file
-// alone is enough — nothing else imports the package.
+// Flow:
+//   1. GET the watch page HTML with a browser UA.
+//   2. Extract `ytInitialPlayerResponse` from the inline script block.
+//   3. Walk to captions.playerCaptionsTracklistRenderer.captionTracks[0]
+//      for the first available caption track (prefers English when
+//      present; else whatever YouTube sorts first).
+//   4. GET the track's baseUrl → TimedText XML.
+//   5. Parse <text start="..." dur="...">...</text> into segments and
+//      join into one readable blob.
+//
+// If the video has captions disabled, captionTracks is empty and we
+// surface a friendly error on the inbox row.
+//
+// Title + author come from the public oEmbed endpoint (no key).
 
 import { v } from "convex/values";
-import { YoutubeTranscript } from "youtube-transcript";
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { action, type ActionCtx, internalAction } from "../_generated/server";
 import { requireUser } from "../lib/requireUser";
 
-// youtube.com/watch?v=VID · youtu.be/VID · youtube.com/shorts/VID ·
-// youtube.com/embed/VID — captures the 11-char VID in each case.
+const BROWSER_UA =
+	"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
+
 function parseYoutubeId(url: string): string | null {
 	const patterns = [
 		/(?:youtube\.com\/watch\?(?:[^&]+&)*v=)([a-zA-Z0-9_-]{11})/,
@@ -37,6 +48,100 @@ function parseYoutubeId(url: string): string | null {
 		if (m?.[1]) return m[1];
 	}
 	return null;
+}
+
+type CaptionTrack = { baseUrl?: string; languageCode?: string; name?: { simpleText?: string } };
+
+function extractInlineJson(html: string, varName: string): Record<string, unknown> | null {
+	const needle = `var ${varName} = `;
+	const start = html.indexOf(needle);
+	if (start === -1) return null;
+	const jsonStart = start + needle.length;
+	let depth = 0;
+	for (let i = jsonStart; i < html.length; i += 1) {
+		const ch = html[i];
+		if (ch === "{") depth += 1;
+		else if (ch === "}") {
+			depth -= 1;
+			if (depth === 0) {
+				try {
+					return JSON.parse(html.slice(jsonStart, i + 1)) as Record<string, unknown>;
+				} catch {
+					return null;
+				}
+			}
+		}
+	}
+	return null;
+}
+
+function extractCaptionTracks(json: Record<string, unknown>): CaptionTrack[] {
+	const captions = json.captions as { playerCaptionsTracklistRenderer?: { captionTracks?: CaptionTrack[] } } | undefined;
+	return captions?.playerCaptionsTracklistRenderer?.captionTracks ?? [];
+}
+
+function decodeEntities(s: string): string {
+	return s
+		.replace(/&amp;#39;/g, "'")
+		.replace(/&amp;quot;/g, '"')
+		.replace(/&amp;/g, "&")
+		.replace(/&lt;/g, "<")
+		.replace(/&gt;/g, ">")
+		.replace(/&quot;/g, '"')
+		.replace(/&#39;/g, "'")
+		.replace(/&apos;/g, "'")
+		.replace(/&#x([0-9a-fA-F]+);/g, (_m, h: string) => String.fromCodePoint(parseInt(h, 16)))
+		.replace(/&#(\d+);/g, (_m, d: string) => String.fromCodePoint(parseInt(d, 10)));
+}
+
+function parseTimedTextXml(xml: string): string {
+	const segments: string[] = [];
+	const re = /<text[^>]*>([\s\S]*?)<\/text>/g;
+	let m: RegExpExecArray | null = re.exec(xml);
+	while (m !== null) {
+		const raw = m[1] ?? "";
+		const stripped = raw.replace(/<[^>]+>/g, "");
+		const decoded = decodeEntities(stripped).trim();
+		if (decoded) segments.push(decoded);
+		m = re.exec(xml);
+	}
+	return segments.join(" ").replace(/\s+/g, " ").trim();
+}
+
+async function fetchTranscriptText(videoId: string): Promise<string> {
+	const watchResp = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
+		headers: { "User-Agent": BROWSER_UA, "Accept-Language": "en-US,en;q=0.9" },
+	});
+	if (!watchResp.ok) {
+		throw new Error(`YouTube watch page ${watchResp.status}`);
+	}
+	const html = await watchResp.text();
+	if (html.includes('class="g-recaptcha"')) {
+		throw new Error("YouTube is requiring a captcha for this IP — try again later");
+	}
+	const player = extractInlineJson(html, "ytInitialPlayerResponse");
+	if (!player) {
+		throw new Error("Could not locate ytInitialPlayerResponse — YouTube may have changed the page shape");
+	}
+	const tracks = extractCaptionTracks(player);
+	if (tracks.length === 0) {
+		throw new Error("No caption tracks on this video (captions may be disabled)");
+	}
+	// Prefer English if present, else take the first track YouTube gives us.
+	const pick = tracks.find((t) => (t.languageCode ?? "").startsWith("en")) ?? tracks[0];
+	if (!pick?.baseUrl) {
+		throw new Error("Caption track had no baseUrl");
+	}
+	const xmlResp = await fetch(pick.baseUrl, {
+		headers: { "User-Agent": BROWSER_UA },
+	});
+	if (!xmlResp.ok) {
+		throw new Error(`YouTube timedtext ${xmlResp.status}`);
+	}
+	const xml = await xmlResp.text();
+	const text = parseTimedTextXml(xml);
+	if (!text) throw new Error("Transcript parsed empty — unexpected timedtext format");
+	return text;
 }
 
 type OEmbedResponse = {
@@ -62,22 +167,12 @@ async function fetchVideoBody(ctx: ActionCtx, itemId: Id<"inboxItems">): Promise
 	}
 
 	try {
-		// Parallelise — oEmbed is a separate origin from transcript
-		// scraping, so one shouldn't gate the other. We also prefer the
-		// canonical watch URL for oEmbed (more reliable than shorts/ URLs
-		// for title lookup).
+		// Parallelise oEmbed + transcript. Different origins, no shared
+		// state, so one shouldn't gate the other.
 		const canonical = `https://www.youtube.com/watch?v=${videoId}`;
-		const [oembedResp, transcript] = await Promise.all([
+		const [oembedResp, snippet] = await Promise.all([
 			fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(canonical)}&format=json`),
-			YoutubeTranscript.fetchTranscript(videoId).catch((err: unknown) => {
-				// Re-throw with a friendlier message; the default
-				// "TranscriptError" is cryptic.
-				throw new Error(
-					err instanceof Error
-						? `Transcript fetch failed: ${err.message}`
-						: `Transcript fetch failed: ${String(err)}`,
-				);
-			}),
+			fetchTranscriptText(videoId),
 		]);
 
 		let title = item.title;
@@ -88,22 +183,6 @@ async function fetchVideoBody(ctx: ActionCtx, itemId: Id<"inboxItems">): Promise
 			if (typeof oembed.author_name === "string") handle = `@${oembed.author_name}`;
 		}
 
-		if (!Array.isArray(transcript) || transcript.length === 0) {
-			throw new Error("Transcript is empty — video may have captions disabled");
-		}
-		// Join segments into one readable blob. youtube-transcript returns
-		// HTML-escaped entities (e.g. `&amp;#39;`) — decode the common
-		// ones so the analyzer prompt gets clean text. Not a full HTML
-		// decoder; adding one would pull another dep for a couple edge
-		// cases.
-		const snippet = transcript
-			.map((s: { text: string }) => s.text)
-			.join(" ")
-			.replace(/&amp;#39;/g, "'")
-			.replace(/&amp;quot;/g, '"')
-			.replace(/&amp;/g, "&")
-			.replace(/\s+/g, " ")
-			.trim();
 		const wordCount = snippet.split(/\s+/).filter(Boolean).length;
 
 		await ctx.runMutation(internal.inbox.fetchInternal.applyFetchedYoutube, {
