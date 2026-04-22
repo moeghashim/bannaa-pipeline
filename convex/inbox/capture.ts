@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { internal } from "../_generated/api";
 import { mutation } from "../_generated/server";
 import { requireUser } from "../lib/requireUser";
 
@@ -61,7 +62,7 @@ export const capture = mutation({
 			return "fetching…";
 		};
 
-		return await ctx.db.insert("inboxItems", {
+		const id = await ctx.db.insert("inboxItems", {
 			source: detected.source,
 			handle: detected.handle,
 			title: titleFor(detected),
@@ -74,5 +75,16 @@ export const capture = mutation({
 			capturedBy: userId,
 			captured: Date.now(),
 		});
+
+		// Schedule the tweet-body fetch immediately after insert so the UI
+		// flips from "fetching…" to the real snippet within a few seconds.
+		// YouTube + article URLs don't have a fetcher yet — they stay as
+		// placeholder rows until the operator either pastes the body
+		// manually or those fetchers ship in a later phase.
+		if (detected.source === "x" && detected.url) {
+			await ctx.scheduler.runAfter(0, internal.inbox.fetch.fetchInbox, { id });
+		}
+
+		return id;
 	},
 });

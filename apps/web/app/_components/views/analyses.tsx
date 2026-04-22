@@ -155,120 +155,253 @@ const AnalysisDiff = ({
 	item: InboxItem;
 	analysis: Analysis;
 	onOpenDrafts?: (channel: string) => void;
-}) => (
-	<div className="diff-wrap">
-		<div className="diff-pane left">
-			<div className="diff-h">
-				<div>
-					<div className="label">Source · {item.source}</div>
-					<div
-						style={{
-							fontSize: 15,
-							fontWeight: 600,
-							marginTop: 4,
-							textWrap: "balance",
-							letterSpacing: "-0.01em",
-						}}
-					>
-						{item.title}
+}) => {
+	const analyzeAction = useAction(api.analyze.run.run);
+	const [reAnalyzing, setReAnalyzing] = useState(false);
+	const [reAnalyzeError, setReAnalyzeError] = useState<string | null>(null);
+
+	const rerunAs = async (provider: ProviderId) => {
+		setReAnalyzing(true);
+		setReAnalyzeError(null);
+		try {
+			const r = await analyzeAction({ id: item.id as Id<"inboxItems">, provider });
+			if (!r.ok) setReAnalyzeError(r.error);
+		} catch (err) {
+			setReAnalyzeError(err instanceof Error ? err.message : String(err));
+		} finally {
+			setReAnalyzing(false);
+		}
+	};
+
+	return (
+		<div className="diff-wrap">
+			<div className="diff-pane left">
+				<div className="diff-h">
+					<div>
+						<div className="label">Source · {item.source}</div>
+						<div
+							style={{
+								fontSize: 15,
+								fontWeight: 600,
+								marginTop: 4,
+								textWrap: "balance",
+								letterSpacing: "-0.01em",
+							}}
+						>
+							{item.title}
+						</div>
 					</div>
+					<SourceBadge source={item.source} handle={item.handle} />
 				</div>
-				<SourceBadge source={item.source} handle={item.handle} />
+
+				<div style={{ fontSize: 13.5, lineHeight: 1.65, color: "var(--ink-2)", marginBottom: 20 }}>
+					{item.snippet}
+				</div>
 			</div>
 
-			<div style={{ fontSize: 13.5, lineHeight: 1.65, color: "var(--ink-2)", marginBottom: 20 }}>{item.snippet}</div>
-		</div>
-
-		<div className="diff-pane right">
-			<div className="diff-h">
-				<div>
-					<div className="label">Extracted</div>
-					<div style={{ fontSize: 15, fontWeight: 600, marginTop: 4, letterSpacing: "-0.01em" }}>
-						Structured analysis
+			<div className="diff-pane right">
+				<div className="diff-h">
+					<div>
+						<div className="label">Extracted</div>
+						<div style={{ fontSize: 15, fontWeight: 600, marginTop: 4, letterSpacing: "-0.01em" }}>
+							Structured analysis
+						</div>
 					</div>
+					<ReanalyzeMenu
+						currentProvider={analysis.provider}
+						onPick={rerunAs}
+						disabled={reAnalyzing}
+						error={reAnalyzeError}
+					/>
 				</div>
-				<span
-					className="mono"
+
+				<div
 					style={{
 						fontSize: 11,
-						padding: "3px 8px",
-						border: "1px solid var(--border)",
-						borderRadius: "var(--r-md)",
-						background: "var(--surface-2)",
-						color: "var(--ink-2)",
+						fontFamily: "var(--font-mono)",
+						color: "var(--muted)",
+						marginBottom: 14,
+						display: "flex",
+						gap: 12,
 					}}
-					title="Switch provider in Settings"
 				>
-					LLM · {PROVIDER_LABEL[analysis.provider]}
-				</span>
-			</div>
+					<span>run {fmtDateTime(analysis.runAt)}</span>
+					<span className="bullet" />
+					<span>track: {analysis.track}</span>
+				</div>
 
-			<div
+				<div className="section-h" style={{ marginBottom: 6 }}>
+					Summary
+				</div>
+				<div style={{ fontSize: 13.5, lineHeight: 1.65, color: "var(--ink-2)", marginBottom: 22 }}>
+					{analysis.summary}
+				</div>
+
+				<div className="section-h" style={{ marginBottom: 6 }}>
+					Concepts matched
+				</div>
+				<div className="row gap-2" style={{ flexWrap: "wrap", marginBottom: 22 }}>
+					{analysis.concepts.map((c) => (
+						<span key={c} className="concept-tag">
+							{c}
+						</span>
+					))}
+				</div>
+
+				<div className="section-h" style={{ marginBottom: 6 }}>
+					Key points
+				</div>
+				<ul style={{ margin: "0 0 22px", paddingLeft: 18, fontSize: 13, lineHeight: 1.65, color: "var(--ink-2)" }}>
+					{analysis.keyPoints.map((k) => (
+						<li key={k} style={{ marginBottom: 4 }}>
+							{k}
+						</li>
+					))}
+				</ul>
+
+				<div className="section-h" style={{ marginBottom: 8 }}>
+					Suggested outputs
+				</div>
+				<div className="col gap-2">
+					{analysis.outputs.map((o, i) => (
+						<PromoteRow
+							key={`${o.kind}-${i}`}
+							analysisId={analysis.id}
+							kind={o.kind}
+							hook={o.hook}
+							outputIndex={i}
+						/>
+					))}
+				</div>
+
+				<div className="section-h" style={{ marginBottom: 8, marginTop: 22 }}>
+					Carousel
+				</div>
+				<PromoteCarouselRow analysisId={analysis.id} onOpenDrafts={onOpenDrafts} />
+			</div>
+		</div>
+	);
+};
+
+const PROVIDERS: { id: ProviderId; label: string }[] = [
+	{ id: "glm", label: "GLM 5.1" },
+	{ id: "claude", label: "Claude Sonnet 4.6" },
+	{ id: "openrouter", label: "OpenRouter" },
+];
+
+const ReanalyzeMenu = ({
+	currentProvider,
+	onPick,
+	disabled,
+	error,
+}: {
+	currentProvider: ProviderId;
+	onPick: (p: ProviderId) => void;
+	disabled: boolean;
+	error: string | null;
+}) => {
+	const [open, setOpen] = useState(false);
+	return (
+		<div style={{ position: "relative" }}>
+			<button
+				type="button"
+				onClick={() => setOpen((o) => !o)}
+				disabled={disabled}
+				className="mono"
+				title="Re-run analysis with a different LLM"
 				style={{
 					fontSize: 11,
-					fontFamily: "var(--font-mono)",
-					color: "var(--muted)",
-					marginBottom: 14,
-					display: "flex",
-					gap: 12,
+					padding: "3px 8px",
+					border: "1px solid var(--border)",
+					borderRadius: "var(--r-md)",
+					background: "var(--surface-2)",
+					color: "var(--ink-2)",
+					cursor: disabled ? "wait" : "pointer",
+					display: "inline-flex",
+					alignItems: "center",
+					gap: 6,
 				}}
 			>
-				<span>run {fmtDateTime(analysis.runAt)}</span>
-				<span className="bullet" />
-				<span>track: {analysis.track}</span>
-			</div>
-
-			<div className="section-h" style={{ marginBottom: 6 }}>
-				Summary
-			</div>
-			<div style={{ fontSize: 13.5, lineHeight: 1.65, color: "var(--ink-2)", marginBottom: 22 }}>
-				{analysis.summary}
-			</div>
-
-			<div className="section-h" style={{ marginBottom: 6 }}>
-				Concepts matched
-			</div>
-			<div className="row gap-2" style={{ flexWrap: "wrap", marginBottom: 22 }}>
-				{analysis.concepts.map((c) => (
-					<span key={c} className="concept-tag">
-						{c}
-					</span>
-				))}
-			</div>
-
-			<div className="section-h" style={{ marginBottom: 6 }}>
-				Key points
-			</div>
-			<ul style={{ margin: "0 0 22px", paddingLeft: 18, fontSize: 13, lineHeight: 1.65, color: "var(--ink-2)" }}>
-				{analysis.keyPoints.map((k) => (
-					<li key={k} style={{ marginBottom: 4 }}>
-						{k}
-					</li>
-				))}
-			</ul>
-
-			<div className="section-h" style={{ marginBottom: 8 }}>
-				Suggested outputs
-			</div>
-			<div className="col gap-2">
-				{analysis.outputs.map((o, i) => (
-					<PromoteRow
-						key={`${o.kind}-${i}`}
-						analysisId={analysis.id}
-						kind={o.kind}
-						hook={o.hook}
-						outputIndex={i}
-					/>
-				))}
-			</div>
-
-			<div className="section-h" style={{ marginBottom: 8, marginTop: 22 }}>
-				Carousel
-			</div>
-			<PromoteCarouselRow analysisId={analysis.id} onOpenDrafts={onOpenDrafts} />
+				LLM · {PROVIDER_LABEL[currentProvider]}
+				{disabled ? <Icons.Clock size={10} /> : <Icons.ChevronDown size={10} />}
+			</button>
+			{open && (
+				<div
+					role="menu"
+					style={{
+						position: "absolute",
+						top: "calc(100% + 4px)",
+						right: 0,
+						background: "var(--surface)",
+						border: "1px solid var(--border)",
+						borderRadius: "var(--r-md)",
+						padding: 4,
+						minWidth: 180,
+						boxShadow: "var(--shadow-md)",
+						zIndex: 5,
+					}}
+				>
+					<div
+						className="mono"
+						style={{
+							fontSize: 10,
+							color: "var(--muted)",
+							padding: "4px 8px",
+							textTransform: "uppercase",
+							letterSpacing: "0.08em",
+						}}
+					>
+						re-analyze with
+					</div>
+					{PROVIDERS.map((p) => (
+						<button
+							key={p.id}
+							type="button"
+							onClick={() => {
+								setOpen(false);
+								onPick(p.id);
+							}}
+							style={{
+								display: "flex",
+								justifyContent: "space-between",
+								alignItems: "center",
+								width: "100%",
+								padding: "6px 8px",
+								fontSize: 12,
+								background: "transparent",
+								border: "none",
+								borderRadius: "var(--r-sm)",
+								cursor: "pointer",
+								textAlign: "left",
+								color: "var(--ink)",
+							}}
+						>
+							<span>{p.label}</span>
+							{currentProvider === p.id && (
+								<Icons.Check size={11} sw={2} style={{ color: "var(--accent-ink)" }} />
+							)}
+						</button>
+					))}
+				</div>
+			)}
+			{error && (
+				<div
+					className="mono"
+					style={{
+						position: "absolute",
+						top: "calc(100% + 4px)",
+						right: 0,
+						fontSize: 10.5,
+						color: "var(--st-rejected-fg)",
+						maxWidth: 280,
+					}}
+				>
+					{error}
+				</div>
+			)}
 		</div>
-	</div>
-);
+	);
+};
 
 const PromoteRow = ({
 	analysisId,

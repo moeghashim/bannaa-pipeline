@@ -40,6 +40,8 @@ import type * as generate_internal from "../generate/internal.js";
 import type * as generate_prompts from "../generate/prompts.js";
 import type * as http from "../http.js";
 import type * as inbox_capture from "../inbox/capture.js";
+import type * as inbox_fetch from "../inbox/fetch.js";
+import type * as inbox_fetchInternal from "../inbox/fetchInternal.js";
 import type * as inbox_get from "../inbox/get.js";
 import type * as inbox_list from "../inbox/list.js";
 import type * as inbox_reject from "../inbox/reject.js";
@@ -61,6 +63,7 @@ import type * as x_inbox from "../x/inbox.js";
 import type * as x_oauth from "../x/oauth.js";
 import type * as x_oauthState from "../x/oauthState.js";
 import type * as x_sync from "../x/sync.js";
+import type * as x_tokens from "../x/tokens.js";
 
 import type {
   ApiFromModules,
@@ -101,6 +104,8 @@ declare const fullApi: ApiFromModules<{
   "generate/prompts": typeof generate_prompts;
   http: typeof http;
   "inbox/capture": typeof inbox_capture;
+  "inbox/fetch": typeof inbox_fetch;
+  "inbox/fetchInternal": typeof inbox_fetchInternal;
   "inbox/get": typeof inbox_get;
   "inbox/list": typeof inbox_list;
   "inbox/reject": typeof inbox_reject;
@@ -122,6 +127,7 @@ declare const fullApi: ApiFromModules<{
   "x/oauth": typeof x_oauth;
   "x/oauthState": typeof x_oauthState;
   "x/sync": typeof x_sync;
+  "x/tokens": typeof x_tokens;
 }>;
 
 /**

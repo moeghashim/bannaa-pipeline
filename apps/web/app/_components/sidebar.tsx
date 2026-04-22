@@ -1,4 +1,8 @@
-import type { ReactElement } from "react";
+"use client";
+
+import { useAuthActions } from "@convex-dev/auth/react";
+import { type ReactElement, useRef, useState } from "react";
+import { useMountEffect } from "../../lib/use-mount-effect";
 import { Icons } from "./icons";
 import type { State, ViewKey } from "./types";
 
@@ -88,8 +92,43 @@ export const Sidebar = ({
 			</button>
 		</div>
 
-		<div className="sidebar-footer">
-			<div className="row gap-2" style={{ padding: "8px 10px", alignItems: "center" }}>
+		<SidebarFooter identity={identity} />
+	</aside>
+);
+
+const SidebarFooter = ({ identity }: { identity: { initial: string; name: string } }) => {
+	const { signOut } = useAuthActions();
+	const [open, setOpen] = useState(false);
+	const rootRef = useRef<HTMLDivElement>(null);
+
+	useMountEffect(() => {
+		const onClickOutside = (e: MouseEvent) => {
+			if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+				setOpen(false);
+			}
+		};
+		window.addEventListener("mousedown", onClickOutside);
+		return () => window.removeEventListener("mousedown", onClickOutside);
+	});
+
+	return (
+		<div className="sidebar-footer" ref={rootRef} style={{ position: "relative" }}>
+			<button
+				type="button"
+				className="row gap-2"
+				onClick={() => setOpen((o) => !o)}
+				aria-haspopup="menu"
+				aria-expanded={open}
+				style={{
+					width: "100%",
+					padding: "8px 10px",
+					alignItems: "center",
+					background: "transparent",
+					border: "none",
+					cursor: "pointer",
+					textAlign: "left",
+				}}
+			>
 				<div
 					style={{
 						width: 22,
@@ -123,7 +162,50 @@ export const Sidebar = ({
 					</div>
 				</div>
 				<Icons.ChevronDown size={12} style={{ color: "var(--muted)" }} />
-			</div>
+			</button>
+			{open && (
+				<div
+					role="menu"
+					aria-label="Account actions"
+					style={{
+						position: "absolute",
+						bottom: "calc(100% - 4px)",
+						left: 10,
+						right: 10,
+						background: "var(--surface)",
+						border: "1px solid var(--border)",
+						borderRadius: "var(--r-md)",
+						padding: 4,
+						boxShadow: "var(--shadow-md)",
+						zIndex: 10,
+					}}
+				>
+					<button
+						type="button"
+						onClick={() => {
+							setOpen(false);
+							void signOut();
+						}}
+						style={{
+							display: "flex",
+							alignItems: "center",
+							gap: 8,
+							width: "100%",
+							padding: "6px 8px",
+							fontSize: 12,
+							background: "transparent",
+							border: "none",
+							borderRadius: "var(--r-sm)",
+							cursor: "pointer",
+							textAlign: "left",
+							color: "var(--ink)",
+						}}
+					>
+						<Icons.X size={11} />
+						Sign out
+					</button>
+				</div>
+			)}
 		</div>
-	</aside>
-);
+	);
+};

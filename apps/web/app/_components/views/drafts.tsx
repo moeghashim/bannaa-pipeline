@@ -1,15 +1,17 @@
 "use client";
 
 import { api } from "@convex/_generated/api";
-import type { Doc, Id } from "@convex/_generated/dataModel";
+import type { Doc } from "@convex/_generated/dataModel";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { useState } from "react";
 import { fmtDate, timeAgo } from "../format";
 import { Icons } from "../icons";
-import { Chip, HyperFrame } from "../primitives";
+import { Chip } from "../primitives";
 import type { Channel, ImageProvider } from "../types";
+import { ArEditor } from "./draftsArEditor";
 import { CarouselStrip, carouselStatusLabel } from "./draftsCarousel";
 import { ImageProviderPicker } from "./draftsImagePicker";
+import { DraftMedia } from "./draftsMedia";
 import { SchedulePopover } from "./draftsScheduler";
 
 const CHANNELS: { value: Channel | "all"; label: string }[] = [
@@ -52,6 +54,7 @@ export const DraftsView = ({ channel, setChannel }: { channel: string; setChanne
 	const approve = useMutation(api.drafts.mutate.approve);
 	const reject = useMutation(api.drafts.mutate.reject);
 	const unschedule = useMutation(api.drafts.mutate.unschedule);
+	const updateAr = useMutation(api.drafts.mutate.updateAr);
 
 	const loaded = drafts !== undefined;
 	const rows = drafts ?? [];
@@ -101,6 +104,7 @@ export const DraftsView = ({ channel, setChannel }: { channel: string; setChanne
 							onApprove={() => approve({ id: d._id })}
 							onReject={() => reject({ id: d._id })}
 							onUnschedule={() => unschedule({ id: d._id })}
+							onSaveAr={(ar) => updateAr({ id: d._id, ar })}
 						/>
 					))}
 				</div>
@@ -115,12 +119,14 @@ const DraftCard = ({
 	onApprove,
 	onReject,
 	onUnschedule,
+	onSaveAr,
 }: {
 	draft: Doc<"drafts">;
 	defaultImageProvider: ImageProvider;
 	onApprove: () => void;
 	onReject: () => void;
 	onUnschedule: () => void;
+	onSaveAr: (ar: string) => Promise<unknown>;
 }) => {
 	const variant = channelFrame(draft.channel);
 	const videoChannel = isVideoChannel(draft.channel);
@@ -141,6 +147,35 @@ const DraftCard = ({
 	const [genError, setGenError] = useState<string | null>(null);
 	const [view, setView] = useState<"overlay" | "base">("overlay");
 	const [schedulerOpen, setSchedulerOpen] = useState(false);
+	const [editing, setEditing] = useState(false);
+	const [editDraft, setEditDraft] = useState(draft.ar);
+	const [editError, setEditError] = useState<string | null>(null);
+	const [editSaving, setEditSaving] = useState(false);
+	const editLocked =
+		!!draft.postizStatus && draft.postizStatus !== "failed"
+			? `AR locked while post is ${draft.postizStatus} — unschedule first`
+			: null;
+
+	const saveAr = async () => {
+		setEditSaving(true);
+		setEditError(null);
+		try {
+			await onSaveAr(editDraft);
+			setEditing(false);
+		} catch (err) {
+			setEditError(err instanceof Error ? err.message : String(err));
+		} finally {
+			setEditSaving(false);
+		}
+	};
+	const editorProps = {
+		value: editDraft,
+		onChange: setEditDraft,
+		onCancel: () => setEditing(false),
+		onSave: saveAr,
+		error: editError,
+		saving: editSaving,
+	};
 
 	const runGenerate = async (provider: ImageProvider) => {
 		setPicker(false);
@@ -262,9 +297,13 @@ const DraftCard = ({
 							</span>
 							{hasComposite && <BaseOverlayToggle value={view} onChange={setView} />}
 						</div>
-						<div className="ar-text" style={{ fontSize: 13, textWrap: "pretty" }}>
-							{draft.ar}
-						</div>
+						{editing ? (
+							<ArEditor {...editorProps} />
+						) : (
+							<div className="ar-text" style={{ fontSize: 13, textWrap: "pretty" }}>
+								{draft.ar}
+							</div>
+						)}
 						<div className="en-text">{draft.en}</div>
 						<div className="row gap-2" style={{ marginTop: "auto", flexWrap: "wrap" }}>
 							{draft.concepts.map((c) => (
@@ -287,9 +326,13 @@ const DraftCard = ({
 							{hasComposite && <BaseOverlayToggle value={view} onChange={setView} />}
 						</div>
 						<div className="copy">
-							<div className="ar-text" style={{ fontSize: 14, textWrap: "pretty" }}>
-								{draft.ar}
-							</div>
+							{editing ? (
+								<ArEditor {...editorProps} />
+							) : (
+								<div className="ar-text" style={{ fontSize: 14, textWrap: "pretty" }}>
+									{draft.ar}
+								</div>
+							)}
 							<div className="en-text">{draft.en}</div>
 							<div className="row gap-2" style={{ marginTop: "auto", flexWrap: "wrap" }}>
 								{draft.concepts.map((c) => (
@@ -427,7 +470,17 @@ const DraftCard = ({
 							<Icons.X size={11} /> Unschedule
 						</button>
 					)}
-					<button type="button" className="btn ghost xs" title="Edit (E)" disabled>
+					<button
+						type="button"
+						className="btn ghost xs"
+						title={editLocked ?? "Edit AR (E)"}
+						disabled={!!editLocked}
+						onClick={() => {
+							setEditDraft(draft.ar);
+							setEditError(null);
+							setEditing((e) => !e);
+						}}
+					>
 						<Icons.Edit size={11} />
 					</button>
 					{draft.state !== "rejected" && (
@@ -455,89 +508,6 @@ const DraftCard = ({
 				)}
 			</div>
 		</div>
-	);
-};
-
-const DraftMedia = ({
-	asset,
-	assetLoaded,
-	variant,
-	ar,
-	channel,
-}: {
-	asset: Doc<"mediaAssets"> | null;
-	assetLoaded: boolean;
-	variant: "square" | "vertical";
-	ar: string;
-	channel: string;
-}) => {
-	const w = variant === "vertical" ? 140 : 200;
-	const h = variant === "vertical" ? w / (9 / 16) : w;
-
-	if (!assetLoaded) {
-		return <div className="skeleton" style={{ width: w, height: h, flexShrink: 0 }} />;
-	}
-
-	if (asset && asset.state === "generating") {
-		return (
-			<div
-				className="skeleton"
-				style={{ width: w, height: h, flexShrink: 0, position: "relative", overflow: "hidden" }}
-			>
-				<span
-					className="mono"
-					style={{
-						position: "absolute",
-						inset: 0,
-						display: "flex",
-						alignItems: "center",
-						justifyContent: "center",
-						fontSize: 10,
-						color: "var(--muted)",
-					}}
-				>
-					generating…
-				</span>
-			</div>
-		);
-	}
-
-	if (asset && asset.state === "ready" && asset.storageId) {
-		return <ReadyImage storageId={asset.storageId} width={w} height={h} alt={asset.prompt.slice(0, 80)} />;
-	}
-
-	// No asset (or failed) — fall back to the HyperFrame preview of the AR copy.
-	return <HyperFrame variant={variant} ar={ar} channel={channel} small />;
-};
-
-const ReadyImage = ({
-	storageId,
-	width,
-	height,
-	alt,
-}: {
-	storageId: Id<"_storage">;
-	width: number;
-	height: number;
-	alt: string;
-}) => {
-	const url = useQuery(api.mediaAssets.url.resolveUrl, { storageId });
-	if (!url) return <div className="skeleton" style={{ width, height, flexShrink: 0 }} />;
-	return (
-		// biome-ignore lint/performance/noImgElement: Convex storage URLs are short-lived, not Next.js-optimizable
-		<img
-			src={url}
-			alt={alt}
-			width={width}
-			height={height}
-			style={{
-				width,
-				height,
-				objectFit: "cover",
-				borderRadius: "var(--r-md)",
-				flexShrink: 0,
-			}}
-		/>
 	);
 };
 

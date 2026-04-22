@@ -3,9 +3,8 @@ import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { action, type ActionCtx, internalAction } from "../_generated/server";
 import { requireUser } from "../lib/requireUser";
+import { refreshXTokenIfNeeded } from "./tokens";
 
-const TOKEN_URL = "https://api.x.com/2/oauth2/token";
-const REFRESH_MARGIN_MS = 60_000;
 const MAX_PAGES_PER_SYNC = 5;
 
 type BookmarkItem = {
@@ -34,45 +33,6 @@ type Account = {
 	autoSync?: boolean;
 };
 
-function basicAuth(): string {
-	const id = process.env.X_CLIENT_ID;
-	const secret = process.env.X_CLIENT_SECRET;
-	if (!id || !secret) throw new Error("X_CLIENT_ID or X_CLIENT_SECRET not configured");
-	return `Basic ${btoa(`${id}:${secret}`)}`;
-}
-
-async function refreshIfNeeded(ctx: ActionCtx, acc: Account): Promise<string> {
-	if (acc.expiresAt - REFRESH_MARGIN_MS > Date.now()) return acc.accessToken;
-
-	const body = new URLSearchParams({
-		grant_type: "refresh_token",
-		refresh_token: acc.refreshToken,
-	});
-	const resp = await fetch(TOKEN_URL, {
-		method: "POST",
-		headers: {
-			Authorization: basicAuth(),
-			"Content-Type": "application/x-www-form-urlencoded",
-		},
-		body: body.toString(),
-	});
-	if (!resp.ok) {
-		throw new Error(`X token refresh failed: ${resp.status} ${await resp.text()}`);
-	}
-	const token = (await resp.json()) as {
-		access_token: string;
-		refresh_token: string;
-		expires_in: number;
-	};
-	await ctx.runMutation(internal.x.accounts.updateTokens, {
-		id: acc._id,
-		accessToken: token.access_token,
-		refreshToken: token.refresh_token,
-		expiresAt: Date.now() + token.expires_in * 1000,
-	});
-	return token.access_token;
-}
-
 async function fetchBookmarksPage(
 	token: string,
 	xUserId: string,
@@ -99,7 +59,7 @@ async function syncAccount(
 	ctx: ActionCtx,
 	acc: Account,
 ): Promise<{ inserted: number; scanned: number }> {
-	const accessToken = await refreshIfNeeded(ctx, acc);
+	const accessToken = await refreshXTokenIfNeeded(ctx, acc);
 
 	let inserted = 0;
 	let scanned = 0;
