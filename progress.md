@@ -208,3 +208,11 @@ Append-only learning log for commits and deploys. Add new entries only at the en
 - Actor: Ja3ood <moeghashim@users.noreply.github.com>
 - Changed Paths:
   - README.md
+## 2026-04-22T01:26:40.949Z
+- Trigger: commit
+- Learning: CI failed on B.3 (106257e) and subsequent commits because convex/_generated/api.d.ts wasn't included in the scoped commit paths. The subagent ran npx convex dev --once locally which regenerated the file, but commit:with-progress was called with convex/generate/carousel.ts etc. and didn't pick up the generated file. Pre-commit hook passes locally because the regenerated file is present on disk; CI builds against origin content which was stale. Fix is purely mechanical (commit the already-regenerated file). Going forward: commit:with-progress paths should include convex/_generated/api.d.ts whenever a new convex module is added, or the commit should be invoked with 'convex' as a path prefix rather than individual files.
+- Context: chore(convex): regenerate api.d.ts for carousel exports
+- Branch: main
+- Actor: Ja3ood <moeghashim@users.noreply.github.com>
+- Changed Paths:
+  - convex/_generated/api.d.ts
