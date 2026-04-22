@@ -200,3 +200,11 @@ Append-only learning log for commits and deploys. Add new entries only at the en
   - apps/web/app/_components/views/analyses.tsx
   - apps/web/app/_components/views/drafts.tsx
   - apps/web/app/_components/views/draftsCarousel.tsx
+## 2026-04-22T01:22:36.010Z
+- Trigger: commit
+- Learning: README was still the scaffold-era vision (Claude/Codex/Grok provider set, five apps/worker + packages/* that never got built, bannaa.co described as populated site). Rewrote to match what's actually live: pipeline diagram (X bookmark → analyze → drafts → image → HyperFrames overlay), 3 LLM providers (GLM default + Claude + OpenRouter) + 5 image providers (Nano Banana + GPT Image + Grok + Ideogram + OpenRouter), IG carousel branch with styleAnchor coherence, satori + @resvg/resvg-wasm compositor, complete env-var matrix with required-for column, accurate repo layout down to convex/generate/image/* submodules, scaffold rules (no direct useEffect in apps/web, no .js extensions, no use node on http-imported files, a11y relaxations scoped to apps/web). Dropped the Codex/Grok-text-LLM naming that predated the GLM switch. Kept MIT license.
+- Context: docs(readme): rewrite to reflect shipped pipeline
+- Branch: main
+- Actor: Ja3ood <moeghashim@users.noreply.github.com>
+- Changed Paths:
+  - README.md
