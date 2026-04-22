@@ -3,8 +3,10 @@
 import { api } from "@convex/_generated/api";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { useState } from "react";
+import { useMountEffect } from "../../../lib/use-mount-effect";
 import { Icons } from "../icons";
 import { Chip } from "../primitives";
+import type { ImageProvider } from "../types";
 
 function fmtRelative(ms: number | undefined): string {
 	if (!ms) return "never";
@@ -20,6 +22,218 @@ const PROVIDERS = [
 	{ k: "claude" as const, name: "Claude Sonnet 4.6", note: "highest quality AR" },
 	{ k: "openrouter" as const, name: "OpenRouter", note: "route to any frontier model" },
 ];
+
+const IMAGE_PROVIDERS: { k: ImageProvider; name: string; note: string; envVar: string }[] = [
+	{
+		k: "nano-banana",
+		name: "Nano Banana",
+		note: "Google Gemini 2.5 Flash Image · ~$0.04",
+		envVar: "GOOGLE_API_KEY",
+	},
+	{ k: "gpt-image", name: "GPT Image", note: "OpenAI gpt-image-1 · ~$0.04", envVar: "OPENAI_API_KEY" },
+	{ k: "grok", name: "Grok", note: "xAI grok-2-image · ~$0.07", envVar: "GROK_API_KEY" },
+	{ k: "ideogram", name: "Ideogram", note: "Ideogram v3 · ~$0.08", envVar: "IDEOGRAM_API_KEY" },
+	{
+		k: "openrouter",
+		name: "OpenRouter",
+		note: "routes to image-capable models · ~$0.04",
+		envVar: "OPENROUTER_API_KEY",
+	},
+];
+
+type ImageKeys = {
+	google: boolean;
+	openai: boolean;
+	grok: boolean;
+	ideogram: boolean;
+	openrouter: boolean;
+};
+
+const ImageProviderSection = () => {
+	const settings = useQuery(api.settings.doc.get, {});
+	const setDefaultImageProvider = useMutation(api.settings.doc.setDefaultImageProvider);
+	const imageKeys = useAction(api.env.imageKeys.imageKeysPresent);
+
+	const active: ImageProvider = settings?.defaultImageProvider ?? "nano-banana";
+	const [keys, setKeys] = useState<ImageKeys | null>(null);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState<string | null>(null);
+
+	useMountEffect(() => {
+		let cancelled = false;
+		imageKeys({})
+			.then((k) => {
+				if (!cancelled) setKeys(k);
+			})
+			.catch((err) => {
+				if (!cancelled) setError(err instanceof Error ? err.message : String(err));
+			})
+			.finally(() => {
+				if (!cancelled) setLoading(false);
+			});
+		return () => {
+			cancelled = true;
+		};
+	});
+
+	const keyFor = (envVar: string): boolean => {
+		if (!keys) return false;
+		if (envVar === "GOOGLE_API_KEY") return keys.google;
+		if (envVar === "OPENAI_API_KEY") return keys.openai;
+		if (envVar === "GROK_API_KEY") return keys.grok;
+		if (envVar === "IDEOGRAM_API_KEY") return keys.ideogram;
+		if (envVar === "OPENROUTER_API_KEY") return keys.openrouter;
+		return false;
+	};
+
+	return (
+		<div className="settings-group">
+			<h3>Image provider</h3>
+			<p className="sub">
+				Default provider for single-image generation on text-channel drafts. Video channels (Reels / TikTok / YT
+				Shorts) are skipped here — they'll get their own phase.
+			</p>
+			<div className="provider-tiles">
+				{IMAGE_PROVIDERS.map((p) => {
+					const configured = keyFor(p.envVar);
+					return (
+						<button
+							key={p.k}
+							type="button"
+							className={`provider-tile${active === p.k ? " active" : ""}`}
+							onClick={() => {
+								if (active !== p.k) {
+									void setDefaultImageProvider({ provider: p.k });
+								}
+							}}
+						>
+							<div className="row gap-2" style={{ marginBottom: 6, justifyContent: "space-between" }}>
+								<span style={{ fontSize: 12.5, fontWeight: 600 }}>{p.name}</span>
+								{active === p.k && <Icons.Check size={13} sw={2} style={{ color: "var(--accent-ink)" }} />}
+							</div>
+							<div className="mono" style={{ fontSize: 10.5, color: "var(--muted)" }}>
+								{p.note}
+							</div>
+							<div
+								className="mono"
+								style={{
+									fontSize: 10,
+									marginTop: 6,
+									color: configured ? "var(--accent-ink)" : "var(--st-rejected-fg)",
+								}}
+							>
+								{loading ? "checking…" : configured ? "configured" : "key missing"}
+							</div>
+						</button>
+					);
+				})}
+			</div>
+			{error && (
+				<div className="mono" style={{ marginTop: 8, fontSize: 11, color: "var(--st-rejected-fg)" }}>
+					{error}
+				</div>
+			)}
+		</div>
+	);
+};
+
+const ImageConnectionRow = ({
+	label,
+	help,
+	envVar,
+	configured,
+	loading,
+}: {
+	label: string;
+	help: string;
+	envVar: string;
+	configured: boolean;
+	loading: boolean;
+}) => {
+	return (
+		<div className="setting-row">
+			<div>
+				<div className="lbl">{label}</div>
+				<div className="hlp">{help}</div>
+			</div>
+			<div className="row gap-2" style={{ flexWrap: "wrap" }}>
+				{loading ? (
+					<span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
+						checking…
+					</span>
+				) : configured ? (
+					<>
+						<Chip state="approved" label="configured" />
+						<span className="mono" style={{ fontSize: 10.5, color: "var(--muted)" }}>
+							{envVar}
+						</span>
+					</>
+				) : (
+					<>
+						<Chip state="new" label="not configured" />
+						<span className="mono" style={{ fontSize: 10.5, color: "var(--muted)" }}>
+							run <code>npx convex env set {envVar} …</code>
+						</span>
+					</>
+				)}
+			</div>
+		</div>
+	);
+};
+
+const ImageConnections = () => {
+	const imageKeys = useAction(api.env.imageKeys.imageKeysPresent);
+	const [keys, setKeys] = useState<ImageKeys | null>(null);
+	const [loading, setLoading] = useState(true);
+
+	useMountEffect(() => {
+		let cancelled = false;
+		imageKeys({})
+			.then((k) => {
+				if (!cancelled) setKeys(k);
+			})
+			.catch(() => {})
+			.finally(() => {
+				if (!cancelled) setLoading(false);
+			});
+		return () => {
+			cancelled = true;
+		};
+	});
+
+	return (
+		<>
+			<ImageConnectionRow
+				label="Google (Nano Banana / Gemini)"
+				help="Gemini 2.5 Flash Image for single-image drafts."
+				envVar="GOOGLE_API_KEY"
+				configured={keys?.google ?? false}
+				loading={loading}
+			/>
+			<ImageConnectionRow
+				label="OpenAI (GPT Image)"
+				help="gpt-image-1 — distinct from the OpenRouter key."
+				envVar="OPENAI_API_KEY"
+				configured={keys?.openai ?? false}
+				loading={loading}
+			/>
+			<ImageConnectionRow
+				label="Grok (xAI)"
+				help="grok-2-image via api.x.ai."
+				envVar="GROK_API_KEY"
+				configured={keys?.grok ?? false}
+				loading={loading}
+			/>
+			<ImageConnectionRow
+				label="Ideogram"
+				help="Ideogram v3 — good photo-realism + typography."
+				envVar="IDEOGRAM_API_KEY"
+				configured={keys?.ideogram ?? false}
+				loading={loading}
+			/>
+		</>
+	);
+};
 
 const XConnection = () => {
 	const status = useQuery(api.x.accounts.mineStatus, {});
@@ -133,10 +347,13 @@ export const SettingsView = () => {
 				</div>
 			</div>
 
+			<ImageProviderSection />
+
 			<div className="settings-group">
 				<h3>Connections</h3>
 				<p className="sub">Credentials for the pipeline's upstream and downstream hops.</p>
 				<XConnection />
+				<ImageConnections />
 				<div className="setting-row" style={{ display: "none" }} />
 				<div className="setting-row">
 					<div>

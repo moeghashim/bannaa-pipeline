@@ -6,6 +6,14 @@ import { requireUser } from "../lib/requireUser";
 
 const providerValidator = v.union(v.literal("claude"), v.literal("glm"), v.literal("openrouter"));
 
+const imageProviderValidator = v.union(
+	v.literal("nano-banana"),
+	v.literal("gpt-image"),
+	v.literal("grok"),
+	v.literal("ideogram"),
+	v.literal("openrouter"),
+);
+
 const SETTINGS_SINGLETON = "app";
 
 async function readSettings(ctx: QueryCtx | MutationCtx): Promise<Doc<"settings"> | null> {
@@ -41,6 +49,24 @@ export const setDefaultProvider = mutation({
 	},
 });
 
+export const setDefaultImageProvider = mutation({
+	args: { provider: imageProviderValidator },
+	handler: async (ctx, { provider }) => {
+		await requireUser(ctx);
+		const existing = await readSettings(ctx);
+		if (existing) {
+			await ctx.db.patch(existing._id, { defaultImageProvider: provider, updatedAt: Date.now() });
+			return;
+		}
+		await ctx.db.insert("settings", {
+			key: SETTINGS_SINGLETON,
+			defaultProvider: "glm",
+			defaultImageProvider: provider,
+			updatedAt: Date.now(),
+		});
+	},
+});
+
 export const getInternal = internalQuery({
 	args: {},
 	returns: v.union(
@@ -49,6 +75,7 @@ export const getInternal = internalQuery({
 			_creationTime: v.number(),
 			key: v.string(),
 			defaultProvider: providerValidator,
+			defaultImageProvider: v.optional(imageProviderValidator),
 			updatedAt: v.number(),
 		}),
 		v.null(),

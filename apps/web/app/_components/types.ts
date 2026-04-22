@@ -2,6 +2,8 @@ export type Source = "x" | "youtube" | "article" | "manual" | "newsletter";
 export type State = "new" | "analyzing" | "draft" | "approved" | "rejected" | "published";
 export type Lang = "en" | "ar";
 export type ProviderId = "claude" | "glm" | "openrouter";
+export type ImageProvider = "nano-banana" | "gpt-image" | "grok" | "ideogram" | "openrouter";
+export type MediaKind = "text" | "single-image" | "carousel" | "video";
 export type Channel = "x" | "ig" | "ig-reel" | "tiktok" | "yt-shorts" | "fb-page" | "linkedin-page";
 export type Track = "Foundations" | "Agents" | "Media";
 

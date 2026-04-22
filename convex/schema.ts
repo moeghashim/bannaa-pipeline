@@ -34,6 +34,21 @@ const channelType = v.union(
 	v.literal("linkedin-page"),
 );
 
+const mediaKindType = v.union(
+	v.literal("text"),
+	v.literal("single-image"),
+	v.literal("carousel"),
+	v.literal("video"),
+);
+
+const imageProviderType = v.union(
+	v.literal("nano-banana"),
+	v.literal("gpt-image"),
+	v.literal("grok"),
+	v.literal("ideogram"),
+	v.literal("openrouter"),
+);
+
 export default defineSchema({
 	...authTables,
 
@@ -118,20 +133,51 @@ export default defineSchema({
 		createdAt: v.number(),
 		scheduled: v.optional(v.number()),
 		genRunId: v.id("providerRuns"),
+		mediaKind: v.optional(mediaKindType),
+		imageProvider: v.optional(imageProviderType),
+		imageModel: v.optional(v.string()),
 	})
 		.index("by_analysis", ["analysisId"])
 		.index("by_state", ["state"])
 		.index("by_channel", ["channel"])
 		.index("by_createdAt", ["createdAt"]),
 
+	mediaAssets: defineTable({
+		draftId: v.id("drafts"),
+		kind: v.union(v.literal("image"), v.literal("video")),
+		storageId: v.optional(v.id("_storage")),
+		url: v.optional(v.string()),
+		prompt: v.string(),
+		provider: imageProviderType,
+		model: v.string(),
+		state: v.union(v.literal("generating"), v.literal("ready"), v.literal("failed")),
+		width: v.number(),
+		height: v.number(),
+		orderIndex: v.number(),
+		createdAt: v.number(),
+		error: v.optional(v.string()),
+		genRunId: v.optional(v.id("providerRuns")),
+	})
+		.index("by_draft", ["draftId"])
+		.index("by_state", ["state"]),
+
 	settings: defineTable({
 		key: v.string(),
 		defaultProvider: v.union(v.literal("claude"), v.literal("glm"), v.literal("openrouter")),
+		defaultImageProvider: v.optional(imageProviderType),
 		updatedAt: v.number(),
 	}).index("by_key", ["key"]),
 
 	providerRuns: defineTable({
-		provider: v.union(v.literal("claude"), v.literal("glm"), v.literal("openrouter")),
+		provider: v.union(
+			v.literal("claude"),
+			v.literal("glm"),
+			v.literal("openrouter"),
+			v.literal("nano-banana"),
+			v.literal("gpt-image"),
+			v.literal("grok"),
+			v.literal("ideogram"),
+		),
 		model: v.string(),
 		purpose: v.string(),
 		itemId: v.optional(v.id("inboxItems")),

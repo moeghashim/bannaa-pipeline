@@ -129,3 +129,24 @@ Append-only learning log for commits and deploys. Add new entries only at the en
 - Changed Paths:
   - convex
   - apps/web/app/_components
+## 2026-04-22T00:17:52.523Z
+- Trigger: commit
+- Learning: Phase 2 B.2 landed: five image-provider adapters in convex/generate/image/providers.ts, all fetch-based and staying in Convex V8 (no 'use node') so the module is safely importable from anywhere. Provider quirks discovered: (a) Nano Banana (Google Gemini 2.5 Flash Image) posts { contents: [{ parts: [{ text }] }] } to generativelanguage.googleapis.com with ?key=… query-string auth, and the response shape puts the base64 PNG at candidates[0].content.parts[*].inlineData.data; (b) OpenAI gpt-image-1 uses Bearer auth on api.openai.com/v1/images/generations and returns data[0].b64_json (distinct OPENAI_API_KEY from OPENROUTER_API_KEY — the two must not be reused); (c) Grok uses the same OpenAI-style endpoint at api.x.ai/v1/images/generations, model grok-2-image, response_format: 'b64_json'; (d) Ideogram is the odd one out — Api-Key header (NOT Bearer), multipart/form-data body (prompt, aspect_ratio, rendering_speed, num_images), and the response returns a signed URL at data[0].url that we must fetch a second time for the bytes; (e) OpenRouter exposes an OpenAI-compatible /images/generations with Bearer auth, routed to google/gemini-2.5-flash-image by default (overridable via OPENROUTER_IMAGE_MODEL env), reusing the existing OPENROUTER_API_KEY and HTTP-Referer/X-Title headers. MediaAssets flow: insert row with state 'generating' BEFORE calling the provider (so the UI can render a shimmer tile immediately via the by_draft index), then on success store the blob via ctx.storage.store (action-only API, needs a real action, not a node action — V8 action has storage.store), patch the row to 'ready' with storageId, and patch the parent draft with mediaKind='single-image' + imageProvider + imageModel; on failure patch to 'failed' with the error string and record a failed providerRun. providerRuns.provider union widened to include the five image providers so audit rows have real provenance instead of being squashed. AR text is intentionally NOT in the image prompt — the image is a clean background / illustration, the AR copy is overlaid later by HyperFrames (B.4), so the prompt explicitly forbids letters/glyphs/captions and asks the model to leave top-right + bottom-left quadrants empty for overlay. Video channels (ig-reel / tiktok / yt-shorts) are skipped with a 'video later' button — they need real video models in a future phase. Env vars operator must set: npx convex env set GOOGLE_API_KEY …, OPENAI_API_KEY …, GROK_API_KEY …, IDEOGRAM_API_KEY …; OPENROUTER_API_KEY already exists from text dispatch (also used by OpenRouter image). Optional: OPENROUTER_IMAGE_MODEL to override the OpenRouter routed model. Type gotcha repeated from B.1: the generateForDraft action handler needs explicit Promise<RunResult> annotation because it calls ctx.runQuery(internal.*) which otherwise cascades into recursive-inference errors in apps/web. UI additions: Drafts tab renders the first media asset per card (shimmer while generating, img when ready, HyperFrame fallback when no asset); Generate-image button opens an inline provider picker anchored over the card foot; Settings tab gains an Image provider tile section (persisted to settings.defaultImageProvider) plus a new env.imageKeys.imageKeysPresent auth-gated action exposing per-provider key presence so each Connections row can show 'configured' vs 'run npx convex env set …'.
+- Context: feat(images): five image providers + single-image draft generation
+- Branch: main
+- Actor: Ja3ood <moeghashim@users.noreply.github.com>
+- Changed Paths:
+  - convex/schema.ts
+  - convex/settings/doc.ts
+  - convex/generate/image/providers.ts
+  - convex/generate/image/prompts.ts
+  - convex/generate/image/internal.ts
+  - convex/generate/image/action.ts
+  - convex/mediaAssets/list.ts
+  - convex/mediaAssets/url.ts
+  - convex/env/imageKeys.ts
+  - apps/web/app/_components/types.ts
+  - apps/web/app/_components/views/drafts.tsx
+  - apps/web/app/_components/views/settings.tsx
+  - apps/web/next-env.d.ts
+  - convex/_generated/api.d.ts
