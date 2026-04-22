@@ -31,6 +31,7 @@ type Account = {
 	accessToken: string;
 	refreshToken: string;
 	expiresAt: number;
+	autoSync?: boolean;
 };
 
 function basicAuth(): string {
@@ -163,6 +164,7 @@ export const syncAll = internalAction({
 	handler: async (ctx): Promise<null> => {
 		const accounts = await ctx.runQuery(internal.x.accounts.listAll, {});
 		for (const acc of accounts) {
+			if (acc.autoSync === false) continue;
 			try {
 				await syncAccount(ctx, acc);
 				await ctx.runMutation(internal.x.accounts.markSynced, { id: acc._id });

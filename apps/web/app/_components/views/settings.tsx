@@ -238,9 +238,11 @@ const ImageConnections = () => {
 const XConnection = () => {
 	const status = useQuery(api.x.accounts.mineStatus, {});
 	const sync = useAction(api.x.sync.syncMine);
+	const setAutoSync = useMutation(api.x.accounts.setAutoSync);
 	const [syncing, setSyncing] = useState(false);
 	const [lastRun, setLastRun] = useState<{ inserted: number; scanned: number } | null>(null);
 	const [syncError, setSyncError] = useState<string | null>(null);
+	const [autoSyncOverride, setAutoSyncOverride] = useState<boolean | null>(null);
 
 	const connect = () => {
 		window.location.href = "/api/auth/x/start";
@@ -259,6 +261,15 @@ const XConnection = () => {
 		}
 	};
 
+	const autoSyncEnabled = autoSyncOverride ?? (status?.connected ? status.autoSync : true);
+
+	const toggleAutoSync = (next: boolean) => {
+		setAutoSyncOverride(next);
+		setAutoSync({ enabled: next }).catch(() => {
+			setAutoSyncOverride(!next);
+		});
+	};
+
 	return (
 		<div className="setting-row">
 			<div>
@@ -272,6 +283,7 @@ const XConnection = () => {
 						<span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
 							@{status.xHandle} · last sync {fmtRelative(status.lastSyncAt)}
 						</span>
+						{!autoSyncEnabled && <Chip state="new" label="paused" />}
 						<button type="button" className="btn xs" onClick={runSync} disabled={syncing}>
 							{syncing ? (
 								<>
@@ -286,6 +298,19 @@ const XConnection = () => {
 						<button type="button" className="btn ghost xs" onClick={connect}>
 							Reconnect
 						</button>
+						<label
+							className="row gap-2"
+							style={{ fontSize: 12 }}
+							title="Cron pulls bookmarks every 15 min when on"
+						>
+							<input
+								type="checkbox"
+								checked={autoSyncEnabled}
+								onChange={(e) => toggleAutoSync(e.target.checked)}
+								style={{ accentColor: "var(--accent)" }}
+							/>
+							Auto-sync
+						</label>
 						{lastRun && (
 							<span className="mono" style={{ fontSize: 10.5, color: "var(--accent-ink)" }}>
 								+{lastRun.inserted} new · {lastRun.scanned} scanned

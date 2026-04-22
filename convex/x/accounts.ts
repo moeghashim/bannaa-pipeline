@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
-import { internalMutation, internalQuery, query } from "../_generated/server";
+import { internalMutation, internalQuery, mutation, query } from "../_generated/server";
 import { requireUser } from "../lib/requireUser";
 
 export const upsert = internalMutation({
@@ -87,6 +87,7 @@ export const listAll = internalQuery({
 			accessToken: v.string(),
 			refreshToken: v.string(),
 			expiresAt: v.number(),
+			autoSync: v.optional(v.boolean()),
 		}),
 	),
 	handler: async (
@@ -100,6 +101,7 @@ export const listAll = internalQuery({
 			accessToken: string;
 			refreshToken: string;
 			expiresAt: number;
+			autoSync?: boolean;
 		}>
 	> => {
 		const rows: Doc<"xAccounts">[] = await ctx.db.query("xAccounts").collect();
@@ -111,6 +113,7 @@ export const listAll = internalQuery({
 			accessToken: r.accessToken,
 			refreshToken: r.refreshToken,
 			expiresAt: r.expiresAt,
+			autoSync: r.autoSync,
 		}));
 	},
 });
@@ -124,6 +127,7 @@ export const mineStatus = query({
 			connectedAt: v.number(),
 			lastSyncAt: v.optional(v.number()),
 			lastSyncError: v.optional(v.string()),
+			autoSync: v.boolean(),
 		}),
 		v.object({ connected: v.literal(false) }),
 	),
@@ -140,6 +144,22 @@ export const mineStatus = query({
 			connectedAt: row.connectedAt,
 			lastSyncAt: row.lastSyncAt,
 			lastSyncError: row.lastSyncError,
+			autoSync: row.autoSync !== false,
 		};
+	},
+});
+
+export const setAutoSync = mutation({
+	args: { enabled: v.boolean() },
+	returns: v.null(),
+	handler: async (ctx, args): Promise<null> => {
+		const userId = await requireUser(ctx);
+		const row = await ctx.db
+			.query("xAccounts")
+			.withIndex("by_user", (q) => q.eq("userId", userId))
+			.unique();
+		if (!row) throw new Error("X not connected.");
+		await ctx.db.patch(row._id, { autoSync: args.enabled });
+		return null;
 	},
 });

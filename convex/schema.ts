@@ -83,6 +83,7 @@ export default defineSchema({
 		connectedAt: v.number(),
 		lastSyncAt: v.optional(v.number()),
 		lastSyncError: v.optional(v.string()),
+		autoSync: v.optional(v.boolean()),
 	})
 		.index("by_user", ["userId"])
 		.index("by_xUserId", ["xUserId"]),

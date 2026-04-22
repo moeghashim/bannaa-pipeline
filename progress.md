@@ -150,3 +150,14 @@ Append-only learning log for commits and deploys. Add new entries only at the en
   - apps/web/app/_components/views/settings.tsx
   - apps/web/next-env.d.ts
   - convex/_generated/api.d.ts
+## 2026-04-22T00:21:29.892Z
+- Trigger: commit
+- Learning: Added optional autoSync:v.boolean() to xAccounts with undefined treated as true — no migration needed, existing rows default to on. Toggle only gates the 15-min cron (syncAll skips when acc.autoSync===false); the manual 'Sync now' button via syncMine deliberately bypasses it so the operator can always pull on demand. When off, the Settings X row shows a 'paused' Chip (state=new) next to @handle so the account reads as connected-but-paused at a glance. Schema addition is backwards-compatible; lastSyncAt/lastSyncError aren't touched for paused accounts (paused != broken).
+- Context: feat(x): auto-sync toggle for bookmarks cron
+- Branch: main
+- Actor: Ja3ood <moeghashim@users.noreply.github.com>
+- Changed Paths:
+  - apps/web/app/_components/views/settings.tsx
+  - convex/schema.ts
+  - convex/x/accounts.ts
+  - convex/x/sync.ts
