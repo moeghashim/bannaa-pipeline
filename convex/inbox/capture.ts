@@ -76,13 +76,17 @@ export const capture = mutation({
 			captured: Date.now(),
 		});
 
-		// Schedule the tweet-body fetch immediately after insert so the UI
-		// flips from "fetching…" to the real snippet within a few seconds.
-		// YouTube + article URLs don't have a fetcher yet — they stay as
-		// placeholder rows until the operator either pastes the body
-		// manually or those fetchers ship in a later phase.
-		if (detected.source === "x" && detected.url) {
-			await ctx.scheduler.runAfter(0, internal.inbox.fetch.fetchInbox, { id });
+		// Schedule the right body fetcher immediately after insert so the
+		// UI flips from "fetching…" to the real snippet within a few
+		// seconds. X uses the OAuth'd v2 API; YouTube scrapes the public
+		// oEmbed + transcript endpoints. Article fetching is still a
+		// placeholder — manual text captures work today.
+		if (detected.url) {
+			if (detected.source === "x") {
+				await ctx.scheduler.runAfter(0, internal.inbox.fetch.fetchInbox, { id });
+			} else if (detected.source === "youtube") {
+				await ctx.scheduler.runAfter(0, internal.inbox.fetchYoutube.fetchYoutube, { id });
+			}
 		}
 
 		return id;

@@ -42,6 +42,7 @@ import type * as http from "../http.js";
 import type * as inbox_capture from "../inbox/capture.js";
 import type * as inbox_fetch from "../inbox/fetch.js";
 import type * as inbox_fetchInternal from "../inbox/fetchInternal.js";
+import type * as inbox_fetchYoutube from "../inbox/fetchYoutube.js";
 import type * as inbox_get from "../inbox/get.js";
 import type * as inbox_list from "../inbox/list.js";
 import type * as inbox_reject from "../inbox/reject.js";
@@ -106,6 +107,7 @@ declare const fullApi: ApiFromModules<{
   "inbox/capture": typeof inbox_capture;
   "inbox/fetch": typeof inbox_fetch;
   "inbox/fetchInternal": typeof inbox_fetchInternal;
+  "inbox/fetchYoutube": typeof inbox_fetchYoutube;
   "inbox/get": typeof inbox_get;
   "inbox/list": typeof inbox_list;
   "inbox/reject": typeof inbox_reject;

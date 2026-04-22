@@ -33,6 +33,30 @@ export const applyFetchedTweet = internalMutation({
 	},
 });
 
+export const applyFetchedYoutube = internalMutation({
+	args: {
+		id: v.id("inboxItems"),
+		handle: v.string(),
+		title: v.string(),
+		snippet: v.string(),
+		wordCount: v.number(),
+	},
+	returns: v.null(),
+	handler: async (ctx, args): Promise<null> => {
+		const row = await ctx.db.get(args.id);
+		if (!row) return null;
+		await ctx.db.patch(args.id, {
+			handle: args.handle,
+			title: args.title,
+			snippet: args.snippet,
+			raw: args.snippet,
+			length: args.wordCount,
+			error: undefined,
+		});
+		return null;
+	},
+});
+
 export const markFetchError = internalMutation({
 	args: {
 		id: v.id("inboxItems"),
