@@ -3,8 +3,12 @@
 // Pure function: base PNG + AR copy + channel → composited PNG bytes with AR
 // text burned in, matching the React `HyperFrame` preview visual language.
 //
-// Runs in Convex's V8 runtime (no "use node"):
-// - satori (WASM yoga bundled) → SVG string
+// Imported only from composite.ts + compositeCarouselAction.ts — both of
+// which run in the **Node runtime** (satori's yoga dependency needs
+// `import.meta`, which Convex V8 doesn't expose). Don't import this file
+// from V8 modules.
+//
+// - satori → SVG string
 // - @resvg/resvg-wasm (WASM) → PNG bytes
 //
 // Fonts are fetched from Google Fonts on first invocation and cached at

@@ -1,9 +1,18 @@
+"use node";
+
 // HyperFrames overlay composite action (Phase 2 · B.4).
 //
 // Takes the first ready *base* mediaAsset on a draft, burns the AR copy on
 // top using satori + resvg-wasm, and stores the result as a sibling asset
 // row keyed by `overlaidFrom = baseAssetId`. No providerRun is recorded —
 // the compositor is local compute with no API cost.
+//
+// Runs in the **Node runtime** (not V8): satori depends on
+// yoga-wasm-base64-esm which loads its wasm via `import.meta.url`, and the
+// Convex V8 runtime doesn't support `import.meta`. Moving this file to Node
+// is the cleanest fix — nothing outside composite.ts +
+// compositeCarouselAction.ts imports hyperframes.ts, so there's no
+// cross-runtime leak into http.ts or other V8-pinned modules.
 
 import { v } from "convex/values";
 import { internal } from "../../_generated/api";

@@ -1,3 +1,5 @@
+"use node";
+
 // Multi-slide HyperFrames overlay (Phase 2 · B.3).
 //
 // Composites every ready base asset on a carousel draft with its own AR
@@ -6,6 +8,9 @@
 // Sibling composites are stored as mediaAssets rows with overlaidFrom set
 // and the same orderIndex as the base — `slidesForDraft` will then prefer
 // the composite per slot.
+//
+// Runs in the **Node runtime** — see composite.ts for why (satori's yoga
+// dependency needs import.meta, which V8 doesn't expose).
 
 import { v } from "convex/values";
 import { internal } from "../../_generated/api";

@@ -216,3 +216,11 @@ Append-only learning log for commits and deploys. Add new entries only at the en
 - Actor: Ja3ood <moeghashim@users.noreply.github.com>
 - Changed Paths:
   - convex/_generated/api.d.ts
+## 2026-04-22T01:43:00.466Z
+- Trigger: commit
+- Learning: Live carousel test caught a latent bug: satori v0.26+ pulls in yoga-wasm-base64-esm which loads its WASM via import.meta.url, and Convex's V8 runtime does not support import.meta. Both overlayForDraft (single image, B.4) and overlayCarouselForDraft (multi-slide, B.3) were shipping as V8 actions and failing at invocation time with 'TypeError: import.meta unsupported at .../yoga-wasm-base64-esm.js'. Fix: add 'use node' to both composite action files. hyperframes.ts itself doesn't need the directive (it's only imported by the two action files), but added a header comment flagging the runtime contract so future maintainers don't try to import it from V8 modules. Convex pushed clean, check + build green. Single-image overlay was never tested live in B.4, so this bug was latent for both paths and only surfaced under carousel testing. No code changes to satori or resvg calls — purely a runtime move.
+- Context: fix(hyperframes): move overlay compositor to Node runtime
+- Branch: main
+- Actor: Ja3ood <moeghashim@users.noreply.github.com>
+- Changed Paths:
+  - convex
