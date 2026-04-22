@@ -9,8 +9,10 @@ import { fmtDate } from "../format";
 import { Icons } from "../icons";
 import type { Channel } from "../types";
 
-// Per-channel Postiz provider match so we can filter the integration
-// picker down to the socials that can actually serve this draft.
+// Per-channel Postiz `identifier` match (from /integrations) so we can
+// filter the picker down to the socials that can actually serve this
+// draft. These strings are what Postiz empirically returns — notably
+// LinkedIn is `linkedin-page`, not `linkedin`.
 const CHANNEL_TO_POSTIZ: Partial<Record<Channel, string>> = {
 	x: "x",
 	ig: "instagram",
@@ -18,7 +20,7 @@ const CHANNEL_TO_POSTIZ: Partial<Record<Channel, string>> = {
 	tiktok: "tiktok",
 	"yt-shorts": "youtube",
 	"fb-page": "facebook",
-	"linkedin-page": "linkedin",
+	"linkedin-page": "linkedin-page",
 };
 
 // Default scheduled time = 1h from now, rounded up to the next :00 or :30.

@@ -34,7 +34,10 @@ export function resolvePublishTarget(
 			return {
 				ok: true,
 				postizProvider: "x",
-				settings: {},
+				// `who_can_reply_post` is required by Postiz's X provider —
+				// one of everyone / following / mentionedUsers / subscribers
+				// / verified. Default to `everyone` for normal reach.
+				settings: { who_can_reply_post: "everyone" },
 			};
 		case "ig": {
 			if (mediaKind === "carousel") {

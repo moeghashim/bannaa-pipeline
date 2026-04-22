@@ -80,12 +80,17 @@ export async function listIntegrations(): Promise<ListIntegrationsResult> {
 			integrations.push({
 				id,
 				name: typeof r.name === "string" ? r.name : "(unnamed)",
+				// Postiz's public API calls this field `identifier` (empirically
+				// from /integrations). Older docs mention `providerIdentifier`
+				// or `provider`; we fall back to both for forwards-compat.
 				providerIdentifier:
-					typeof r.providerIdentifier === "string"
-						? r.providerIdentifier
-						: typeof r.provider === "string"
-							? r.provider
-							: "unknown",
+					typeof r.identifier === "string"
+						? r.identifier
+						: typeof r.providerIdentifier === "string"
+							? r.providerIdentifier
+							: typeof r.provider === "string"
+								? r.provider
+								: "unknown",
 				picture: typeof r.picture === "string" ? r.picture : null,
 				disabled: Boolean(r.disabled),
 			});
@@ -161,9 +166,19 @@ export async function schedulePost(input: SchedulePostInput): Promise<SchedulePo
 		// can contain multi-platform + multi-slot drafts, but we always
 		// ship a single-platform single-slot variant (one integration,
 		// one `value` entry, all media on that entry).
+		//
+		// Empirical schema quirks from a 400 on first attempt:
+		//   • `shortLink` is required (boolean) — we don't want Postiz
+		//     shortening our URLs, so false.
+		//   • `tags` is required (array) — we don't tag posts internally,
+		//     so [].
+		// Per-provider `settings` shape rides on channelMatrix which adds
+		// e.g. X's who_can_reply_post, TikTok's post_type, etc.
 		const body = {
 			type: "schedule" as const,
 			date: new Date(input.scheduledAt).toISOString(),
+			shortLink: false,
+			tags: [] as unknown[],
 			posts: [
 				{
 					integration: { id: input.integrationId },
@@ -209,6 +224,18 @@ export async function schedulePost(input: SchedulePostInput): Promise<SchedulePo
 }
 
 function extractPostId(json: unknown): string | null {
+	// Postiz /posts returns a top-level ARRAY of posts (one per integration
+	// on multi-platform schedules). Each element has `postId` + `integration`.
+	// For our single-integration payload the first element is our post.
+	if (Array.isArray(json) && json.length > 0) {
+		const first = json[0];
+		if (typeof first === "object" && first !== null) {
+			const f = first as Record<string, unknown>;
+			if (typeof f.postId === "string") return f.postId;
+			if (typeof f.id === "string") return f.id;
+		}
+		return null;
+	}
 	if (typeof json !== "object" || json === null) return null;
 	const j = json as Record<string, unknown>;
 	if (typeof j.id === "string") return j.id;
