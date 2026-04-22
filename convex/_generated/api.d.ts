@@ -24,6 +24,8 @@ import type * as drafts_mutate from "../drafts/mutate.js";
 import type * as env_imageKeys from "../env/imageKeys.js";
 import type * as generate_draft from "../generate/draft.js";
 import type * as generate_image_action from "../generate/image/action.js";
+import type * as generate_image_composite from "../generate/image/composite.js";
+import type * as generate_image_hyperframes from "../generate/image/hyperframes.js";
 import type * as generate_image_internal from "../generate/image/internal.js";
 import type * as generate_image_prompts from "../generate/image/prompts.js";
 import type * as generate_image_providers from "../generate/image/providers.js";
@@ -68,6 +70,8 @@ declare const fullApi: ApiFromModules<{
   "env/imageKeys": typeof env_imageKeys;
   "generate/draft": typeof generate_draft;
   "generate/image/action": typeof generate_image_action;
+  "generate/image/composite": typeof generate_image_composite;
+  "generate/image/hyperframes": typeof generate_image_hyperframes;
   "generate/image/internal": typeof generate_image_internal;
   "generate/image/prompts": typeof generate_image_prompts;
   "generate/image/providers": typeof generate_image_providers;

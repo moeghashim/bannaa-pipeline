@@ -127,12 +127,16 @@ const DraftCard = ({
 	const videoChannel = isVideoChannel(draft.channel);
 
 	const asset = useQuery(api.mediaAssets.list.firstReadyByDraft, { draftId: draft._id });
+	const baseAsset = useQuery(api.mediaAssets.list.baseReadyByDraft, { draftId: draft._id });
 	const assetLoaded = asset !== undefined;
 
 	const generate = useAction(api.generate.image.action.generateForDraft);
+	const overlay = useAction(api.generate.image.composite.overlayForDraft);
 	const [picker, setPicker] = useState(false);
 	const [submitting, setSubmitting] = useState(false);
+	const [compositing, setCompositing] = useState(false);
 	const [genError, setGenError] = useState<string | null>(null);
+	const [view, setView] = useState<"overlay" | "base">("overlay");
 
 	const runGenerate = async (provider: ImageProvider) => {
 		setPicker(false);
@@ -148,7 +152,27 @@ const DraftCard = ({
 		}
 	};
 
+	const runOverlay = async () => {
+		setCompositing(true);
+		setGenError(null);
+		try {
+			const r = await overlay({ draftId: draft._id });
+			if (!r.ok) setGenError(r.error);
+		} catch (err) {
+			setGenError(err instanceof Error ? err.message : String(err));
+		} finally {
+			setCompositing(false);
+		}
+	};
+
 	const showGenerateButton = !videoChannel && assetLoaded && (!asset || asset.state === "failed");
+	// Overlay button shows when the *current* visible asset is a ready base
+	// (no composite yet). Once a composite lands, `asset` flips to it and the
+	// button hides — the toggle takes over.
+	const currentIsBase = !!asset && asset.state === "ready" && !asset.overlaidFrom;
+	const showOverlayButton = !videoChannel && currentIsBase;
+	const hasComposite = !!asset && asset.state === "ready" && !!asset.overlaidFrom;
+	const displayedAsset = hasComposite && view === "base" && baseAsset ? baseAsset : asset;
 
 	return (
 		<div className="draft-card">
@@ -169,13 +193,16 @@ const DraftCard = ({
 			</div>
 
 			<div className="body">
-				<DraftMedia
-					asset={asset ?? null}
-					assetLoaded={assetLoaded}
-					variant={variant}
-					ar={draft.ar}
-					channel={draft.channel}
-				/>
+				<div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
+					<DraftMedia
+						asset={displayedAsset ?? null}
+						assetLoaded={assetLoaded}
+						variant={variant}
+						ar={draft.ar}
+						channel={draft.channel}
+					/>
+					{hasComposite && <BaseOverlayToggle value={view} onChange={setView} />}
+				</div>
 				<div className="copy">
 					<div className="ar-text" style={{ fontSize: 14, textWrap: "pretty" }}>
 						{draft.ar}
@@ -235,6 +262,24 @@ const DraftCard = ({
 							) : (
 								<>
 									<Icons.Sparkle size={11} /> Generate image
+								</>
+							)}
+						</button>
+					) : showOverlayButton ? (
+						<button
+							type="button"
+							className="btn xs"
+							disabled={compositing}
+							onClick={runOverlay}
+							title="Overlay AR text with HyperFrames"
+						>
+							{compositing ? (
+								<>
+									<Icons.Clock size={11} /> compositing…
+								</>
+							) : (
+								<>
+									<Icons.Sparkle size={11} /> Overlay AR text
 								</>
 							)}
 						</button>
@@ -412,6 +457,30 @@ const ImageProviderPicker = ({
 				style={{ width: "100%", marginTop: 4, fontSize: 11 }}
 			>
 				cancel
+			</button>
+		</div>
+	);
+};
+
+const BaseOverlayToggle = ({
+	value,
+	onChange,
+}: {
+	value: "overlay" | "base";
+	onChange: (v: "overlay" | "base") => void;
+}) => {
+	return (
+		<div
+			role="group"
+			aria-label="Toggle base or overlay image"
+			className="filter-seg"
+			style={{ alignSelf: "center", fontSize: 10 }}
+		>
+			<button type="button" className={value === "base" ? "active" : ""} onClick={() => onChange("base")}>
+				base
+			</button>
+			<button type="button" className={value === "overlay" ? "active" : ""} onClick={() => onChange("overlay")}>
+				overlay
 			</button>
 		</div>
 	);

@@ -2,7 +2,11 @@ export type Source = "x" | "youtube" | "article" | "manual" | "newsletter";
 export type State = "new" | "analyzing" | "draft" | "approved" | "rejected" | "published";
 export type Lang = "en" | "ar";
 export type ProviderId = "claude" | "glm" | "openrouter";
+// External image generators (what the user can pick to generate a base image).
 export type ImageProvider = "nano-banana" | "gpt-image" | "grok" | "ideogram" | "openrouter";
+// Full provider union that may appear on a mediaAsset row — adds the local
+// HyperFrames compositor used by the B.4 overlay pipeline.
+export type MediaAssetProvider = ImageProvider | "hyperframes";
 export type MediaKind = "text" | "single-image" | "carousel" | "video";
 export type Channel = "x" | "ig" | "ig-reel" | "tiktok" | "yt-shorts" | "fb-page" | "linkedin-page";
 export type Track = "Foundations" | "Agents" | "Media";

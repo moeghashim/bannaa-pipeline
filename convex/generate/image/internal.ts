@@ -2,12 +2,23 @@ import { v } from "convex/values";
 import type { Doc, Id } from "../../_generated/dataModel";
 import { internalMutation, internalQuery } from "../../_generated/server";
 
+// External generator providers (matches ImageProvider in providers.ts).
+const imageGeneratorValidator = v.union(
+	v.literal("nano-banana"),
+	v.literal("gpt-image"),
+	v.literal("grok"),
+	v.literal("ideogram"),
+	v.literal("openrouter"),
+);
+
+// Full superset — includes the local "hyperframes" compositor used for B.4.
 const imageProviderValidator = v.union(
 	v.literal("nano-banana"),
 	v.literal("gpt-image"),
 	v.literal("grok"),
 	v.literal("ideogram"),
 	v.literal("openrouter"),
+	v.literal("hyperframes"),
 );
 
 const mediaKindValidator = v.union(
@@ -34,7 +45,7 @@ export const loadDraftWithAnalysis = internalQuery({
 export const insertPendingAsset = internalMutation({
 	args: {
 		draftId: v.id("drafts"),
-		provider: imageProviderValidator,
+		provider: imageGeneratorValidator,
 		model: v.string(),
 		prompt: v.string(),
 		orderIndex: v.number(),
@@ -94,7 +105,7 @@ export const patchDraftMedia = internalMutation({
 	args: {
 		draftId: v.id("drafts"),
 		mediaKind: mediaKindValidator,
-		imageProvider: imageProviderValidator,
+		imageProvider: imageGeneratorValidator,
 		imageModel: v.string(),
 	},
 	handler: async (ctx, args) => {
@@ -102,6 +113,34 @@ export const patchDraftMedia = internalMutation({
 			mediaKind: args.mediaKind,
 			imageProvider: args.imageProvider,
 			imageModel: args.imageModel,
+		});
+	},
+});
+
+export const insertCompositeAsset = internalMutation({
+	args: {
+		draftId: v.id("drafts"),
+		overlaidFrom: v.id("mediaAssets"),
+		storageId: v.id("_storage"),
+		width: v.number(),
+		height: v.number(),
+		model: v.string(),
+	},
+	returns: v.id("mediaAssets"),
+	handler: async (ctx, args): Promise<Id<"mediaAssets">> => {
+		return await ctx.db.insert("mediaAssets", {
+			draftId: args.draftId,
+			kind: "image",
+			storageId: args.storageId,
+			prompt: "AR overlay composite",
+			provider: "hyperframes",
+			model: args.model,
+			state: "ready",
+			width: args.width,
+			height: args.height,
+			orderIndex: 0,
+			createdAt: Date.now(),
+			overlaidFrom: args.overlaidFrom,
 		});
 	},
 });

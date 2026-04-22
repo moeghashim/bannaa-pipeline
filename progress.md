@@ -161,3 +161,21 @@ Append-only learning log for commits and deploys. Add new entries only at the en
   - convex/schema.ts
   - convex/x/accounts.ts
   - convex/x/sync.ts
+## 2026-04-22T00:59:50.065Z
+- Trigger: commit
+- Learning: satori + @resvg/resvg-wasm pair is V8-safe (both WASM: satori bundles yoga, resvg is a pure WASM module fetched from unpkg and cached via module-scope initWasm promise). Swapped the spec's @resvg/resvg-js for @resvg/resvg-wasm because the -js variant is native node addons that can't load in Convex's V8 runtime. Noto Naskh Arabic + JetBrains Mono fonts are fetched from fonts.gstatic.com once per cold action and cached in module-scope ArrayBuffers so subsequent composites skip the font round-trip. Overlays live in mediaAssets as sibling rows keyed by overlaidFrom — the base is preserved so the operator can regenerate text without losing the generated background, and a base/overlay toggle on the Drafts card lets them A/B the two. firstReadyByDraft now prefers the composite over the base so the UI auto-swaps once B.4 runs, with a separate baseReadyByDraft query backing the toggle's 'show base' path. No providerRuns row is written for a composite — it's local compute with no API cost — keeping costs accurate for the budget dashboard. Split the image-provider union into imageGeneratorType (5 external generators, used for user-selectable defaults + drafts.imageProvider) and imageProviderType (6 including 'hyperframes', used only on mediaAssets.provider) so settings and the generate action keep their narrow type while composites tag their origin cleanly.
+- Context: feat(hyperframes): server-side overlay compositor
+- Branch: main
+- Actor: Ja3ood <moeghashim@users.noreply.github.com>
+- Changed Paths:
+  - convex/schema.ts
+  - convex/mediaAssets/list.ts
+  - convex/settings/doc.ts
+  - convex/generate/image/internal.ts
+  - convex/generate/image/composite.ts
+  - convex/generate/image/hyperframes.ts
+  - apps/web/app/_components/types.ts
+  - apps/web/app/_components/views/drafts.tsx
+  - package.json
+  - package-lock.json
+  - convex/_generated/api.d.ts

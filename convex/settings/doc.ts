@@ -6,6 +6,8 @@ import { requireUser } from "../lib/requireUser";
 
 const providerValidator = v.union(v.literal("claude"), v.literal("glm"), v.literal("openrouter"));
 
+// Settings only exposes generation providers. "hyperframes" is a compositor,
+// never a default generator, so it is intentionally absent from this union.
 const imageProviderValidator = v.union(
 	v.literal("nano-banana"),
 	v.literal("gpt-image"),

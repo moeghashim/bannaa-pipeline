@@ -41,7 +41,22 @@ const mediaKindType = v.union(
 	v.literal("video"),
 );
 
+// Union of all provider identifiers that may appear on a mediaAsset row —
+// includes "hyperframes", which is the B.4 local compositor (not an
+// external image generator).
 const imageProviderType = v.union(
+	v.literal("nano-banana"),
+	v.literal("gpt-image"),
+	v.literal("grok"),
+	v.literal("ideogram"),
+	v.literal("openrouter"),
+	v.literal("hyperframes"),
+);
+
+// Settings-facing subset: only external generators can be a *default*. The
+// compositor is never a default because it always composes on top of an
+// already-generated base.
+const imageGeneratorType = v.union(
 	v.literal("nano-banana"),
 	v.literal("gpt-image"),
 	v.literal("grok"),
@@ -135,7 +150,7 @@ export default defineSchema({
 		scheduled: v.optional(v.number()),
 		genRunId: v.id("providerRuns"),
 		mediaKind: v.optional(mediaKindType),
-		imageProvider: v.optional(imageProviderType),
+		imageProvider: v.optional(imageGeneratorType),
 		imageModel: v.optional(v.string()),
 	})
 		.index("by_analysis", ["analysisId"])
@@ -158,14 +173,16 @@ export default defineSchema({
 		createdAt: v.number(),
 		error: v.optional(v.string()),
 		genRunId: v.optional(v.id("providerRuns")),
+		overlaidFrom: v.optional(v.id("mediaAssets")),
 	})
 		.index("by_draft", ["draftId"])
-		.index("by_state", ["state"]),
+		.index("by_state", ["state"])
+		.index("by_overlaidFrom", ["overlaidFrom"]),
 
 	settings: defineTable({
 		key: v.string(),
 		defaultProvider: v.union(v.literal("claude"), v.literal("glm"), v.literal("openrouter")),
-		defaultImageProvider: v.optional(imageProviderType),
+		defaultImageProvider: v.optional(imageGeneratorType),
 		updatedAt: v.number(),
 	}).index("by_key", ["key"]),
 
