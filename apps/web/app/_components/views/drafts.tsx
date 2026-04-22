@@ -51,6 +51,7 @@ export const DraftsView = ({ channel, setChannel }: { channel: string; setChanne
 	const settings = useQuery(api.settings.doc.get, {});
 	const approve = useMutation(api.drafts.mutate.approve);
 	const reject = useMutation(api.drafts.mutate.reject);
+	const unschedule = useMutation(api.drafts.mutate.unschedule);
 
 	const loaded = drafts !== undefined;
 	const rows = drafts ?? [];
@@ -99,6 +100,7 @@ export const DraftsView = ({ channel, setChannel }: { channel: string; setChanne
 							defaultImageProvider={defaultImageProvider}
 							onApprove={() => approve({ id: d._id })}
 							onReject={() => reject({ id: d._id })}
+							onUnschedule={() => unschedule({ id: d._id })}
 						/>
 					))}
 				</div>
@@ -112,11 +114,13 @@ const DraftCard = ({
 	defaultImageProvider,
 	onApprove,
 	onReject,
+	onUnschedule,
 }: {
 	draft: Doc<"drafts">;
 	defaultImageProvider: ImageProvider;
 	onApprove: () => void;
 	onReject: () => void;
+	onUnschedule: () => void;
 }) => {
 	const variant = channelFrame(draft.channel);
 	const videoChannel = isVideoChannel(draft.channel);
@@ -418,6 +422,11 @@ const DraftCard = ({
 								<Icons.Clock size={11} /> Schedule
 							</button>
 						))}
+					{draft.postizStatus === "scheduled" && (
+						<button type="button" className="btn ghost xs" onClick={onUnschedule} title="Cancel scheduled post">
+							<Icons.X size={11} /> Unschedule
+						</button>
+					)}
 					<button type="button" className="btn ghost xs" title="Edit (E)" disabled>
 						<Icons.Edit size={11} />
 					</button>
