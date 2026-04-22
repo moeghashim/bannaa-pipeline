@@ -87,7 +87,14 @@ export const overlayCarouselForDraft = action({
 					orderIndex: base.orderIndex,
 				});
 				composited += 1;
-			} catch {
+			} catch (err) {
+				// Don't let one bad slide abort the whole batch — but do log so a
+				// silent 0-of-N outcome is debuggable in the Convex dashboard
+				// instead of showing up as a no-op in the UI.
+				const msg = err instanceof Error ? err.message : String(err);
+				console.error(
+					`[overlayCarouselForDraft] slide ${base.orderIndex} composite failed: ${msg}`,
+				);
 				failed += 1;
 			}
 		}

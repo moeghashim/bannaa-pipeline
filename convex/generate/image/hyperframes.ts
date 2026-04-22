@@ -1,12 +1,15 @@
+"use node";
+
 // HyperFrames server-side overlay compositor (Phase 2 · B.4).
 //
 // Pure function: base PNG + AR copy + channel → composited PNG bytes with AR
 // text burned in, matching the React `HyperFrame` preview visual language.
 //
-// Imported only from composite.ts + compositeCarouselAction.ts — both of
-// which run in the **Node runtime** (satori's yoga dependency needs
-// `import.meta`, which Convex V8 doesn't expose). Don't import this file
-// from V8 modules.
+// Pinned to the **Node runtime** because satori's yoga dependency reaches
+// `import.meta` which Convex V8 doesn't expose. `"use node"` is per-file in
+// Convex — the callers (composite.ts + compositeCarouselAction.ts) having it
+// isn't enough; this module itself has to declare it too. Don't import this
+// file from V8 modules.
 //
 // - satori → SVG string
 // - @resvg/resvg-wasm (WASM) → PNG bytes
