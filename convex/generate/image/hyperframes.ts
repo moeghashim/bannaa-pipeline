@@ -14,8 +14,11 @@
 // - satori → SVG string
 // - @resvg/resvg-wasm (WASM) → PNG bytes
 //
-// Fonts are fetched from Google Fonts on first invocation and cached at
-// module scope so subsequent calls don't re-fetch. The resvg wasm module is
+// Fonts are resolved via the Google Fonts CSS2 endpoint (stable API) on
+// first invocation and cached at module scope. Pinning the direct
+// fonts.gstatic.com woff2 URL rots: Google rotates the hashed filenames
+// periodically and the old URL returns 404 with no fallback. The CSS
+// endpoint always returns a current woff2 href. The resvg wasm module is
 // fetched from unpkg once and cached the same way.
 
 import { initWasm, Resvg } from "@resvg/resvg-wasm";
@@ -24,16 +27,18 @@ import satori from "satori";
 
 const CANVAS = 1080;
 
-// Noto Naskh Arabic weight 500 — the brand Arabic face. The @font-face URL
-// Google Fonts currently ships for this exact weight; if Google rotates the
-// filename the caller will bubble up the fetch error via the action's
-// try/catch rather than crash the action silently.
-const NOTO_NASKH_AR_URL =
-	"https://fonts.gstatic.com/s/notonaskharabic/v34/RrQ5bpV-9Dd1b1OAGA6M9PkyDuVBePeKNaxcsss0Y7bwvc5krK0z9_Mnuw.woff2";
+// Google Fonts returns TTF URLs to unknown user-agents and woff2 to modern
+// browsers. satori's opentype dependency handles both but woff2 is ~4×
+// smaller, so we pretend to be a recent Chromium.
+const GOOGLE_FONTS_UA =
+	"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
-// JetBrains Mono weight 600 — matches the preview's mono chrome lines.
-const JETBRAINS_MONO_URL =
-	"https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbY2o-flEEny0FZhsfKu5WU4xD-IQ-PuZJJXxfpAO-Lf1OQk6OThxPA.woff2";
+// Stable CSS2 endpoints — Google rotates hashed binary URLs inside the CSS
+// response but the endpoint signatures themselves don't change.
+const NOTO_NASKH_AR_CSS =
+	"https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@500&display=swap";
+const JETBRAINS_MONO_CSS =
+	"https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@600&display=swap";
 
 // resvg wasm module bytes — pinned to the @resvg/resvg-wasm package version
 // installed in package.json. Bumping the package also means bumping this.
@@ -50,21 +55,59 @@ async function fetchBytes(url: string, label: string): Promise<Uint8Array> {
 	return new Uint8Array(buf);
 }
 
-async function fetchFontBuffer(url: string, label: string): Promise<ArrayBuffer> {
-	const resp = await fetch(url);
-	if (!resp.ok) throw new Error(`${label} ${resp.status}: ${await resp.text().catch(() => "")}`);
-	return await resp.arrayBuffer();
+async function resolveGoogleFontBuffer(
+	cssUrl: string,
+	label: string,
+	rangeHint: string,
+): Promise<ArrayBuffer> {
+	const cssResp = await fetch(cssUrl, { headers: { "user-agent": GOOGLE_FONTS_UA } });
+	if (!cssResp.ok) {
+		throw new Error(
+			`${label} CSS ${cssResp.status}: ${await cssResp.text().catch(() => "")}`,
+		);
+	}
+	const css = await cssResp.text();
+
+	// Google's CSS response is a sequence of @font-face blocks, each with a
+	// different `unicode-range`. Pick the block whose range covers the code
+	// points we actually render — U+0600 for Arabic, U+0000 for Latin — and
+	// pull its woff2 src. Fall back to any woff2 in the response if the hint
+	// doesn't match (defensive against future CSS reshuffling).
+	const blocks = css.split(/@font-face\s*\{/);
+	let binaryUrl: string | null = null;
+	for (const block of blocks) {
+		if (!block.includes("unicode-range")) continue;
+		if (!block.includes(rangeHint)) continue;
+		const match = block.match(/src:\s*url\((https:[^)]+\.woff2)\)/);
+		if (match?.[1]) {
+			binaryUrl = match[1];
+			break;
+		}
+	}
+	if (!binaryUrl) {
+		const fallback = css.match(/url\((https:[^)]+\.woff2)\)/);
+		binaryUrl = fallback?.[1] ?? null;
+	}
+	if (!binaryUrl) throw new Error(`${label} CSS contained no woff2 URL`);
+
+	const fontResp = await fetch(binaryUrl);
+	if (!fontResp.ok) {
+		throw new Error(
+			`${label} font ${fontResp.status}: ${await fontResp.text().catch(() => "")}`,
+		);
+	}
+	return await fontResp.arrayBuffer();
 }
 
 async function loadArabicFont(): Promise<ArrayBuffer> {
 	if (cachedAr) return cachedAr;
-	cachedAr = await fetchFontBuffer(NOTO_NASKH_AR_URL, "Noto Naskh Arabic font");
+	cachedAr = await resolveGoogleFontBuffer(NOTO_NASKH_AR_CSS, "Noto Naskh Arabic font", "U+0600");
 	return cachedAr;
 }
 
 async function loadMonoFont(): Promise<ArrayBuffer> {
 	if (cachedMono) return cachedMono;
-	cachedMono = await fetchFontBuffer(JETBRAINS_MONO_URL, "JetBrains Mono font");
+	cachedMono = await resolveGoogleFontBuffer(JETBRAINS_MONO_CSS, "JetBrains Mono font", "U+0000");
 	return cachedMono;
 }
 
