@@ -2,6 +2,7 @@ import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
 import type { Metadata } from "next";
 import { Inter_Tight, JetBrains_Mono, Newsreader, Noto_Naskh_Arabic } from "next/font/google";
 import type { ReactNode } from "react";
+import { AgentationDev } from "./_components/agentation-dev";
 import { Providers } from "./providers";
 
 import "./globals.css";
@@ -45,6 +46,7 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
 			>
 				<body>
 					<Providers>{children}</Providers>
+					<AgentationDev />
 				</body>
 			</html>
 		</ConvexAuthNextjsServerProvider>
