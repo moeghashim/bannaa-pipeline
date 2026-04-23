@@ -18,3 +18,8 @@ apps/*/node_modules/
 *~
 
 .env.local
+
+# Claude Code agent metadata (worktree state, session scratch).
+# These live in-repo so worktrees can share them, but they shouldn't
+# be versioned — each developer's machine has its own agent state.
+.claude/
