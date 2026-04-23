@@ -32,16 +32,21 @@ export const CarouselStrip = ({
 	script,
 	slots,
 	baseSlots,
+	bakedSlots,
+	satoriSlots,
 	status,
 	view,
 }: {
 	script: Doc<"carouselSlides">[];
 	slots: Doc<"mediaAssets">[];
 	baseSlots: Doc<"mediaAssets">[];
+	bakedSlots: Doc<"mediaAssets">[];
+	satoriSlots: Doc<"mediaAssets">[];
 	status: Doc<"mediaAssets">[];
-	view: "overlay" | "base";
+	view: "overlay" | "base" | "baked";
 }) => {
-	const displaySlots = view === "base" ? baseSlots : slots;
+	const displaySlots =
+		view === "base" ? baseSlots : view === "baked" ? bakedSlots : satoriSlots.length > 0 ? satoriSlots : slots;
 	const assetByIndex = new Map<number, Doc<"mediaAssets">>();
 	for (const a of displaySlots) assetByIndex.set(a.orderIndex, a);
 	const generatingByIndex = new Set<number>();

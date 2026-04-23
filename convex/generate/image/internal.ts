@@ -146,6 +146,43 @@ export const insertCompositeAsset = internalMutation({
 	},
 });
 
+// Baked-text variant: the image model produces the final slide with AR text
+// baked in. Parallels insertCompositeAsset but keeps the real generator's
+// provider + model (not "hyperframes") so the UI can tell the two paths
+// apart — both point `overlaidFrom` at the same base for the A/B comparison.
+export const insertBakedAsset = internalMutation({
+	args: {
+		draftId: v.id("drafts"),
+		overlaidFrom: v.id("mediaAssets"),
+		storageId: v.id("_storage"),
+		width: v.number(),
+		height: v.number(),
+		provider: imageGeneratorValidator,
+		model: v.string(),
+		prompt: v.string(),
+		orderIndex: v.number(),
+		genRunId: v.id("providerRuns"),
+	},
+	returns: v.id("mediaAssets"),
+	handler: async (ctx, args): Promise<Id<"mediaAssets">> => {
+		return await ctx.db.insert("mediaAssets", {
+			draftId: args.draftId,
+			kind: "image",
+			storageId: args.storageId,
+			prompt: args.prompt,
+			provider: args.provider,
+			model: args.model,
+			state: "ready",
+			width: args.width,
+			height: args.height,
+			orderIndex: args.orderIndex,
+			createdAt: Date.now(),
+			overlaidFrom: args.overlaidFrom,
+			genRunId: args.genRunId,
+		});
+	},
+});
+
 export const recordImageRun = internalMutation({
 	args: {
 		provider: v.union(
