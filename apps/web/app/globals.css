@@ -1452,6 +1452,16 @@ kbd.key {
 	background: var(--accent-tint);
 }
 
+.brand-editor-grid {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+	gap: 28px;
+}
+
+@media (max-width: 1040px) {
+	.brand-editor-grid { grid-template-columns: 1fr; }
+}
+
 /* ==========================================================================
    Empty / loading
    ========================================================================== */

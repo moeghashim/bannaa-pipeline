@@ -20,6 +20,7 @@ const PALETTE_COMMANDS: PaletteCommand[] = [
 	{ key: "go-newsletter", label: "Go to Newsletter", group: "Navigate", kbd: "G N", nav: "newsletter" },
 	{ key: "go-website", label: "Go to Website Proposals", group: "Navigate", kbd: "G W", nav: "website" },
 	{ key: "go-settings", label: "Go to Settings", group: "Navigate", kbd: "G S", nav: "settings" },
+	{ key: "go-brand", label: "Go to Brand", group: "Navigate", kbd: "G B", nav: "brand" },
 	{ key: "analyze", label: "Analyze selected item", group: "Action" },
 	{ key: "approve", label: "Approve selected", group: "Action", kbd: "A" },
 	{ key: "reject", label: "Reject selected", group: "Action", kbd: "R" },

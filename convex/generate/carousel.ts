@@ -5,9 +5,12 @@ import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { action } from "../_generated/server";
 import { callProvider, defaultProvider, type ProviderId } from "../analyze/providers";
+import { defaultBrandInput } from "../brand/defaults";
 import { requireUser } from "../lib/requireUser";
+import { renderBrandSystemPrompt } from "./brandPrompt";
 import {
 	buildCarouselPrompt,
+	CAROUSEL_PROMPT_VERSION,
 	CAROUSEL_SYSTEM_PROMPT,
 	CAROUSEL_TOOL,
 	type CarouselToolOutput,
@@ -71,6 +74,8 @@ export const fromAnalysis = action({
 
 		const settings: Doc<"settings"> | null = await ctx.runQuery(internal.settings.doc.getInternal, {});
 		const provider: ProviderId = settings?.defaultProvider ?? defaultProvider(env);
+		const activeBrand = await ctx.runQuery(internal.brand.doc.getActiveInternal, {});
+		const brand = activeBrand ?? defaultBrandInput(Date.now());
 
 		const analysis: Doc<"analyses"> | null = await ctx.runQuery(internal.generate.internal.loadAnalysis, {
 			id: args.analysisId,
@@ -88,15 +93,15 @@ export const fromAnalysis = action({
 		try {
 			const result = await callProvider<CarouselToolOutput>({
 				provider,
-				systemPrompt: CAROUSEL_SYSTEM_PROMPT,
+				systemPrompt: `${renderBrandSystemPrompt(brand, "ig")}\n\n${CAROUSEL_SYSTEM_PROMPT}`,
 				tool: CAROUSEL_TOOL,
 				userPrompt,
 				env,
 			});
 
 			const out = result.output;
-			if (!out?.styleAnchor || !out?.channelAr || !out?.channelEn) {
-				throw new Error("Model did not return styleAnchor + channelAr + channelEn");
+			if (!out?.styleAnchor || !out?.channelPrimary) {
+				throw new Error("Model did not return styleAnchor + channelPrimary");
 			}
 			if (!Array.isArray(out.slides) || out.slides.length < MIN_SLIDES) {
 				throw new Error(`Model returned only ${out.slides?.length ?? 0} slides, need ${slideCount}`);
@@ -107,9 +112,8 @@ export const fromAnalysis = action({
 			const draftId: Id<"drafts"> = await ctx.runMutation(
 				internal.generate.carouselInternal.insertCarouselDraft,
 				{
-					channelAr: out.channelAr,
-					channelEn: out.channelEn,
-					chars: out.channelAr.length,
+					channelPrimary: out.channelPrimary,
+					chars: out.channelPrimary.length,
 					analysisId: args.analysisId,
 					sourceItemId: analysis.itemId,
 					concepts: out.concepts ?? analysis.concepts.slice(0, 3),
@@ -121,6 +125,8 @@ export const fromAnalysis = action({
 					outputTokens: result.outputTokens,
 					cost: result.cost,
 					slides,
+					brandVersion: brand.version,
+					promptVersion: CAROUSEL_PROMPT_VERSION,
 				},
 			);
 
@@ -139,6 +145,8 @@ export const fromAnalysis = action({
 				model: "",
 				error: msg,
 				sourceItemId: analysis.itemId,
+				brandVersion: brand.version,
+				promptVersion: CAROUSEL_PROMPT_VERSION,
 			});
 			return { ok: false, error: msg };
 		}

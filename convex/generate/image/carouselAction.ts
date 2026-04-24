@@ -11,7 +11,9 @@ import { v } from "convex/values";
 import { internal } from "../../_generated/api";
 import type { Doc, Id } from "../../_generated/dataModel";
 import { action } from "../../_generated/server";
+import { defaultBrandInput } from "../../brand/defaults";
 import { requireUser } from "../../lib/requireUser";
+import { IMAGE_PROMPT_VERSION } from "./prompts";
 import { callImageProvider, defaultImageModel, type ImageProvider, type ImageProviderEnv } from "./providers";
 
 const imageProviderValidator = v.union(
@@ -28,11 +30,17 @@ type RunResult =
 	| { ok: true; generated: number; failed: number; totalCost: number; provider: ImageProvider; model: string }
 	| { ok: false; error: string };
 
-function buildCarouselSlidePrompt(styleAnchor: string, slidePrompt: string): string {
+function buildCarouselSlidePrompt(
+	styleAnchor: string,
+	slidePrompt: string,
+	brand: Pick<Doc<"brands">, "design">,
+): string {
 	return [
 		styleAnchor,
 		slidePrompt,
-		"Clean background suitable for AR text overlay with top-right and bottom-left negative space.",
+		`Brand style guide: ${brand.design.imageStyleGuide}`,
+		`Palette: primary ${brand.design.palette.primary}, accent ${brand.design.palette.accent}, background ${brand.design.palette.background}.`,
+		"Clean background suitable for text overlay with top-right and bottom-left negative space.",
 		"Do not render any Arabic or English text. No letters, glyphs, watermarks, or UI chrome.",
 		"Square 1024x1024 composition.",
 	].join(" ");
@@ -69,6 +77,8 @@ export const generateCarouselForDraft = action({
 		const settings: Doc<"settings"> | null = await ctx.runQuery(internal.settings.doc.getInternal, {});
 		const provider: ImageProvider = args.provider ?? settings?.defaultImageProvider ?? DEFAULT_IMAGE_PROVIDER;
 		const model = defaultImageModel(provider, env);
+		const activeBrand = await ctx.runQuery(internal.brand.doc.getActiveInternal, {});
+		const brand = activeBrand ?? defaultBrandInput(Date.now());
 
 		const loaded: {
 			draft: Doc<"drafts">;
@@ -94,7 +104,7 @@ export const generateCarouselForDraft = action({
 		let totalCost = 0;
 
 		for (const slide of slides) {
-			const prompt = buildCarouselSlidePrompt(styleAnchor, slide.imagePrompt);
+			const prompt = buildCarouselSlidePrompt(styleAnchor, slide.imagePrompt, brand);
 			const assetId: Id<"mediaAssets"> = await ctx.runMutation(
 				internal.generate.image.internal.insertPendingAsset,
 				{
@@ -119,6 +129,8 @@ export const generateCarouselForDraft = action({
 						purpose: "generate-carousel-image",
 						cost: result.cost,
 						sourceItemId: analysis.itemId,
+						brandVersion: brand.version,
+						promptVersion: IMAGE_PROMPT_VERSION,
 					},
 				);
 				totalCost += result.cost;
@@ -142,6 +154,8 @@ export const generateCarouselForDraft = action({
 						cost: 0,
 						sourceItemId: analysis.itemId,
 						error: msg,
+						brandVersion: brand.version,
+						promptVersion: IMAGE_PROMPT_VERSION,
 					},
 				);
 				await ctx.runMutation(internal.generate.image.internal.failAsset, {

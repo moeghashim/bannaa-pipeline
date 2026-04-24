@@ -9,8 +9,7 @@ const providerValidator = v.union(v.literal("claude"), v.literal("glm"), v.liter
 // slides or its run record.
 export const insertCarouselDraft = internalMutation({
 	args: {
-		channelAr: v.string(),
-		channelEn: v.string(),
+		channelPrimary: v.string(),
 		chars: v.number(),
 		analysisId: v.id("analyses"),
 		sourceItemId: v.id("inboxItems"),
@@ -22,9 +21,11 @@ export const insertCarouselDraft = internalMutation({
 		inputTokens: v.number(),
 		outputTokens: v.number(),
 		cost: v.number(),
+		brandVersion: v.optional(v.number()),
+		promptVersion: v.optional(v.string()),
 		slides: v.array(
 			v.object({
-				ar: v.string(),
+				primary: v.string(),
 				imagePrompt: v.string(),
 				orderIndex: v.number(),
 			}),
@@ -41,12 +42,16 @@ export const insertCarouselDraft = internalMutation({
 			outputTokens: args.outputTokens,
 			cost: args.cost,
 			runAt: Date.now(),
+			brandVersion: args.brandVersion,
+			promptVersion: args.promptVersion,
 		});
 
 		const draftId = await ctx.db.insert("drafts", {
 			channel: "ig",
-			ar: args.channelAr,
-			en: args.channelEn,
+			ar: "",
+			en: args.channelPrimary,
+			primary: args.channelPrimary,
+			translations: [],
 			chars: args.chars,
 			state: "new",
 			analysisId: args.analysisId,
@@ -63,8 +68,11 @@ export const insertCarouselDraft = internalMutation({
 			await ctx.db.insert("carouselSlides", {
 				draftId,
 				orderIndex: slide.orderIndex,
-				ar: slide.ar,
+				ar: "",
+				primary: slide.primary,
+				translations: [],
 				imagePrompt: slide.imagePrompt,
+				genRunId: runId,
 				createdAt: Date.now(),
 			});
 		}
@@ -79,6 +87,8 @@ export const recordFailedCarouselRun = internalMutation({
 		model: v.string(),
 		error: v.string(),
 		sourceItemId: v.id("inboxItems"),
+		brandVersion: v.optional(v.number()),
+		promptVersion: v.optional(v.string()),
 	},
 	returns: v.id("providerRuns"),
 	handler: async (ctx, args): Promise<Id<"providerRuns">> => {
@@ -92,6 +102,8 @@ export const recordFailedCarouselRun = internalMutation({
 			cost: 0,
 			runAt: Date.now(),
 			error: args.error,
+			brandVersion: args.brandVersion,
+			promptVersion: args.promptVersion,
 		});
 	},
 });
@@ -125,16 +137,19 @@ export const loadCarouselForImages = internalQuery({
 export const loadCarouselForOverlay = internalQuery({
 	args: { draftId: v.id("drafts") },
 	handler: async (
-		ctx,
-		{ draftId },
-	): Promise<{
-		draft: Doc<"drafts">;
-		slides: Doc<"carouselSlides">[];
-		baseAssets: Doc<"mediaAssets">[];
-	} | null> => {
-		const draft = await ctx.db.get(draftId);
-		if (!draft) return null;
-		const rawSlides = await ctx.db
+	ctx,
+	{ draftId },
+): Promise<{
+	draft: Doc<"drafts">;
+	analysis: Doc<"analyses">;
+	slides: Doc<"carouselSlides">[];
+	baseAssets: Doc<"mediaAssets">[];
+} | null> => {
+	const draft = await ctx.db.get(draftId);
+	if (!draft) return null;
+	const analysis = await ctx.db.get(draft.analysisId);
+	if (!analysis) return null;
+	const rawSlides = await ctx.db
 			.query("carouselSlides")
 			.withIndex("by_draft", (q) => q.eq("draftId", draftId))
 			.collect();
@@ -145,8 +160,8 @@ export const loadCarouselForOverlay = internalQuery({
 			.collect();
 		// Base assets only (no composites), sorted by orderIndex.
 		const baseAssets = assets
-			.filter((a) => !a.overlaidFrom && a.state === "ready")
-			.sort((a, b) => a.orderIndex - b.orderIndex);
-		return { draft, slides, baseAssets };
-	},
+		.filter((a) => !a.overlaidFrom && a.state === "ready")
+		.sort((a, b) => a.orderIndex - b.orderIndex);
+	return { draft, analysis, slides, baseAssets };
+},
 });

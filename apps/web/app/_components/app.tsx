@@ -12,6 +12,7 @@ import { FilterSeg, Select } from "./primitives";
 import { Sidebar } from "./sidebar";
 import type { Analysis, CapturePayload, InboxItem, State, ViewKey } from "./types";
 import { AnalysesView } from "./views/analyses";
+import { BrandView } from "./views/brand";
 import { DraftsView } from "./views/drafts";
 import { InboxView } from "./views/inbox";
 import { NewsletterView } from "./views/newsletter";
@@ -61,6 +62,10 @@ const HINTS_BY_VIEW: Record<ViewKey, Hint[]> = {
 		{ keys: ["⌘", "K"], label: "palette" },
 	],
 	settings: [{ keys: ["⌘", "K"], label: "palette" }],
+	brand: [
+		{ keys: ["G", "B"], label: "brand" },
+		{ keys: ["⌘", "K"], label: "palette" },
+	],
 };
 
 const VIEW_STORAGE_KEY = "bp.view";
@@ -72,7 +77,8 @@ const isViewKey = (v: string): v is ViewKey =>
 	v === "reels" ||
 	v === "newsletter" ||
 	v === "website" ||
-	v === "settings";
+	v === "settings" ||
+	v === "brand";
 
 function providerLabel(provider: "claude" | "glm" | "openrouter" | undefined): string {
 	if (provider === "claude") return "claude-sonnet-4-6";
@@ -197,6 +203,7 @@ export function Shell() {
 					n: "newsletter",
 					w: "website",
 					s: "settings",
+					b: "brand",
 				};
 				const next = map[e.key.toLowerCase()];
 				if (next) {
@@ -340,7 +347,8 @@ export function Shell() {
 						{view === "reels" && <ReelsView />}
 						{view === "newsletter" && <NewsletterView />}
 						{view === "website" && <WebsiteView selected={wsSel} setSelected={setWsSel} />}
-						{view === "settings" && <SettingsView />}
+						{view === "settings" && <SettingsView onOpenBrand={() => navigate("brand")} />}
+						{view === "brand" && <BrandView />}
 					</div>
 				</div>
 				<HintBar
@@ -407,5 +415,6 @@ function resolveChrome(
 	if (view === "newsletter")
 		return { title: "Newsletter", subtitle: `issue #${NEWSLETTER.issue} · resend · sun 09:00 AST` };
 	if (view === "website") return { title: "Website Proposals", subtitle: "bilingual · bannaa.co content PRs" };
+	if (view === "brand") return { title: "Brand", subtitle: "tone · visual system · versions" };
 	return { title: "Settings", subtitle: "providers · connections · cron" };
 }

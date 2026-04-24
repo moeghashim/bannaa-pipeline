@@ -24,8 +24,7 @@ export const loadAnalysis = internalQuery({
 export const insertDraft = internalMutation({
 	args: {
 		channel: channelValidator,
-		ar: v.string(),
-		en: v.string(),
+		primary: v.string(),
 		chars: v.number(),
 		analysisId: v.id("analyses"),
 		sourceItemId: v.id("inboxItems"),
@@ -36,6 +35,8 @@ export const insertDraft = internalMutation({
 		inputTokens: v.number(),
 		outputTokens: v.number(),
 		cost: v.number(),
+		brandVersion: v.optional(v.number()),
+		promptVersion: v.optional(v.string()),
 	},
 	returns: v.id("drafts"),
 	handler: async (ctx, args): Promise<Id<"drafts">> => {
@@ -48,12 +49,16 @@ export const insertDraft = internalMutation({
 			outputTokens: args.outputTokens,
 			cost: args.cost,
 			runAt: Date.now(),
+			brandVersion: args.brandVersion,
+			promptVersion: args.promptVersion,
 		});
 
 		return await ctx.db.insert("drafts", {
 			channel: args.channel,
-			ar: args.ar,
-			en: args.en,
+			ar: "",
+			en: args.primary,
+			primary: args.primary,
+			translations: [],
 			chars: args.chars,
 			state: "new",
 			analysisId: args.analysisId,
@@ -72,6 +77,8 @@ export const recordFailedRun = internalMutation({
 		model: v.string(),
 		error: v.string(),
 		sourceItemId: v.id("inboxItems"),
+		brandVersion: v.optional(v.number()),
+		promptVersion: v.optional(v.string()),
 	},
 	returns: v.id("providerRuns"),
 	handler: async (ctx, args): Promise<Id<"providerRuns">> => {
@@ -85,6 +92,8 @@ export const recordFailedRun = internalMutation({
 			cost: 0,
 			runAt: Date.now(),
 			error: args.error,
+			brandVersion: args.brandVersion,
+			promptVersion: args.promptVersion,
 		});
 	},
 });
