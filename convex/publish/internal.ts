@@ -20,6 +20,12 @@ export const markScheduled = internalMutation({
 		draftId: v.id("drafts"),
 		scheduledAt: v.number(),
 		publishSelection: v.union(v.literal("base"), v.literal("overlay")),
+		publishLang: v.union(
+			v.literal("en"),
+			v.literal("ar-khaleeji"),
+			v.literal("ar-msa"),
+			v.literal("ar-levantine"),
+		),
 		publishIntegrationId: v.string(),
 		postizPostId: v.string(),
 	},
@@ -29,6 +35,7 @@ export const markScheduled = internalMutation({
 		await ctx.db.patch(args.draftId, {
 			scheduled: args.scheduledAt,
 			publishSelection: args.publishSelection,
+			publishLang: args.publishLang,
 			publishIntegrationId: args.publishIntegrationId,
 			postizPostId: args.postizPostId,
 			postizStatus: "scheduled",

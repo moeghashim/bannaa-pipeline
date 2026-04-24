@@ -288,3 +288,23 @@ Append-only learning log for commits and deploys. Add new entries only at the en
   - prd.md
   - scripts/check-prompt-versions.mjs
   - progress.md
+## 2026-04-24T12:56:10.224Z
+- Trigger: commit
+- Learning: EN-first ships as the second PRD slice: Drafts selects English as primary copy, generates Arabic preset translations on demand, edits each language independently, passes targetLang into baked-image actions, records publishLang for Postiz, and keeps legacy ar/en fields during the documented overlap period with PR-2a deferred for schema narrowing.
+- Context: feat(en-first): add translations and language publishing
+- Branch: codex/prd-en-first
+- Actor: Moe Ghashim <mohanadgh@gmail.com>
+- Changed Paths:
+  - apps/web/app/_components/views/drafts.tsx
+  - apps/web/app/_components/views/draftsArEditor.tsx
+  - apps/web/app/_components/views/draftsBaseOverlayToggle.tsx
+  - apps/web/app/_components/views/draftsCarousel.tsx
+  - apps/web/app/_components/views/draftsLanguages.tsx
+  - apps/web/app/_components/views/draftsScheduler.tsx
+  - convex/carouselSlides/list.ts
+  - convex/drafts/mutate.ts
+  - convex/publish/internal.ts
+  - convex/publish/postiz.ts
+  - convex/publish/scheduleDraft.ts
+  - docs/adr-en-first.md
+  - progress.md

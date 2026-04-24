@@ -52,12 +52,14 @@ export const SchedulePopover = ({
 	draftId,
 	channel,
 	selection,
+	publishLang,
 	onClose,
 	onScheduled,
 }: {
 	draftId: Id<"drafts">;
 	channel: Channel;
 	selection: "base" | "overlay";
+	publishLang: "en" | "ar-khaleeji" | "ar-msa" | "ar-levantine";
 	onClose: () => void;
 	onScheduled: (scheduledAt: number) => void;
 }) => {
@@ -104,7 +106,7 @@ export const SchedulePopover = ({
 		setSubmitting(true);
 		setSubmitError(null);
 		try {
-			const r = await scheduleAction({ draftId, scheduledAt, selection, integrationId });
+			const r = await scheduleAction({ draftId, scheduledAt, selection, publishLang, integrationId });
 			if (!r.ok) {
 				setSubmitError(r.error);
 				return;

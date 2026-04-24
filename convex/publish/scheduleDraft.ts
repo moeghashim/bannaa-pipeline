@@ -23,6 +23,13 @@ import { requireUser } from "../lib/requireUser";
 import { resolvePublishTarget } from "./channelMatrix";
 import { schedulePost, uploadMedia } from "./postiz";
 
+const publishLanguageValidator = v.union(
+	v.literal("en"),
+	v.literal("ar-khaleeji"),
+	v.literal("ar-msa"),
+	v.literal("ar-levantine"),
+);
+
 type ScheduleResult =
 	| { ok: true; postizPostId: string; scheduledAt: number }
 	| { ok: false; error: string };
@@ -32,13 +39,14 @@ export const scheduleDraft = action({
 		draftId: v.id("drafts"),
 		scheduledAt: v.number(),
 		selection: v.union(v.literal("base"), v.literal("overlay")),
+		publishLang: publishLanguageValidator,
 		integrationId: v.string(),
 	},
 	returns: v.union(
 		v.object({ ok: v.literal(true), postizPostId: v.string(), scheduledAt: v.number() }),
 		v.object({ ok: v.literal(false), error: v.string() }),
 	),
-	handler: async (ctx, { draftId, scheduledAt, selection, integrationId }): Promise<ScheduleResult> => {
+	handler: async (ctx, { draftId, scheduledAt, selection, publishLang, integrationId }): Promise<ScheduleResult> => {
 		await requireUser(ctx);
 
 		const draft: Doc<"drafts"> | null = await ctx.runQuery(
@@ -118,7 +126,7 @@ export const scheduleDraft = action({
 
 		const posted = await schedulePost({
 			integrationId,
-			text: draft.ar,
+			text: textForLanguage(draft, publishLang),
 			media: uploaded,
 			scheduledAt,
 			settings: target.settings,
@@ -129,6 +137,7 @@ export const scheduleDraft = action({
 			draftId,
 			scheduledAt,
 			publishSelection: selection,
+			publishLang,
 			publishIntegrationId: integrationId,
 			postizPostId: posted.postId,
 		});
@@ -136,3 +145,11 @@ export const scheduleDraft = action({
 		return { ok: true, postizPostId: posted.postId, scheduledAt };
 	},
 });
+
+function textForLanguage(draft: Doc<"drafts">, lang: "en" | "ar-khaleeji" | "ar-msa" | "ar-levantine"): string {
+	if (lang === "en") return draft.primary ?? draft.en;
+	const translation = draft.translations?.find((t) => t.lang === lang);
+	if (translation) return translation.text;
+	if (lang === "ar-khaleeji" && draft.ar) return draft.ar;
+	throw new Error(`No ${lang} copy exists for this draft`);
+}
