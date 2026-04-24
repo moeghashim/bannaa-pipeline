@@ -51,10 +51,8 @@
 		"@anthropic-ai/sdk": "^0.90.0",
 		"@auth/core": "^0.37.4",
 		"@convex-dev/auth": "^0.0.91",
-		"@resvg/resvg-wasm": "^2.6.2",
 		"convex": "^1.35.1",
 		"openai": "^6.34.0",
-		"resend": "^6.12.2",
-		"satori": "^0.26.0"
+		"resend": "^6.12.2"
 	}
 }

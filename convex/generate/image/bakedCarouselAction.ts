@@ -1,12 +1,11 @@
-// Baked-text carousel generation (Phase 2 · B.4-B, A/B vs HyperFrames).
+// Baked-text carousel generation (Phase 2 · B.4).
 //
 // For each ready base asset, calls gpt-image-2 with a merged prompt — the
 // original scene instructions + the Arabic caption + explicit chrome layout
-// — so the model renders the final slide with text baked in, skipping
-// satori. Inserted assets carry `overlaidFrom = base._id` so slidesForDraft
-// treats them as composites (preferred over the base), and provider is
-// `"gpt-image"` (not `"hyperframes"`) so the UI can tell satori composites
-// and baked variants apart for A/B review.
+// — so the model renders the final slide with text baked in. Inserted
+// assets carry `overlaidFrom = base._id` so slidesForDraft treats them as
+// composites (preferred over the base). This is the only AR-text-overlay
+// path now that the satori compositor has been removed.
 
 import { v } from "convex/values";
 import { internal } from "../../_generated/api";

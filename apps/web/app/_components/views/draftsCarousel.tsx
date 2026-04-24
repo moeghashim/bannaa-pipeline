@@ -4,7 +4,6 @@ import { api } from "@convex/_generated/api";
 import type { Doc, Id } from "@convex/_generated/dataModel";
 import { useQuery } from "convex/react";
 import type { ReactNode } from "react";
-import { HyperFrame } from "../primitives";
 
 // Carousel helpers split out of drafts.tsx so the parent file stays under
 // the 600-line cap. Kept as pure rendering + a tiny `ReadyImage`
@@ -32,21 +31,16 @@ export const CarouselStrip = ({
 	script,
 	slots,
 	baseSlots,
-	bakedSlots,
-	satoriSlots,
 	status,
 	view,
 }: {
 	script: Doc<"carouselSlides">[];
 	slots: Doc<"mediaAssets">[];
 	baseSlots: Doc<"mediaAssets">[];
-	bakedSlots: Doc<"mediaAssets">[];
-	satoriSlots: Doc<"mediaAssets">[];
 	status: Doc<"mediaAssets">[];
-	view: "overlay" | "base" | "baked";
+	view: "overlay" | "base";
 }) => {
-	const displaySlots =
-		view === "base" ? baseSlots : view === "baked" ? bakedSlots : satoriSlots.length > 0 ? satoriSlots : slots;
+	const displaySlots = view === "base" ? baseSlots : slots;
 	const assetByIndex = new Map<number, Doc<"mediaAssets">>();
 	for (const a of displaySlots) assetByIndex.set(a.orderIndex, a);
 	const generatingByIndex = new Set<number>();
@@ -155,7 +149,27 @@ const CarouselSlide = ({
 			</div>
 		);
 	} else {
-		body = <HyperFrame variant="square" ar={slide.ar} channel="ig" small />;
+		body = (
+			<div
+				className="skeleton"
+				style={{
+					width: size,
+					height: size,
+					flexShrink: 0,
+					borderRadius: "var(--r-md)",
+					border: "1px dashed var(--border-faint)",
+					display: "flex",
+					alignItems: "center",
+					justifyContent: "center",
+					fontSize: 10,
+					color: "var(--muted)",
+					textAlign: "center",
+					padding: "0 12px",
+				}}
+			>
+				planned
+			</div>
+		);
 	}
 
 	return (

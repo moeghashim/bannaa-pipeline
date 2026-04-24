@@ -41,9 +41,11 @@ const mediaKindType = v.union(
 	v.literal("video"),
 );
 
-// Union of all provider identifiers that may appear on a mediaAsset row —
-// includes "hyperframes", which is the B.4 local compositor (not an
-// external image generator).
+// Union of all provider identifiers that may appear on a mediaAsset row.
+// "hyperframes" is kept as a legacy value — the satori compositor was
+// deleted in favor of gpt-image-2 baked text, but existing composite rows
+// still have this provider stamped on them and the schema has to keep
+// validating those reads. No current action writes this value.
 const imageProviderType = v.union(
 	v.literal("nano-banana"),
 	v.literal("gpt-image"),

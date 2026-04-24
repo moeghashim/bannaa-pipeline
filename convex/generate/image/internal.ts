@@ -11,16 +11,6 @@ const imageGeneratorValidator = v.union(
 	v.literal("openrouter"),
 );
 
-// Full superset — includes the local "hyperframes" compositor used for B.4.
-const imageProviderValidator = v.union(
-	v.literal("nano-banana"),
-	v.literal("gpt-image"),
-	v.literal("grok"),
-	v.literal("ideogram"),
-	v.literal("openrouter"),
-	v.literal("hyperframes"),
-);
-
 const mediaKindValidator = v.union(
 	v.literal("text"),
 	v.literal("single-image"),
@@ -117,39 +107,12 @@ export const patchDraftMedia = internalMutation({
 	},
 });
 
-export const insertCompositeAsset = internalMutation({
-	args: {
-		draftId: v.id("drafts"),
-		overlaidFrom: v.id("mediaAssets"),
-		storageId: v.id("_storage"),
-		width: v.number(),
-		height: v.number(),
-		model: v.string(),
-		orderIndex: v.optional(v.number()),
-	},
-	returns: v.id("mediaAssets"),
-	handler: async (ctx, args): Promise<Id<"mediaAssets">> => {
-		return await ctx.db.insert("mediaAssets", {
-			draftId: args.draftId,
-			kind: "image",
-			storageId: args.storageId,
-			prompt: "AR overlay composite",
-			provider: "hyperframes",
-			model: args.model,
-			state: "ready",
-			width: args.width,
-			height: args.height,
-			orderIndex: args.orderIndex ?? 0,
-			createdAt: Date.now(),
-			overlaidFrom: args.overlaidFrom,
-		});
-	},
-});
-
-// Baked-text variant: the image model produces the final slide with AR text
-// baked in. Parallels insertCompositeAsset but keeps the real generator's
-// provider + model (not "hyperframes") so the UI can tell the two paths
-// apart — both point `overlaidFrom` at the same base for the A/B comparison.
+// Baked-text variant: the image model produces the final slide with the AR
+// caption + brand chrome rendered by gpt-image-2 in one shot (replaces the
+// old satori-based `insertCompositeAsset`). Keeps the real generator's
+// provider + model so publish flows and analytics see gpt-image, and points
+// `overlaidFrom` at the base so `slidesForDraft` / `firstReadyByDraft`
+// continue to prefer the finished slide over the bare base.
 export const insertBakedAsset = internalMutation({
 	args: {
 		draftId: v.id("drafts"),

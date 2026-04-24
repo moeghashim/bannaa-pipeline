@@ -3,20 +3,17 @@
 import { api } from "@convex/_generated/api";
 import type { Doc, Id } from "@convex/_generated/dataModel";
 import { useQuery } from "convex/react";
-import { HyperFrame } from "../primitives";
 
 export const DraftMedia = ({
 	asset,
 	assetLoaded,
 	variant,
-	ar,
-	channel,
 }: {
 	asset: Doc<"mediaAssets"> | null;
 	assetLoaded: boolean;
 	variant: "square" | "vertical";
-	ar: string;
-	channel: string;
+	ar?: string;
+	channel?: string;
 }) => {
 	const w = variant === "vertical" ? 140 : 200;
 	const h = variant === "vertical" ? w / (9 / 16) : w;
@@ -53,8 +50,26 @@ export const DraftMedia = ({
 		return <ReadyImage storageId={asset.storageId} width={w} height={h} alt={asset.prompt.slice(0, 80)} />;
 	}
 
-	// No asset (or failed) — fall back to the HyperFrame preview of the AR copy.
-	return <HyperFrame variant={variant} ar={ar} channel={channel} small />;
+	// No asset (or failed) — show a dashed placeholder.
+	return (
+		<div
+			className="skeleton"
+			style={{
+				width: w,
+				height: h,
+				flexShrink: 0,
+				borderRadius: "var(--r-md)",
+				border: "1px dashed var(--border-faint)",
+				display: "flex",
+				alignItems: "center",
+				justifyContent: "center",
+				fontSize: 10,
+				color: "var(--muted)",
+			}}
+		>
+			no image yet
+		</div>
+	);
 };
 
 const ReadyImage = ({

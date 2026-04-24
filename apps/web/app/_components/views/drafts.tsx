@@ -138,16 +138,14 @@ const DraftCard = ({
 	const assetLoaded = isCarousel ? true : asset !== undefined;
 
 	const generate = useAction(api.generate.image.action.generateForDraft);
-	const overlay = useAction(api.generate.image.composite.overlayForDraft);
 	const generateCarousel = useAction(api.generate.image.carouselAction.generateCarouselForDraft);
-	const overlayCarousel = useAction(api.generate.image.compositeCarouselAction.overlayCarouselForDraft);
+	const bake = useAction(api.generate.image.bakedAction.bakedForDraft);
 	const bakeCarousel = useAction(api.generate.image.bakedCarouselAction.bakedCarouselForDraft);
 	const [picker, setPicker] = useState(false);
 	const [submitting, setSubmitting] = useState(false);
-	const [compositing, setCompositing] = useState(false);
 	const [baking, setBaking] = useState(false);
 	const [genError, setGenError] = useState<string | null>(null);
-	const [view, setView] = useState<CarouselView>("overlay");
+	const [view, setView] = useState<"overlay" | "base">("overlay");
 	const [schedulerOpen, setSchedulerOpen] = useState(false);
 	const [editing, setEditing] = useState(false);
 	const [editDraft, setEditDraft] = useState(draft.ar);
@@ -195,26 +193,13 @@ const DraftCard = ({
 		}
 	};
 
-	const runOverlay = async () => {
-		setCompositing(true);
-		setGenError(null);
-		try {
-			const r = isCarousel ? await overlayCarousel({ draftId: draft._id }) : await overlay({ draftId: draft._id });
-			if (!r.ok) setGenError(r.error);
-		} catch (err) {
-			setGenError(err instanceof Error ? err.message : String(err));
-		} finally {
-			setCompositing(false);
-		}
-	};
-
 	const runBake = async () => {
 		setBaking(true);
 		setGenError(null);
 		try {
-			const r = await bakeCarousel({ draftId: draft._id });
+			const r = isCarousel ? await bakeCarousel({ draftId: draft._id }) : await bake({ draftId: draft._id });
 			if (!r.ok) setGenError(r.error);
-			else setView("baked");
+			else setView("overlay");
 		} catch (err) {
 			setGenError(err instanceof Error ? err.message : String(err));
 		} finally {
@@ -239,15 +224,7 @@ const DraftCard = ({
 	);
 
 	const carouselReadyBaseCount = (carouselBaseSlots ?? []).length;
-	const carouselSatoriSlots = (carouselStatus ?? []).filter(
-		(a) => a.state === "ready" && !!a.overlaidFrom && a.provider === "hyperframes",
-	);
-	const carouselBakedSlots = (carouselStatus ?? []).filter(
-		(a) => a.state === "ready" && !!a.overlaidFrom && a.provider !== "hyperframes",
-	);
-	const carouselReadySatoriCount = carouselSatoriSlots.length;
-	const carouselReadyBakedCount = carouselBakedSlots.length;
-	const carouselReadyCompositeCount = carouselReadySatoriCount;
+	const carouselReadyCompositeCount = (carouselSlots ?? []).filter((a) => !!a.overlaidFrom).length;
 	const carouselExpectedCount = (carouselScript ?? []).length;
 	const carouselGenerating = (carouselStatus ?? []).filter((a) => a.state === "generating").length;
 	const carouselFailed = (carouselStatus ?? []).filter((a) => a.state === "failed").length;
@@ -262,15 +239,11 @@ const DraftCard = ({
 	// (no composite yet). Once a composite lands, `asset` flips to it and the
 	// button hides — the toggle takes over.
 	const currentIsBase = !!asset && asset.state === "ready" && !asset.overlaidFrom;
-	const carouselHasComposite = carouselReadyCompositeCount > 0 || carouselReadyBakedCount > 0;
-	const carouselNeedsOverlay =
-		isCarousel && carouselReadyBaseCount > 0 && carouselReadyCompositeCount < carouselReadyBaseCount;
+	const carouselHasComposite = carouselReadyCompositeCount > 0;
 	const carouselNeedsBake =
-		isCarousel && carouselReadyBaseCount > 0 && carouselReadyBakedCount < carouselReadyBaseCount;
-	const showOverlayButton = isCarousel ? carouselNeedsOverlay : !videoChannel && currentIsBase;
-	const showBakeButton = isCarousel && carouselNeedsBake;
+		isCarousel && carouselReadyBaseCount > 0 && carouselReadyCompositeCount < carouselReadyBaseCount;
+	const showBakeButton = isCarousel ? carouselNeedsBake : !videoChannel && currentIsBase;
 	const hasComposite = isCarousel ? carouselHasComposite : !!asset && asset.state === "ready" && !!asset.overlaidFrom;
-	const hasBaked = carouselReadyBakedCount > 0;
 	const displayedAsset = hasComposite && view === "base" && baseAsset ? baseAsset : asset;
 
 	return (
@@ -298,8 +271,6 @@ const DraftCard = ({
 							script={carouselScript ?? []}
 							slots={carouselSlots ?? []}
 							baseSlots={carouselBaseSlots ?? []}
-							bakedSlots={carouselBakedSlots}
-							satoriSlots={carouselSatoriSlots}
 							status={carouselStatus ?? []}
 							view={view}
 						/>
@@ -325,7 +296,7 @@ const DraftCard = ({
 									failed: carouselFailed,
 								})}
 							</span>
-							{hasComposite && <BaseOverlayToggle value={view} onChange={setView} showBaked={hasBaked} />}
+							{hasComposite && <BaseOverlayToggle value={view} onChange={setView} />}
 						</div>
 						{editing ? (
 							<ArEditor {...editorProps} />
@@ -353,7 +324,7 @@ const DraftCard = ({
 								ar={draft.ar}
 								channel={draft.channel}
 							/>
-							{hasComposite && <BaseOverlayToggle value={view} onChange={setView} showBaked={hasBaked} />}
+							{hasComposite && <BaseOverlayToggle value={view} onChange={setView} />}
 						</div>
 						<div className="copy">
 							{editing ? (
@@ -450,17 +421,17 @@ const DraftCard = ({
 								</>
 							)}
 						</button>
-					) : showOverlayButton ? (
+					) : showBakeButton ? (
 						<button
 							type="button"
 							className="btn xs"
-							disabled={compositing}
-							onClick={runOverlay}
-							title="Overlay AR text with HyperFrames"
+							disabled={baking}
+							onClick={runBake}
+							title="Overlay AR text via gpt-image-2"
 						>
-							{compositing ? (
+							{baking ? (
 								<>
-									<Icons.Clock size={11} /> compositing…
+									<Icons.Clock size={11} /> overlaying…
 								</>
 							) : (
 								<>
@@ -469,25 +440,6 @@ const DraftCard = ({
 							)}
 						</button>
 					) : null}
-					{showBakeButton && (
-						<button
-							type="button"
-							className="btn xs"
-							disabled={baking}
-							onClick={runBake}
-							title="Generate slides with AR text baked in via gpt-image-2 (A/B vs HyperFrames)"
-						>
-							{baking ? (
-								<>
-									<Icons.Clock size={11} /> baking…
-								</>
-							) : (
-								<>
-									<Icons.Sparkle size={11} /> Bake AR text
-								</>
-							)}
-						</button>
-					)}
 					{draft.state !== "approved" && draft.state !== "rejected" && (
 						<button type="button" className="btn xs" onClick={onApprove} title="Approve (A)">
 							<Icons.Check size={11} sw={2} /> Approve
@@ -550,9 +502,7 @@ const DraftCard = ({
 					<SchedulePopover
 						draftId={draft._id}
 						channel={draft.channel}
-						// TODO: widen publishSelection to include "baked"; for
-						// now coerce so scheduling still works from that view.
-						selection={view === "baked" ? "overlay" : view}
+						selection={view}
 						onClose={() => setSchedulerOpen(false)}
 						onScheduled={() => setSchedulerOpen(false)}
 					/>
@@ -562,21 +512,17 @@ const DraftCard = ({
 	);
 };
 
-export type CarouselView = "overlay" | "base" | "baked";
-
 const BaseOverlayToggle = ({
 	value,
 	onChange,
-	showBaked,
 }: {
-	value: CarouselView;
-	onChange: (v: CarouselView) => void;
-	showBaked: boolean;
+	value: "overlay" | "base";
+	onChange: (v: "overlay" | "base") => void;
 }) => {
 	return (
 		<div
 			role="group"
-			aria-label="Toggle base, overlay, or baked image"
+			aria-label="Toggle base or overlay image"
 			className="filter-seg"
 			style={{ alignSelf: "center", fontSize: 10 }}
 		>
@@ -584,13 +530,8 @@ const BaseOverlayToggle = ({
 				base
 			</button>
 			<button type="button" className={value === "overlay" ? "active" : ""} onClick={() => onChange("overlay")}>
-				satori
+				overlay
 			</button>
-			{showBaked && (
-				<button type="button" className={value === "baked" ? "active" : ""} onClick={() => onChange("baked")}>
-					baked
-				</button>
-			)}
 		</div>
 	);
 };
