@@ -42,17 +42,16 @@ const mediaKindType = v.union(
 );
 
 // Union of all provider identifiers that may appear on a mediaAsset row.
-// "hyperframes" is kept as a legacy value — the satori compositor was
-// deleted in favor of gpt-image-2 baked text, but existing composite rows
-// still have this provider stamped on them and the schema has to keep
-// validating those reads. No current action writes this value.
+// The old "hyperframes" literal was dropped alongside the satori
+// compositor; legacy rows were purged by the
+// `generate/image/cleanupLegacyHyperframes` one-shot migration before the
+// schema narrowed, so no existing data references it.
 const imageProviderType = v.union(
 	v.literal("nano-banana"),
 	v.literal("gpt-image"),
 	v.literal("grok"),
 	v.literal("ideogram"),
 	v.literal("openrouter"),
-	v.literal("hyperframes"),
 );
 
 // Settings-facing subset: only external generators can be a *default*. The

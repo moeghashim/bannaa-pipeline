@@ -4,9 +4,10 @@ export type Lang = "en" | "ar";
 export type ProviderId = "claude" | "glm" | "openrouter";
 // External image generators (what the user can pick to generate a base image).
 export type ImageProvider = "nano-banana" | "gpt-image" | "grok" | "ideogram" | "openrouter";
-// Full provider union that may appear on a mediaAsset row — adds the local
-// HyperFrames compositor used by the B.4 overlay pipeline.
-export type MediaAssetProvider = ImageProvider | "hyperframes";
+// Provider union that may appear on a mediaAsset row. Since the satori
+// "hyperframes" compositor was deleted and its legacy rows purged, this is
+// now identical to `ImageProvider`.
+export type MediaAssetProvider = ImageProvider;
 export type MediaKind = "text" | "single-image" | "carousel" | "video";
 export type Channel = "x" | "ig" | "ig-reel" | "tiktok" | "yt-shorts" | "fb-page" | "linkedin-page";
 export type Track = "Foundations" | "Agents" | "Media";

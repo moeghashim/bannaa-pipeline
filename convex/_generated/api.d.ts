@@ -32,6 +32,7 @@ import type * as generate_image_action from "../generate/image/action.js";
 import type * as generate_image_bakedAction from "../generate/image/bakedAction.js";
 import type * as generate_image_bakedCarouselAction from "../generate/image/bakedCarouselAction.js";
 import type * as generate_image_carouselAction from "../generate/image/carouselAction.js";
+import type * as generate_image_cleanupLegacyHyperframes from "../generate/image/cleanupLegacyHyperframes.js";
 import type * as generate_image_internal from "../generate/image/internal.js";
 import type * as generate_image_prompts from "../generate/image/prompts.js";
 import type * as generate_image_providers from "../generate/image/providers.js";
@@ -96,6 +97,7 @@ declare const fullApi: ApiFromModules<{
   "generate/image/bakedAction": typeof generate_image_bakedAction;
   "generate/image/bakedCarouselAction": typeof generate_image_bakedCarouselAction;
   "generate/image/carouselAction": typeof generate_image_carouselAction;
+  "generate/image/cleanupLegacyHyperframes": typeof generate_image_cleanupLegacyHyperframes;
   "generate/image/internal": typeof generate_image_internal;
   "generate/image/prompts": typeof generate_image_prompts;
   "generate/image/providers": typeof generate_image_providers;
