@@ -45,21 +45,6 @@ export const reopen = mutation({
 // forcing the operator to unschedule first. `chars` is recalculated
 // here so the draft card's char counter stays in sync without needing
 // the UI to do double bookkeeping.
-export const updateAr = mutation({
-	args: { id: v.id("drafts"), ar: v.string() },
-	handler: async (ctx, { id, ar }) => {
-		await requireUser(ctx);
-		const row = await ctx.db.get(id);
-		if (!row) throw new Error("Draft not found");
-		if (row.postizStatus && row.postizStatus !== "failed") {
-			throw new Error(`Cannot edit AR while post is ${row.postizStatus} — unschedule first`);
-		}
-		const trimmed = ar.trim();
-		if (!trimmed) throw new Error("AR copy cannot be empty");
-		await ctx.db.patch(id, { ar: trimmed, chars: trimmed.length });
-	},
-});
-
 export const updateText = mutation({
 	args: { id: v.id("drafts"), lang: outputLanguageValidator, text: v.string() },
 	handler: async (ctx, { id, lang, text }) => {
@@ -72,7 +57,7 @@ export const updateText = mutation({
 		const trimmed = text.trim();
 		if (!trimmed) throw new Error("Draft copy cannot be empty");
 		if (lang === "en") {
-			await ctx.db.patch(id, { primary: trimmed, en: trimmed, chars: trimmed.length });
+			await ctx.db.patch(id, { primary: trimmed, chars: trimmed.length });
 			return;
 		}
 		const translations = [
@@ -87,8 +72,6 @@ export const updateText = mutation({
 		];
 		await ctx.db.patch(id, {
 			translations,
-			ar: lang.startsWith("ar-") ? trimmed : row.ar,
-			chars: lang === "ar-khaleeji" ? trimmed.length : row.chars,
 		});
 	},
 });

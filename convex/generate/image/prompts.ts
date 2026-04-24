@@ -1,7 +1,7 @@
 import type { Doc } from "../../_generated/dataModel";
 import type { Channel } from "../prompts";
 
-export const IMAGE_PROMPT_VERSION = "2026-04-23-a";
+export const IMAGE_PROMPT_VERSION = "2026-04-24-a";
 
 export const VIDEO_CHANNELS: readonly Channel[] = ["ig-reel", "tiktok", "yt-shorts"] as const;
 
@@ -17,8 +17,7 @@ export function buildImagePrompt(input: {
 	channel: Channel;
 	analysisSummary: string;
 	analysisConcepts: string[];
-	ar: string;
-	en: string;
+	primary: string;
 	track: string;
 	brand: Pick<Doc<"brands">, "design">;
 }): string {
@@ -45,7 +44,7 @@ export function buildImagePrompt(input: {
 		`Concepts to reference visually: ${concepts}`,
 		"",
 		"Creative brief (use for mood + subject, not for literal text rendering):",
-		input.en,
+		input.primary,
 		"",
 		"Analysis context (subject matter only, do not illustrate any labels):",
 		input.analysisSummary,

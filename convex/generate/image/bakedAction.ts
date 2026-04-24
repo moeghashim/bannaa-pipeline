@@ -169,9 +169,8 @@ export const bakedForDraft = action({
 });
 
 function textForLanguage(draft: Doc<"drafts">, lang: OutputLanguage): string {
-	if (lang === "en") return draft.primary ?? draft.en;
+	if (lang === "en") return draft.primary;
 	const translation = draft.translations?.find((t) => t.lang === lang);
 	if (translation) return translation.text;
-	if (lang === "ar-khaleeji" && draft.ar) return draft.ar;
 	throw new Error(`No ${lang} copy exists for this draft`);
 }

@@ -208,9 +208,7 @@ export default defineSchema({
 
 	drafts: defineTable({
 		channel: channelType,
-		ar: v.string(),
-		en: v.string(),
-		primary: v.optional(v.string()),
+		primary: v.string(),
 		translations: v.optional(v.array(translationType)),
 		chars: v.number(),
 		state: stateType,
@@ -269,8 +267,7 @@ export default defineSchema({
 	carouselSlides: defineTable({
 		draftId: v.id("drafts"),
 		orderIndex: v.number(),
-		ar: v.string(),
-		primary: v.optional(v.string()),
+		primary: v.string(),
 		translations: v.optional(v.array(translationType)),
 		imagePrompt: v.string(),
 		genRunId: v.optional(v.id("providerRuns")),

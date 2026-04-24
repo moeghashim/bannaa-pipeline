@@ -210,7 +210,7 @@ const CarouselSlide = ({
 				lang="ar"
 				style={{ fontSize: 11, lineHeight: 1.35, textWrap: "pretty", color: "var(--ink-2)" }}
 			>
-				{slide.primary ?? slide.ar}
+				{slide.primary}
 			</div>
 			<FeedbackControls targetKind="carouselSlide" targetId={slide._id} draftId={slide.draftId} compact />
 		</div>

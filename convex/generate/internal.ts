@@ -55,8 +55,6 @@ export const insertDraft = internalMutation({
 
 		return await ctx.db.insert("drafts", {
 			channel: args.channel,
-			ar: "",
-			en: args.primary,
 			primary: args.primary,
 			translations: [],
 			chars: args.chars,

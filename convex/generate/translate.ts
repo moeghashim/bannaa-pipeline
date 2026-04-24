@@ -32,10 +32,6 @@ type TranslationResult =
 	  }
 	| { ok: false; error: string };
 
-function primaryForDraft(draft: Doc<"drafts">): string {
-	return draft.primary ?? draft.en;
-}
-
 export const generateTranslation = action({
 	args: { draftId: v.id("drafts"), targetLang: outputLanguageValidator },
 	returns: v.union(
@@ -68,7 +64,7 @@ export const generateTranslation = action({
 		const loaded = await ctx.runQuery(internal.generate.translateInternal.loadDraftWithAnalysis, { draftId });
 		if (!loaded) return { ok: false, error: "Draft or analysis not found" };
 		const { draft } = loaded;
-		const primary = primaryForDraft(draft).trim();
+		const primary = draft.primary.trim();
 		if (!primary) return { ok: false, error: "Draft has no English primary copy" };
 
 		const voicePreset = targetLang.startsWith("ar-")
@@ -108,7 +104,7 @@ export const generateTranslation = action({
 			if (draft.mediaKind === "carousel") {
 				const slides = await ctx.runQuery(internal.generate.translateInternal.listSlidesForDraft, { draftId });
 				for (const slide of slides) {
-					const slidePrimary = (slide.primary ?? slide.ar).trim();
+					const slidePrimary = slide.primary.trim();
 					if (!slidePrimary) continue;
 					const slideResult = await callProvider<TranslateToolOutput>({
 						provider,

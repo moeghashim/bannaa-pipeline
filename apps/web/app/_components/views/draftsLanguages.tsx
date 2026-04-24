@@ -58,15 +58,14 @@ export const LanguageSwitcher = ({
 };
 
 export function textForLanguage(draft: Doc<"drafts">, lang: OutputLanguage): string {
-	if (lang === "en") return draft.primary ?? draft.en;
+	if (lang === "en") return draft.primary;
 	const translation = draft.translations?.find((t) => t.lang === lang);
 	if (translation) return translation.text;
-	if (lang === "ar-khaleeji") return draft.ar;
 	return "";
 }
 
 export function hasTranslation(draft: Doc<"drafts">, lang: OutputLanguage): boolean {
 	if (lang === "en") return true;
 	if (draft.translations?.some((t) => t.lang === lang)) return true;
-	return lang === "ar-khaleeji" && draft.ar.trim().length > 0;
+	return false;
 }
