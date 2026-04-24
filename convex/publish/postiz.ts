@@ -11,7 +11,7 @@
 //     media ID + CDN url for one asset. Carousels upload each slide
 //     sequentially in order.
 //   • schedulePost({...}) → creates a scheduled post with N media refs
-//     and the Khaleeji-AR copy, returns the Postiz post ID we store on
+//     and the selected-language copy, returns the Postiz post ID we store on
 //     the draft row.
 //
 // Runs in the Node runtime so multipart uploads work cleanly with the
@@ -148,7 +148,7 @@ export async function uploadMedia(input: UploadMediaInput): Promise<UploadMediaR
 
 export type SchedulePostInput = {
 	integrationId: string; // from listIntegrations — which Postiz social to use
-	text: string; // Khaleeji-AR copy
+	text: string;
 	media: Array<{ id: string; path: string }>; // from uploadMedia, in order
 	scheduledAt: number; // unix ms; Postiz requires an ISO date even for "publish now"
 	settings: Record<string, unknown>; // from channelMatrix — provider-specific knobs

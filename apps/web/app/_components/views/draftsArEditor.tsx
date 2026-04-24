@@ -11,6 +11,8 @@ export const ArEditor = ({
 	onSave,
 	error,
 	saving,
+	dir = "rtl",
+	lang = "ar",
 }: {
 	value: string;
 	onChange: (v: string) => void;
@@ -18,6 +20,8 @@ export const ArEditor = ({
 	onSave: () => void;
 	error: string | null;
 	saving: boolean;
+	dir?: "ltr" | "rtl";
+	lang?: string;
 }) => {
 	const ref = useRef<HTMLTextAreaElement>(null);
 	useMountEffect(() => {
@@ -29,8 +33,8 @@ export const ArEditor = ({
 				ref={ref}
 				value={value}
 				onChange={(e) => onChange(e.target.value)}
-				dir="rtl"
-				lang="ar"
+				dir={dir}
+				lang={lang}
 				rows={4}
 				style={{
 					width: "100%",

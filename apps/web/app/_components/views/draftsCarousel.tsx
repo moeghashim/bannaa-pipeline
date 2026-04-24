@@ -209,7 +209,7 @@ const CarouselSlide = ({
 				lang="ar"
 				style={{ fontSize: 11, lineHeight: 1.35, textWrap: "pretty", color: "var(--ink-2)" }}
 			>
-				{slide.ar}
+				{slide.primary ?? slide.ar}
 			</div>
 		</div>
 	);

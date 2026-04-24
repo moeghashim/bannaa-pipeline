@@ -9,8 +9,17 @@ import { Icons } from "../icons";
 import { Chip } from "../primitives";
 import type { Channel, ImageProvider } from "../types";
 import { ArEditor } from "./draftsArEditor";
+import { BaseOverlayToggle } from "./draftsBaseOverlayToggle";
 import { CarouselStrip, carouselStatusLabel } from "./draftsCarousel";
 import { ImageProviderPicker } from "./draftsImagePicker";
+import {
+	FALLBACK_OUTPUT_LANGUAGES,
+	hasTranslation,
+	LANGUAGE_LABELS,
+	LanguageSwitcher,
+	type OutputLanguage,
+	textForLanguage,
+} from "./draftsLanguages";
 import { DraftMedia } from "./draftsMedia";
 import { SchedulePopover } from "./draftsScheduler";
 
@@ -28,7 +37,6 @@ const CHANNELS: { value: Channel | "all"; label: string }[] = [
 const VIDEO_CHANNELS: readonly Channel[] = ["ig-reel", "tiktok", "yt-shorts"];
 
 const isVideoChannel = (c: string): boolean => (VIDEO_CHANNELS as readonly string[]).includes(c);
-
 const channelLabel = (c: string): string => {
 	const map: Record<string, string> = {
 		x: "X",
@@ -54,12 +62,15 @@ export const DraftsView = ({ channel, setChannel }: { channel: string; setChanne
 	const approve = useMutation(api.drafts.mutate.approve);
 	const reject = useMutation(api.drafts.mutate.reject);
 	const unschedule = useMutation(api.drafts.mutate.unschedule);
-	const updateAr = useMutation(api.drafts.mutate.updateAr);
+	const updateText = useMutation(api.drafts.mutate.updateText);
 
 	const loaded = drafts !== undefined;
 	const rows = drafts ?? [];
 	const filtered = channel === "all" ? rows : rows.filter((d) => d.channel === channel);
 	const defaultImageProvider: ImageProvider = settings?.defaultImageProvider ?? "nano-banana";
+	const outputLanguages = (settings?.outputLanguages ?? FALLBACK_OUTPUT_LANGUAGES).filter(
+		(lang): lang is OutputLanguage => lang === "ar-khaleeji" || lang === "ar-msa" || lang === "ar-levantine",
+	);
 
 	return (
 		<div className="drafts-view">
@@ -101,10 +112,11 @@ export const DraftsView = ({ channel, setChannel }: { channel: string; setChanne
 							key={d._id}
 							draft={d}
 							defaultImageProvider={defaultImageProvider}
+							outputLanguages={outputLanguages}
 							onApprove={() => approve({ id: d._id })}
 							onReject={() => reject({ id: d._id })}
 							onUnschedule={() => unschedule({ id: d._id })}
-							onSaveAr={(ar) => updateAr({ id: d._id, ar })}
+							onSaveText={(lang, text) => updateText({ id: d._id, lang, text })}
 						/>
 					))}
 				</div>
@@ -116,17 +128,19 @@ export const DraftsView = ({ channel, setChannel }: { channel: string; setChanne
 const DraftCard = ({
 	draft,
 	defaultImageProvider,
+	outputLanguages,
 	onApprove,
 	onReject,
 	onUnschedule,
-	onSaveAr,
+	onSaveText,
 }: {
 	draft: Doc<"drafts">;
 	defaultImageProvider: ImageProvider;
+	outputLanguages: OutputLanguage[];
 	onApprove: () => void;
 	onReject: () => void;
 	onUnschedule: () => void;
-	onSaveAr: (ar: string) => Promise<unknown>;
+	onSaveText: (lang: OutputLanguage, text: string) => Promise<unknown>;
 }) => {
 	const variant = channelFrame(draft.channel);
 	const videoChannel = isVideoChannel(draft.channel);
@@ -141,6 +155,7 @@ const DraftCard = ({
 	const generateCarousel = useAction(api.generate.image.carouselAction.generateCarouselForDraft);
 	const bake = useAction(api.generate.image.bakedAction.bakedForDraft);
 	const bakeCarousel = useAction(api.generate.image.bakedCarouselAction.bakedCarouselForDraft);
+	const generateTranslation = useAction(api.generate.translate.generateTranslation);
 	const [picker, setPicker] = useState(false);
 	const [submitting, setSubmitting] = useState(false);
 	const [baking, setBaking] = useState(false);
@@ -148,19 +163,23 @@ const DraftCard = ({
 	const [view, setView] = useState<"overlay" | "base">("overlay");
 	const [schedulerOpen, setSchedulerOpen] = useState(false);
 	const [editing, setEditing] = useState(false);
-	const [editDraft, setEditDraft] = useState(draft.ar);
+	const [selectedLang, setSelectedLang] = useState<OutputLanguage>("en");
+	const selectedText = textForLanguage(draft, selectedLang);
+	const selectedChars = selectedText.length;
+	const [editDraft, setEditDraft] = useState(selectedText);
 	const [editError, setEditError] = useState<string | null>(null);
 	const [editSaving, setEditSaving] = useState(false);
+	const [translating, setTranslating] = useState<OutputLanguage | null>(null);
 	const editLocked =
 		!!draft.postizStatus && draft.postizStatus !== "failed"
-			? `AR locked while post is ${draft.postizStatus} — unschedule first`
+			? `Copy locked while post is ${draft.postizStatus} — unschedule first`
 			: null;
 
 	const saveAr = async () => {
 		setEditSaving(true);
 		setEditError(null);
 		try {
-			await onSaveAr(editDraft);
+			await onSaveText(selectedLang, editDraft);
 			setEditing(false);
 		} catch (err) {
 			setEditError(err instanceof Error ? err.message : String(err));
@@ -175,6 +194,28 @@ const DraftCard = ({
 		onSave: saveAr,
 		error: editError,
 		saving: editSaving,
+		dir: selectedLang === "en" ? ("ltr" as const) : ("rtl" as const),
+		lang: selectedLang === "en" ? "en" : "ar",
+	};
+
+	const selectLanguage = async (lang: OutputLanguage) => {
+		setEditing(false);
+		setEditError(null);
+		setSelectedLang(lang);
+		const existing = textForLanguage(draft, lang);
+		setEditDraft(existing);
+		if (lang !== "en" && !hasTranslation(draft, lang)) {
+			setTranslating(lang);
+			try {
+				const result = await generateTranslation({ draftId: draft._id, targetLang: lang });
+				if (!result.ok) setGenError(result.error);
+				else setEditDraft(result.text);
+			} catch (err) {
+				setGenError(err instanceof Error ? err.message : String(err));
+			} finally {
+				setTranslating(null);
+			}
+		}
 	};
 
 	const runGenerate = async (provider: ImageProvider) => {
@@ -197,7 +238,9 @@ const DraftCard = ({
 		setBaking(true);
 		setGenError(null);
 		try {
-			const r = isCarousel ? await bakeCarousel({ draftId: draft._id }) : await bake({ draftId: draft._id });
+			const r = isCarousel
+				? await bakeCarousel({ draftId: draft._id, targetLang: selectedLang })
+				: await bake({ draftId: draft._id, targetLang: selectedLang });
 			if (!r.ok) setGenError(r.error);
 			else setView("overlay");
 		} catch (err) {
@@ -207,8 +250,6 @@ const DraftCard = ({
 		}
 	};
 
-	// Carousel-specific queries. `useQuery` with `"skip"` short-circuits to
-	// `undefined` so we don't fetch carousel data for single-image drafts.
 	const carouselSlots = useQuery(api.mediaAssets.list.slidesForDraft, isCarousel ? { draftId: draft._id } : "skip");
 	const carouselBaseSlots = useQuery(
 		api.mediaAssets.list.slidesBaseForDraft,
@@ -235,9 +276,6 @@ const DraftCard = ({
 			carouselReadyCompositeCount === 0 &&
 			carouselGenerating === 0
 		: !videoChannel && assetLoaded && (!asset || asset.state === "failed");
-	// Overlay button shows when the *current* visible asset is a ready base
-	// (no composite yet). Once a composite lands, `asset` flips to it and the
-	// button hides — the toggle takes over.
 	const currentIsBase = !!asset && asset.state === "ready" && !asset.overlaidFrom;
 	const carouselHasComposite = carouselReadyCompositeCount > 0;
 	const carouselNeedsBake =
@@ -301,11 +339,20 @@ const DraftCard = ({
 						{editing ? (
 							<ArEditor {...editorProps} />
 						) : (
-							<div className="ar-text" style={{ fontSize: 13, textWrap: "pretty" }}>
-								{draft.ar}
+							<div
+								className={selectedLang === "en" ? "en-text" : "ar-text"}
+								style={{ fontSize: 13, textWrap: "pretty" }}
+							>
+								{selectedText || "Generate this language first."}
 							</div>
 						)}
-						<div className="en-text">{draft.en}</div>
+						<LanguageSwitcher
+							draft={draft}
+							languages={outputLanguages}
+							selected={selectedLang}
+							onSelect={selectLanguage}
+							translating={translating}
+						/>
 						<div className="row gap-2" style={{ marginTop: "auto", flexWrap: "wrap" }}>
 							{draft.concepts.map((c) => (
 								<span key={c} className="concept-tag" style={{ height: 18, fontSize: 10, padding: "0 6px" }}>
@@ -321,7 +368,7 @@ const DraftCard = ({
 								asset={displayedAsset ?? null}
 								assetLoaded={assetLoaded}
 								variant={variant}
-								ar={draft.ar}
+								ar={selectedText}
 								channel={draft.channel}
 							/>
 							{hasComposite && <BaseOverlayToggle value={view} onChange={setView} />}
@@ -330,11 +377,20 @@ const DraftCard = ({
 							{editing ? (
 								<ArEditor {...editorProps} />
 							) : (
-								<div className="ar-text" style={{ fontSize: 14, textWrap: "pretty" }}>
-									{draft.ar}
+								<div
+									className={selectedLang === "en" ? "en-text" : "ar-text"}
+									style={{ fontSize: 14, textWrap: "pretty" }}
+								>
+									{selectedText || "Generate this language first."}
 								</div>
 							)}
-							<div className="en-text">{draft.en}</div>
+							<LanguageSwitcher
+								draft={draft}
+								languages={outputLanguages}
+								selected={selectedLang}
+								onSelect={selectLanguage}
+								translating={translating}
+							/>
 							<div className="row gap-2" style={{ marginTop: "auto", flexWrap: "wrap" }}>
 								{draft.concepts.map((c) => (
 									<span key={c} className="concept-tag" style={{ height: 18, fontSize: 10, padding: "0 6px" }}>
@@ -366,7 +422,7 @@ const DraftCard = ({
 
 			<div className="foot" style={{ position: "relative" }}>
 				<div className="mono" style={{ fontSize: 10.5, color: "var(--muted)" }}>
-					{draft.chars} chars · AR
+					{selectedChars} chars · {LANGUAGE_LABELS[selectedLang]}
 					{draft.postizStatus === "published" && draft.postizPermalink ? (
 						<>
 							{" · "}
@@ -427,7 +483,7 @@ const DraftCard = ({
 							className="btn xs"
 							disabled={baking}
 							onClick={runBake}
-							title="Overlay AR text via gpt-image-2"
+							title={`Overlay ${LANGUAGE_LABELS[selectedLang]} text via gpt-image-2`}
 						>
 							{baking ? (
 								<>
@@ -435,7 +491,7 @@ const DraftCard = ({
 								</>
 							) : (
 								<>
-									<Icons.Sparkle size={11} /> Overlay AR text
+									<Icons.Sparkle size={11} /> Overlay {LANGUAGE_LABELS[selectedLang]}
 								</>
 							)}
 						</button>
@@ -474,10 +530,10 @@ const DraftCard = ({
 					<button
 						type="button"
 						className="btn ghost xs"
-						title={editLocked ?? "Edit AR (E)"}
+						title={editLocked ?? `Edit ${LANGUAGE_LABELS[selectedLang]} (E)`}
 						disabled={!!editLocked}
 						onClick={() => {
-							setEditDraft(draft.ar);
+							setEditDraft(textForLanguage(draft, selectedLang));
 							setEditError(null);
 							setEditing((e) => !e);
 						}}
@@ -503,35 +559,12 @@ const DraftCard = ({
 						draftId={draft._id}
 						channel={draft.channel}
 						selection={view}
+						publishLang={selectedLang}
 						onClose={() => setSchedulerOpen(false)}
 						onScheduled={() => setSchedulerOpen(false)}
 					/>
 				)}
 			</div>
-		</div>
-	);
-};
-
-const BaseOverlayToggle = ({
-	value,
-	onChange,
-}: {
-	value: "overlay" | "base";
-	onChange: (v: "overlay" | "base") => void;
-}) => {
-	return (
-		<div
-			role="group"
-			aria-label="Toggle base or overlay image"
-			className="filter-seg"
-			style={{ alignSelf: "center", fontSize: 10 }}
-		>
-			<button type="button" className={value === "base" ? "active" : ""} onClick={() => onChange("base")}>
-				base
-			</button>
-			<button type="button" className={value === "overlay" ? "active" : ""} onClick={() => onChange("overlay")}>
-				overlay
-			</button>
 		</div>
 	);
 };
