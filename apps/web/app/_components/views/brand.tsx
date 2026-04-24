@@ -9,6 +9,7 @@ import { Icons } from "../icons";
 import { Chip, Select } from "../primitives";
 import type { Channel } from "../types";
 import { BrandPreviewSection } from "./brandPreviews";
+import { DesignMdImport } from "./designMdImport";
 
 const CHANNELS: { value: Channel; label: string }[] = [
 	{ value: "x", label: "X" },
@@ -381,6 +382,13 @@ export const BrandView = () => {
 					</Field>
 				</div>
 			</div>
+
+			<DesignMdImport
+				brand={brand}
+				onApply={(patch) => {
+					void updateActive(patch);
+				}}
+			/>
 
 			<BrandPreviewSection brand={brand} channel={promptChannel} onChannelChange={setPromptChannel} />
 
