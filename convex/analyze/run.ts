@@ -5,7 +5,7 @@ import { internal } from "../_generated/api";
 import type { Doc } from "../_generated/dataModel";
 import { action } from "../_generated/server";
 import { requireUser } from "../lib/requireUser";
-import { buildUserPrompt } from "./prompts";
+import { ANALYZE_PROMPT_VERSION, buildUserPrompt } from "./prompts";
 import {
 	activeModelForProvider,
 	callProvider,
@@ -76,6 +76,7 @@ export const run = action({
 				inputTokens: result.inputTokens,
 				outputTokens: result.outputTokens,
 				cost: result.cost,
+				promptVersion: ANALYZE_PROMPT_VERSION,
 			});
 
 			return { ok: true as const, provider: result.provider, model: result.model, cost: result.cost };
@@ -89,6 +90,7 @@ export const run = action({
 				outputTokens: 0,
 				cost: 0,
 				error: message,
+				promptVersion: ANALYZE_PROMPT_VERSION,
 			});
 			await ctx.runMutation(internal.analyze.internal.recordFailure, {
 				id: args.id,

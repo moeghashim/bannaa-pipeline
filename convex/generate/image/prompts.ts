@@ -1,4 +1,7 @@
+import type { Doc } from "../../_generated/dataModel";
 import type { Channel } from "../prompts";
+
+export const IMAGE_PROMPT_VERSION = "2026-04-23-a";
 
 export const VIDEO_CHANNELS: readonly Channel[] = ["ig-reel", "tiktok", "yt-shorts"] as const;
 
@@ -17,21 +20,25 @@ export function buildImagePrompt(input: {
 	ar: string;
 	en: string;
 	track: string;
+	brand: Pick<Doc<"brands">, "design">;
 }): string {
 	const concepts = input.analysisConcepts.slice(0, 4).join(", ");
 	const aspect = aspectHint(input.channel);
+	const bannedSubjects =
+		input.brand.design.bannedSubjects.length > 0
+			? input.brand.design.bannedSubjects.join(", ")
+			: "(none)";
 
-	// The AR copy is the *content* the operator will eventually overlay on top
-	// of this image using HyperFrames. We give the model the EN gloss + concepts
+	// The selected draft copy is the *content* the operator will eventually
+	// bake on top of this image. We give the model the EN gloss + concepts
 	// as subject hints but explicitly forbid embedded text — the composition
 	// must leave negative space for the typography layer.
 	return [
 		"Produce a clean illustrative background image suitable for overlay.",
 		"Do not render any Arabic or English text on the image.",
-		"Style: modern minimalist, warm off-white and muted terracotta palette",
-		"(matching bannaa.co brand tokens — oklch-warm neutrals, a soft terracotta accent,",
-		"no harsh primaries). Composition leaves the top-right and bottom-left quadrants",
-		"relatively empty for text overlay.",
+		`Style guide: ${input.brand.design.imageStyleGuide}`,
+		`Palette: primary ${input.brand.design.palette.primary}, accent ${input.brand.design.palette.accent}, neutral ${input.brand.design.palette.neutral}, background ${input.brand.design.palette.background}, text ${input.brand.design.palette.text}.`,
+		`Banned subjects: ${bannedSubjects}.`,
 		`Aspect ratio: ${aspect} (square for social feed).`,
 		"",
 		`Track: ${input.track}`,

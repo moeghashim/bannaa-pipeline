@@ -89,7 +89,7 @@ export type NewsletterData = {
 	sections: NewsletterSection[];
 };
 
-export type ViewKey = "inbox" | "analyses" | "drafts" | "reels" | "newsletter" | "website" | "settings";
+export type ViewKey = "inbox" | "analyses" | "drafts" | "reels" | "newsletter" | "website" | "settings" | "brand";
 
 export type Aesthetic = "quiet" | "terminal" | "softer";
 export type Accent = "terracotta" | "indigo" | "forest" | "slate";

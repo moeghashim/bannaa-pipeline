@@ -224,3 +224,67 @@ Append-only learning log for commits and deploys. Add new entries only at the en
 - Actor: Ja3ood <moeghashim@users.noreply.github.com>
 - Changed Paths:
   - convex
+## 2026-04-24T00:00:00.000Z
+- Trigger: agent-worktree
+- Learning: Pipeline expansion landed as an overlap-phase implementation: Brand config adds active brand/version snapshots and preview actions; EN-first writes `primary` while retaining legacy `ar`/`en` mirrors until the follow-up schema narrow; translations are generated on demand and stored in `translations[]`; feedback is a separate provenance table keyed by target kind/id. Because this was not committed, this entry records the implementation state in the working tree rather than a commit hash.
+- Context: feat(expansion): brand config, EN-first translations, feedback loop
+- Branch: main
+- Actor: Codex
+- Changed Paths:
+  - convex
+  - apps/web/app/_components
+  - docs
+  - scripts
+## 2026-04-24T12:53:14.000Z
+- Trigger: agent-worktree
+- Learning: The EN-first migration has been run and the app is in the intended overlap period: new writes populate `primary` and `translations[]`, while legacy `drafts.ar`/`drafts.en` and `carouselSlides.ar` remain for compatibility. Schema narrowing is deferred to PR-2a after the operator confirms no legacy reads or rows remain.
+- Context: chore(en-first): defer legacy language schema narrow
+- Branch: main
+- Actor: Codex
+- Changed Paths:
+  - convex/schema.ts
+  - progress.md
+## 2026-04-24T12:55:02.577Z
+- Trigger: commit
+- Learning: Brand config ships as the first PRD slice: active brand docs, version snapshots, brand prompt rendering, visual design controls, preview actions, prompt provenance fields, and the Brand dashboard route. This branch also carries the shared schema/provenance foundation needed by later EN-first and feedback slices.
+- Context: feat(brand): externalize brand config
+- Branch: codex/prd-brand-config
+- Actor: Moe Ghashim <mohanadgh@gmail.com>
+- Changed Paths:
+  - apps/web/app/_components/app.tsx
+  - apps/web/app/_components/palette.tsx
+  - apps/web/app/_components/sidebar.tsx
+  - apps/web/app/_components/types.ts
+  - apps/web/app/_components/views/brand.tsx
+  - apps/web/app/_components/views/brandPreviews.tsx
+  - apps/web/app/_components/views/settings.tsx
+  - apps/web/app/_components/views/settingsBrand.tsx
+  - apps/web/app/_components/views/settingsOutputLanguages.tsx
+  - apps/web/app/globals.css
+  - convex/_generated/api.d.ts
+  - convex/analyze/internal.ts
+  - convex/analyze/prompts.ts
+  - convex/analyze/run.ts
+  - convex/brand
+  - convex/generate/brandPrompt.ts
+  - convex/generate/carousel.ts
+  - convex/generate/carouselInternal.ts
+  - convex/generate/carouselPrompts.ts
+  - convex/generate/draft.ts
+  - convex/generate/image/action.ts
+  - convex/generate/image/bakedAction.ts
+  - convex/generate/image/bakedCarouselAction.ts
+  - convex/generate/image/carouselAction.ts
+  - convex/generate/image/internal.ts
+  - convex/generate/image/prompts.ts
+  - convex/generate/internal.ts
+  - convex/generate/prompts.ts
+  - convex/migrations/seedBrand.ts
+  - convex/schema.ts
+  - convex/settings/doc.ts
+  - docs/adr-brand-config.md
+  - package.json
+  - plan.md
+  - prd.md
+  - scripts/check-prompt-versions.mjs
+  - progress.md

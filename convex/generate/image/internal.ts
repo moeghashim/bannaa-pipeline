@@ -160,6 +160,8 @@ export const recordImageRun = internalMutation({
 		cost: v.number(),
 		sourceItemId: v.optional(v.id("inboxItems")),
 		error: v.optional(v.string()),
+		brandVersion: v.optional(v.number()),
+		promptVersion: v.optional(v.string()),
 	},
 	returns: v.id("providerRuns"),
 	handler: async (ctx, args): Promise<Id<"providerRuns">> => {
@@ -173,6 +175,8 @@ export const recordImageRun = internalMutation({
 			cost: args.cost,
 			runAt: Date.now(),
 			error: args.error,
+			brandVersion: args.brandVersion,
+			promptVersion: args.promptVersion,
 		});
 	},
 });

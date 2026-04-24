@@ -20,6 +20,7 @@ const NAV: NavItem[] = [
 	{ key: "reels", label: "Reel Ideas", icon: Icons.Film, countKey: null },
 	{ key: "newsletter", label: "Newsletter", icon: Icons.Mail, countKey: null },
 	{ key: "website", label: "Website Proposals", icon: Icons.Globe, countKey: null },
+	{ key: "brand", label: "Brand", icon: Icons.Language, countKey: null },
 	{ key: "settings", label: "Settings", icon: Icons.Gear, countKey: null },
 ];
 
@@ -89,6 +90,14 @@ export const Sidebar = ({
 			>
 				<Icons.Gear size={15} />
 				<span>Settings</span>
+			</button>
+			<button
+				type="button"
+				className={`sidebar-item${active === "brand" ? " active" : ""}`}
+				onClick={() => onNav("brand")}
+			>
+				<Icons.Language size={15} />
+				<span>Brand</span>
 			</button>
 		</div>
 

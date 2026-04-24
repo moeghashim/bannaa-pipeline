@@ -2,9 +2,10 @@ import { v } from "convex/values";
 import { internal } from "../../_generated/api";
 import type { Doc, Id } from "../../_generated/dataModel";
 import { action } from "../../_generated/server";
+import { defaultBrandInput } from "../../brand/defaults";
 import { requireUser } from "../../lib/requireUser";
 import type { Channel } from "../prompts";
-import { buildImagePrompt, isVideoChannel } from "./prompts";
+import { buildImagePrompt, IMAGE_PROMPT_VERSION, isVideoChannel } from "./prompts";
 import { callImageProvider, defaultImageModel, type ImageProvider, type ImageProviderEnv } from "./providers";
 
 const imageProviderValidator = v.union(
@@ -51,6 +52,8 @@ export const generateForDraft = action({
 		const settings: Doc<"settings"> | null = await ctx.runQuery(internal.settings.doc.getInternal, {});
 		const provider: ImageProvider =
 			args.provider ?? settings?.defaultImageProvider ?? DEFAULT_IMAGE_PROVIDER;
+		const activeBrand = await ctx.runQuery(internal.brand.doc.getActiveInternal, {});
+		const brand = activeBrand ?? defaultBrandInput(Date.now());
 
 		const loaded: { draft: Doc<"drafts">; analysis: Doc<"analyses"> } | null = await ctx.runQuery(
 			internal.generate.image.internal.loadDraftWithAnalysis,
@@ -72,8 +75,9 @@ export const generateForDraft = action({
 			analysisSummary: analysis.summary,
 			analysisConcepts: analysis.concepts,
 			ar: draft.ar,
-			en: draft.en,
+			en: draft.primary ?? draft.en,
 			track: analysis.track,
+			brand,
 		});
 
 		const assetId: Id<"mediaAssets"> = await ctx.runMutation(
@@ -103,6 +107,8 @@ export const generateForDraft = action({
 					purpose: "generate-image",
 					cost: result.cost,
 					sourceItemId: analysis.itemId,
+					brandVersion: brand.version,
+					promptVersion: IMAGE_PROMPT_VERSION,
 				},
 			);
 
@@ -133,6 +139,8 @@ export const generateForDraft = action({
 					cost: 0,
 					sourceItemId: analysis.itemId,
 					error: msg,
+					brandVersion: brand.version,
+					promptVersion: IMAGE_PROMPT_VERSION,
 				},
 			);
 			await ctx.runMutation(internal.generate.image.internal.failAsset, {

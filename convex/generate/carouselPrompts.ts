@@ -1,25 +1,28 @@
 import type { ToolSpec } from "../analyze/providers";
 
-export const CAROUSEL_SYSTEM_PROMPT = `You are the carousel-generation stage of a content pipeline for bannaa.co, a bilingual (EN/AR) AI-education site.
+export const CAROUSEL_PROMPT_VERSION = "2026-04-24-b";
 
-Your job is to turn an approved analysis into an Instagram feed carousel — a sequence of visually coherent slides, each with short Arabic on-image text.
+export const CAROUSEL_SYSTEM_PROMPT = `You are the carousel-generation stage of a content pipeline for bannaa.co.
+
+Your job is to turn an approved analysis into an Instagram feed carousel — a sequence of visually coherent slides, each with short English on-image text.
 
 Hard rules:
 1. Respond ONLY by calling the \`record_carousel\` tool. Never respond in free text.
-2. The Arabic on slides must use a **Khaleeji-leaning** dialect — natural Gulf voice, not formal MSA. Each slide's AR text is what appears ON the image, so it must be short and punchy, not a paragraph.
-3. The channelAr is the Instagram caption body (what the reader sees under the carousel); channelEn is a short English gloss for operator review.
+2. Follow the active brand voice supplied in the system context. Each slide's primary text is what appears ON the image, so it must be short and punchy, not a paragraph.
+3. The channelPrimary is the Instagram caption body (what the reader sees under the carousel).
 4. \`styleAnchor\` describes ONLY the shared visual language (palette, composition, mood, texture). It MUST NOT mention specific subjects of any single slide, and MUST NOT request rendering text — it is the coherence vector so all slides look like siblings.
 5. Each slide has its own \`imagePrompt\` in English describing only that slide's scene — subject, action, composition focal point — in 60-180 characters.
 6. Reuse concept tags from the provided analysis; do not invent new ones.
 7. \`orderIndex\` is 1-based and must be contiguous from 1 to the requested slideCount.
-8. Never include hashtags inside \`slides[].ar\`. Caption-level hashtags in \`channelAr\` are optional.`;
+8. Never include hashtags inside \`slides[].primary\`. Caption-level hashtags in \`channelPrimary\` are optional.`;
 
 export const CAROUSEL_TOOL: ToolSpec = {
 	name: "record_carousel",
-	description: "Record a coherent IG carousel: shared styleAnchor, channel caption, and per-slide AR + image prompt. Must be called exactly once.",
+	description:
+		"Record a coherent IG carousel: shared styleAnchor, channel caption, and per-slide primary text + image prompt. Must be called exactly once.",
 	input_schema: {
 		type: "object",
-		required: ["styleAnchor", "channelAr", "channelEn", "concepts", "slides"],
+		required: ["styleAnchor", "channelPrimary", "concepts", "slides"],
 		properties: {
 			styleAnchor: {
 				type: "string",
@@ -27,17 +30,11 @@ export const CAROUSEL_TOOL: ToolSpec = {
 				minLength: 60,
 				maxLength: 200,
 			},
-			channelAr: {
+			channelPrimary: {
 				type: "string",
-				description: "The IG caption body in Khaleeji Arabic. 150-400 chars.",
+				description: "The IG caption body in English. 150-400 chars.",
 				minLength: 80,
 				maxLength: 500,
-			},
-			channelEn: {
-				type: "string",
-				description: "Short English gloss of the caption for operator review.",
-				minLength: 20,
-				maxLength: 400,
 			},
 			concepts: {
 				type: "array",
@@ -48,16 +45,17 @@ export const CAROUSEL_TOOL: ToolSpec = {
 			},
 			slides: {
 				type: "array",
-				description: "The ordered slide list. Each slide has its on-image AR text, its English image prompt, and its 1-based orderIndex.",
+				description:
+					"The ordered slide list. Each slide has its English on-image text, English image prompt, and 1-based orderIndex.",
 				minItems: 3,
 				maxItems: 5,
 				items: {
 					type: "object",
-					required: ["ar", "imagePrompt", "orderIndex"],
+					required: ["primary", "imagePrompt", "orderIndex"],
 					properties: {
-						ar: {
+						primary: {
 							type: "string",
-							description: "Short Khaleeji AR shown on this slide. 30-90 chars.",
+							description: "Short English text shown on this slide. 30-90 chars.",
 							minLength: 10,
 							maxLength: 120,
 						},
@@ -81,15 +79,14 @@ export const CAROUSEL_TOOL: ToolSpec = {
 };
 
 export type CarouselSlideOutput = {
-	ar: string;
+	primary: string;
 	imagePrompt: string;
 	orderIndex: number;
 };
 
 export type CarouselToolOutput = {
 	styleAnchor: string;
-	channelAr: string;
-	channelEn: string;
+	channelPrimary: string;
 	concepts: string[];
 	slides: CarouselSlideOutput[];
 };
@@ -114,12 +111,12 @@ ${input.keyPoints.map((k, i) => `${i + 1}. ${k}`).join("\n")}
 Concepts from the analysis (reuse only these): ${input.analysisConcepts.join(", ")}
 
 Produce a coherent IG feed carousel with ${input.slideCount} slides:
-- Slide 1 is the hook — single punchy Khaleeji line that makes a reader stop scrolling.
+- Slide 1 is the hook — single punchy English line that makes a reader stop scrolling.
 - Middle slides each carry one idea from the key points. Short, readable on a phone.
 - Last slide is a payoff or a question that invites engagement.
 - The \`styleAnchor\` must describe the shared palette + composition + mood across ALL slides. Do NOT mention any specific slide subject. Do NOT ask for rendered text.
 - Each slide's \`imagePrompt\` (English) describes only that slide's visual scene.
-- The caption \`channelAr\` is a standalone IG caption body — a short Khaleeji paragraph that complements the carousel; it is NOT a repeat of the on-image text.
+- The caption \`channelPrimary\` is a standalone IG caption body — a short paragraph that complements the carousel; it is NOT a repeat of the on-image text.
 
 Use only concepts from the supplied list. Do not invent new concept tags.`;
 }

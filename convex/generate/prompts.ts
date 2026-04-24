@@ -2,38 +2,34 @@ import type { ToolSpec } from "../analyze/providers";
 
 export type Channel = "x" | "ig" | "ig-reel" | "tiktok" | "yt-shorts" | "fb-page" | "linkedin-page";
 
-export const DRAFT_SYSTEM_PROMPT = `You are the draft-generation stage of a content pipeline for bannaa.co, a bilingual (EN/AR) AI-education site.
+export const DRAFT_PROMPT_VERSION = "2026-04-24-b";
+export const TRANSLATE_PROMPT_VERSION = "2026-04-24-a";
+
+export const DRAFT_SYSTEM_PROMPT = `You are the draft-generation stage of a content pipeline for bannaa.co.
 
 Your job is to turn an approved analysis output into a publish-ready draft for a specific social channel.
 
 Hard rules:
 1. Respond ONLY by calling the \`record_draft\` tool. Never respond in free text.
-2. The AR copy must use a **Khaleeji-leaning** dialect — conversational, natural for Gulf readers, not formal MSA. Avoid stiff academic phrasing.
-3. The EN gloss is for the operator to review the intent; keep it short and literal, not marketing copy.
-4. Honor the channel's length constraints (see user prompt).
-5. Match the tone and hook to the channel (punchy on X, explanatory on LinkedIn, visual on IG Reels).
-6. Do not add hashtags unless the channel is Instagram or TikTok.
-7. Reuse concept names from the provided analysis; do not invent new ones.
-8. If the source analysis is outside AI education scope, still draft — the operator will reject manually.`;
+2. Follow the active brand voice and channel tone supplied in the system context.
+3. Honor the channel's length constraints (see user prompt).
+4. Match the hook structure to the channel.
+5. Do not add hashtags unless the channel is Instagram or TikTok.
+6. Reuse concept names from the provided analysis; do not invent new ones.
+7. If the source analysis is outside AI education scope, still draft — the operator will reject manually.`;
 
-export const DRAFT_TOOL: ToolSpec = {
+export const DRAFT_TOOL_EN: ToolSpec = {
 	name: "record_draft",
-	description: "Record the generated draft copy for one social channel. Must be called exactly once.",
+	description: "Record the generated English draft copy for one social channel. Must be called exactly once.",
 	input_schema: {
 		type: "object",
-		required: ["ar", "en", "concepts"],
+		required: ["primary", "concepts"],
 		properties: {
-			ar: {
+			primary: {
 				type: "string",
-				description: "Khaleeji-leaning Arabic copy sized for the target channel.",
+				description: "English copy sized for the target channel.",
 				minLength: 20,
 				maxLength: 800,
-			},
-			en: {
-				type: "string",
-				description: "Short English gloss of the AR copy — for operator review, not for publishing.",
-				minLength: 20,
-				maxLength: 400,
 			},
 			concepts: {
 				type: "array",
@@ -47,52 +43,72 @@ export const DRAFT_TOOL: ToolSpec = {
 };
 
 export type DraftToolOutput = {
-	ar: string;
-	en: string;
+	primary: string;
 	concepts: string[];
 };
 
-const CHANNEL_BRIEFS: Record<Channel, { label: string; arLimit: string; tone: string; format: string }> = {
+export const TRANSLATE_TOOL: ToolSpec = {
+	name: "record_translation",
+	description: "Record one translated draft. Must be called exactly once.",
+	input_schema: {
+		type: "object",
+		required: ["text", "chars"],
+		properties: {
+			text: {
+				type: "string",
+				description: "Translated copy sized for the target channel.",
+				minLength: 10,
+				maxLength: 900,
+			},
+			chars: {
+				type: "number",
+				description: "Character count of text, including spaces.",
+				minimum: 1,
+				maximum: 900,
+			},
+		},
+	},
+};
+
+export type TranslateToolOutput = {
+	text: string;
+	chars: number;
+};
+
+const CHANNEL_BRIEFS: Record<Channel, { label: string; charLimit: string; format: string }> = {
 	x: {
 		label: "X (Twitter)",
-		arLimit: "Max 280 characters of AR (counting spaces). Aim for 200\u2013260.",
-		tone: "Punchy, opinionated. One clear thesis per post. No hashtags.",
+		charLimit: "Max 280 characters counting spaces. Aim for 200\u2013260.",
 		format: "Single post. No thread. Hook in the first sentence.",
 	},
 	ig: {
 		label: "Instagram feed post",
-		arLimit: "150\u2013400 characters AR. First line is the hook (pre-read-more).",
-		tone: "Curious, inviting. A short insight with one takeaway. 1\u20132 hashtags at the end in AR allowed.",
+		charLimit: "150\u2013400 characters. First line is the hook (pre-read-more).",
 		format: "Short paragraph format. First 80 chars must stand on their own.",
 	},
 	"ig-reel": {
 		label: "Instagram Reels caption",
-		arLimit: "60\u2013200 characters AR. The spoken content of the reel is implied by the accompanying video; this is the caption.",
-		tone: "Short, visual, active voice. Points the viewer to the payoff in the video.",
+		charLimit: "60\u2013200 characters. The spoken content of the reel is implied by the accompanying video; this is the caption.",
 		format: "One or two sentences. 1\u20132 emojis OK. No hashtags in the body.",
 	},
 	tiktok: {
 		label: "TikTok caption",
-		arLimit: "80\u2013300 characters AR.",
-		tone: "Native-TikTok voice. Direct address. Sets up the hook.",
+		charLimit: "80\u2013300 characters.",
 		format: "One hook line + one setup line. 2\u20134 hashtags at the end allowed.",
 	},
 	"yt-shorts": {
 		label: "YouTube Shorts caption",
-		arLimit: "60\u2013200 characters AR.",
-		tone: "Title-like, information-dense. Operator will compose the video separately.",
+		charLimit: "60\u2013200 characters.",
 		format: "A one-liner title + short description.",
 	},
 	"fb-page": {
 		label: "Facebook Page post",
-		arLimit: "200\u2013600 characters AR. Longer-form than X.",
-		tone: "Warmer, more conversational. Invites discussion.",
+		charLimit: "200\u2013600 characters. Longer-form than X.",
 		format: "2\u20133 paragraphs. No hashtags.",
 	},
 	"linkedin-page": {
 		label: "LinkedIn Page post",
-		arLimit: "400\u2013800 characters AR.",
-		tone: "Professional, thoughtful. Framed as an operator's reflection. AR still Khaleeji-casual \u2014 not MSA \u2014 but with substance.",
+		charLimit: "400\u2013800 characters.",
 		format: "Opening hook, 1\u20132 middle paragraphs, closing line. No hashtags.",
 	},
 };
@@ -108,8 +124,7 @@ export function buildDraftPrompt(input: {
 	const brief = CHANNEL_BRIEFS[input.channel];
 	return `Target channel: ${brief.label}
 Channel constraints:
-- Length: ${brief.arLimit}
-- Tone: ${brief.tone}
+- Length: ${brief.charLimit}
 - Format: ${brief.format}
 
 Analysis summary (for context, do not copy verbatim):
@@ -122,11 +137,32 @@ Concepts from the analysis (reuse only these): ${input.analysisConcepts.join(", 
 Suggested hook (from the analysis, you can depart from this but preserve the intent):
 "${input.outputHook}" (output kind: ${input.outputKind})
 
-Produce AR copy fit for ${brief.label} that:
-- Stays Khaleeji in voice
+Produce English copy fit for ${brief.label} that:
+- Follows the active brand voice
 - Honors the length budget strictly
 - Leads with the most interesting claim
-- Does not sound translated from English
 
-Then produce a short EN gloss so the operator can review the intent.`;
+Use only concepts from the supplied list. Do not invent new concept tags.`;
+}
+
+export function buildTranslatePrompt(input: {
+	channel: Channel;
+	primary: string;
+	targetLang: string;
+	brandVoicePreset: string;
+}): string {
+	const brief = CHANNEL_BRIEFS[input.channel];
+	return `Target channel: ${brief.label}
+Target language: ${input.targetLang}
+Channel constraints:
+- Length: ${brief.charLimit}
+- Format: ${brief.format}
+
+Brand language guidance:
+${input.brandVoicePreset}
+
+English source copy:
+${input.primary}
+
+Translate the source into the target language. Preserve the intent, hook, and channel fit. Do not add claims or concept names.`;
 }

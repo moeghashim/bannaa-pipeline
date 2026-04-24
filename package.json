@@ -13,7 +13,7 @@
 		"build": "npm run build --workspaces --if-present",
 		"test": "npm run test --workspaces --if-present",
 		"preflight:native-deps": "node scripts/preflight-native-deps.mjs",
-		"check": "npm run preflight:native-deps && biome check --write --error-on-warnings . && node scripts/check-file-length.mjs && tsgo --noEmit && npm run check --workspaces --if-present",
+		"check": "npm run preflight:native-deps && biome check --write --error-on-warnings . && node scripts/check-prompt-versions.mjs && node scripts/check-file-length.mjs && tsgo --noEmit && npm run check --workspaces --if-present",
 		"doctor": "node scripts/doctor.mjs",
 		"docs:list": "node scripts/docs-list.mjs",
 		"agent:verify-sync": "node scripts/agent-sync.mjs verify",

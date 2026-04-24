@@ -5,12 +5,15 @@ import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { action } from "../_generated/server";
 import { callProvider, defaultProvider, type ProviderId } from "../analyze/providers";
+import { defaultBrandInput } from "../brand/defaults";
 import { requireUser } from "../lib/requireUser";
+import { renderBrandSystemPrompt } from "./brandPrompt";
 import {
 	buildDraftPrompt,
 	type Channel,
+	DRAFT_PROMPT_VERSION,
 	DRAFT_SYSTEM_PROMPT,
-	DRAFT_TOOL,
+	DRAFT_TOOL_EN,
 	type DraftToolOutput,
 } from "./prompts";
 
@@ -58,6 +61,8 @@ export const fromAnalysisOutput = action({
 
 		const settings: Doc<"settings"> | null = await ctx.runQuery(internal.settings.doc.getInternal, {});
 		const provider: ProviderId = settings?.defaultProvider ?? defaultProvider(env);
+		const activeBrand = await ctx.runQuery(internal.brand.doc.getActiveInternal, {});
+		const brand = activeBrand ?? defaultBrandInput(Date.now());
 
 		const analysis = await ctx.runQuery(internal.generate.internal.loadAnalysis, { id: args.analysisId });
 		if (!analysis) return { ok: false, error: "Analysis not found" };
@@ -77,21 +82,20 @@ export const fromAnalysisOutput = action({
 		try {
 			const result = await callProvider<DraftToolOutput>({
 				provider,
-				systemPrompt: DRAFT_SYSTEM_PROMPT,
-				tool: DRAFT_TOOL,
+				systemPrompt: `${renderBrandSystemPrompt(brand, args.channel as Channel)}\n\n${DRAFT_SYSTEM_PROMPT}`,
+				tool: DRAFT_TOOL_EN,
 				userPrompt,
 				env,
 			});
 
-			if (!result.output?.ar || !result.output?.en) {
-				throw new Error("Model did not return both ar and en copy");
+			if (!result.output?.primary) {
+				throw new Error("Model did not return English primary copy");
 			}
 
 			const draftId: Id<"drafts"> = await ctx.runMutation(internal.generate.internal.insertDraft, {
 				channel: args.channel,
-				ar: result.output.ar,
-				en: result.output.en,
-				chars: result.output.ar.length,
+				primary: result.output.primary,
+				chars: result.output.primary.length,
 				analysisId: args.analysisId,
 				sourceItemId: analysis.itemId,
 				concepts: result.output.concepts ?? analysis.concepts.slice(0, 3),
@@ -101,6 +105,8 @@ export const fromAnalysisOutput = action({
 				inputTokens: result.inputTokens,
 				outputTokens: result.outputTokens,
 				cost: result.cost,
+				brandVersion: brand.version,
+				promptVersion: DRAFT_PROMPT_VERSION,
 			});
 
 			return {
@@ -117,6 +123,8 @@ export const fromAnalysisOutput = action({
 				model: "",
 				error: msg,
 				sourceItemId: analysis.itemId,
+				brandVersion: brand.version,
+				promptVersion: DRAFT_PROMPT_VERSION,
 			});
 			return { ok: false, error: msg };
 		}

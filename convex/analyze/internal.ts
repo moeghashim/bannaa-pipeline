@@ -53,6 +53,7 @@ export const recordSuccess = internalMutation({
 		inputTokens: v.number(),
 		outputTokens: v.number(),
 		cost: v.number(),
+		promptVersion: v.optional(v.string()),
 	},
 	handler: async (ctx, args) => {
 		const runId = await ctx.db.insert("providerRuns", {
@@ -64,6 +65,7 @@ export const recordSuccess = internalMutation({
 			outputTokens: args.outputTokens,
 			cost: args.cost,
 			runAt: args.runAt,
+			promptVersion: args.promptVersion,
 		});
 
 		await ctx.db.insert("analyses", {
@@ -107,6 +109,7 @@ export const recordAudit = internalMutation({
 		outputTokens: v.number(),
 		cost: v.number(),
 		error: v.string(),
+		promptVersion: v.optional(v.string()),
 	},
 	handler: async (ctx, args) => {
 		const id: Id<"providerRuns"> = await ctx.db.insert("providerRuns", {
@@ -119,6 +122,7 @@ export const recordAudit = internalMutation({
 			cost: args.cost,
 			runAt: Date.now(),
 			error: args.error,
+			promptVersion: args.promptVersion,
 		});
 		return id;
 	},

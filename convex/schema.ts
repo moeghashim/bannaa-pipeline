@@ -65,6 +65,75 @@ const imageGeneratorType = v.union(
 	v.literal("openrouter"),
 );
 
+const brandRegisterType = v.union(v.literal("formal"), v.literal("casual"), v.literal("playful"));
+
+const brandReadingLevelType = v.union(
+	v.literal("beginner"),
+	v.literal("intermediate"),
+	v.literal("advanced"),
+);
+
+const brandEmojiPolicyType = v.union(v.literal("never"), v.literal("sparse"), v.literal("free"));
+
+const brandToneType = v.object({
+	voicePersona: v.string(),
+	register: brandRegisterType,
+	readingLevel: brandReadingLevelType,
+	maxSentenceChars: v.number(),
+	emojiPolicy: brandEmojiPolicyType,
+	doPhrases: v.array(v.string()),
+	dontPhrases: v.array(v.string()),
+	arPresets: v.record(v.string(), v.string()),
+	activeArPreset: v.string(),
+	channelOverrides: v.optional(v.record(v.string(), v.string())),
+});
+
+const brandDesignType = v.object({
+	palette: v.object({
+		primary: v.string(),
+		accent: v.string(),
+		neutral: v.string(),
+		background: v.string(),
+		text: v.string(),
+	}),
+	typography: v.object({
+		heading: v.string(),
+		body: v.string(),
+		mono: v.string(),
+	}),
+	logoChipText: v.string(),
+	footerText: v.string(),
+	footerUrl: v.string(),
+	layout: v.object({
+		chipPosition: v.union(v.literal("top-left"), v.literal("top-right")),
+		footerPosition: v.union(v.literal("bottom-left"), v.literal("bottom-right")),
+		margins: v.number(),
+	}),
+	imageStyleGuide: v.string(),
+	bannedSubjects: v.array(v.string()),
+});
+
+const outputLanguageType = v.union(
+	v.literal("en"),
+	v.literal("ar-khaleeji"),
+	v.literal("ar-msa"),
+	v.literal("ar-levantine"),
+);
+
+const secondaryOutputLanguageType = v.union(
+	v.literal("ar-khaleeji"),
+	v.literal("ar-msa"),
+	v.literal("ar-levantine"),
+);
+
+const translationType = v.object({
+	lang: outputLanguageType,
+	text: v.string(),
+	chars: v.number(),
+	genRunId: v.id("providerRuns"),
+	createdAt: v.number(),
+});
+
 export default defineSchema({
 	...authTables,
 
@@ -141,6 +210,8 @@ export default defineSchema({
 		channel: channelType,
 		ar: v.string(),
 		en: v.string(),
+		primary: v.optional(v.string()),
+		translations: v.optional(v.array(translationType)),
 		chars: v.number(),
 		state: stateType,
 		analysisId: v.id("analyses"),
@@ -169,6 +240,7 @@ export default defineSchema({
 		// when a composite exists, "base" otherwise — resolved at upload
 		// time, not stored by default.
 		publishSelection: v.optional(v.union(v.literal("base"), v.literal("overlay"))),
+		publishLang: v.optional(outputLanguageType),
 		// Postiz `integrations[].id` — which of the operator's connected
 		// socials to publish through. One draft → one integration (we don't
 		// fan-out a single draft to multiple socials today).
@@ -192,13 +264,16 @@ export default defineSchema({
 		.index("by_postizPostId", ["postizPostId"]),
 
 	// B.3 carousel script rows — one per slide. Kept separate from `drafts`
-	// so the mediaAssets table stays generic and the per-slide AR text +
+	// so the mediaAssets table stays generic and the per-slide text +
 	// image prompt survive the text-vs-image-generation split.
 	carouselSlides: defineTable({
 		draftId: v.id("drafts"),
 		orderIndex: v.number(),
 		ar: v.string(),
+		primary: v.optional(v.string()),
+		translations: v.optional(v.array(translationType)),
 		imagePrompt: v.string(),
+		genRunId: v.optional(v.id("providerRuns")),
 		createdAt: v.number(),
 	}).index("by_draft", ["draftId"]),
 
@@ -227,8 +302,62 @@ export default defineSchema({
 		key: v.string(),
 		defaultProvider: v.union(v.literal("claude"), v.literal("glm"), v.literal("openrouter")),
 		defaultImageProvider: v.optional(imageGeneratorType),
+		outputLanguages: v.optional(v.array(secondaryOutputLanguageType)),
 		updatedAt: v.number(),
 	}).index("by_key", ["key"]),
+
+	brands: defineTable({
+		name: v.string(),
+		isActive: v.boolean(),
+		tone: brandToneType,
+		design: brandDesignType,
+		version: v.number(),
+		updatedAt: v.number(),
+	})
+		.index("by_active", ["isActive"])
+		.index("by_updatedAt", ["updatedAt"]),
+
+	brandVersions: defineTable({
+		brandId: v.id("brands"),
+		version: v.number(),
+		tone: brandToneType,
+		design: brandDesignType,
+		note: v.optional(v.string()),
+		publishedAt: v.number(),
+	})
+		.index("by_brand", ["brandId"])
+		.index("by_brand_version", ["brandId", "version"])
+		.index("by_publishedAt", ["publishedAt"]),
+
+	brandPreviews: defineTable({
+		brandId: v.id("brands"),
+		hash: v.string(),
+		storageId: v.id("_storage"),
+		createdAt: v.number(),
+	})
+		.index("by_brand_hash", ["brandId", "hash"])
+		.index("by_createdAt", ["createdAt"]),
+
+	feedback: defineTable({
+		targetKind: v.union(v.literal("draft"), v.literal("mediaAsset"), v.literal("carouselSlide")),
+		targetId: v.string(),
+		draftId: v.id("drafts"),
+		rating: v.union(v.literal("up"), v.literal("down"), v.literal("neutral")),
+		tags: v.array(v.string()),
+		note: v.optional(v.string()),
+		authorId: v.id("users"),
+		createdAt: v.number(),
+		brandVersion: v.optional(v.number()),
+		promptVersion: v.optional(v.string()),
+		provider: v.string(),
+		model: v.string(),
+		runId: v.id("providerRuns"),
+		priorRunId: v.optional(v.id("providerRuns")),
+	})
+		.index("by_target", ["targetKind", "targetId"])
+		.index("by_draft", ["draftId"])
+		.index("by_tag", ["tags"])
+		.index("by_runId", ["runId"]),
 
 	providerRuns: defineTable({
 		provider: v.union(
@@ -248,5 +377,7 @@ export default defineSchema({
 		cost: v.number(),
 		runAt: v.number(),
 		error: v.optional(v.string()),
+		brandVersion: v.optional(v.number()),
+		promptVersion: v.optional(v.string()),
 	}).index("by_runAt", ["runAt"]),
 });

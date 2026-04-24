@@ -7,6 +7,8 @@ import { useMountEffect } from "../../../lib/use-mount-effect";
 import { Icons } from "../icons";
 import { Chip } from "../primitives";
 import type { ImageProvider } from "../types";
+import { SettingsBrandSection } from "./settingsBrand";
+import { SettingsOutputLanguagesSection } from "./settingsOutputLanguages";
 
 function fmtRelative(ms: number | undefined): string {
 	if (!ms) return "never";
@@ -18,7 +20,7 @@ function fmtRelative(ms: number | undefined): string {
 }
 
 const PROVIDERS = [
-	{ k: "glm" as const, name: "GLM 5.1", note: "fast · Khaleeji-friendly" },
+	{ k: "glm" as const, name: "GLM 5.1", note: "fast · multilingual" },
 	{ k: "claude" as const, name: "Claude Sonnet 4.6", note: "highest quality AR" },
 	{ k: "openrouter" as const, name: "OpenRouter", note: "route to any frontier model" },
 ];
@@ -432,13 +434,15 @@ const XConnection = () => {
 	);
 };
 
-export const SettingsView = () => {
+export const SettingsView = ({ onOpenBrand }: { onOpenBrand: () => void }) => {
 	const settings = useQuery(api.settings.doc.get, {});
 	const setDefaultProvider = useMutation(api.settings.doc.setDefaultProvider);
 	const active = settings?.defaultProvider ?? "glm";
 
 	return (
 		<div className="settings-view">
+			<SettingsBrandSection onOpenBrand={onOpenBrand} />
+
 			<div className="settings-group">
 				<h3>LLM provider</h3>
 				<p className="sub">
@@ -470,6 +474,8 @@ export const SettingsView = () => {
 			</div>
 
 			<ImageProviderSection />
+
+			<SettingsOutputLanguagesSection />
 
 			<div className="settings-group">
 				<h3>Connections</h3>

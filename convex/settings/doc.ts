@@ -16,6 +16,12 @@ const imageProviderValidator = v.union(
 	v.literal("openrouter"),
 );
 
+const outputLanguageValidator = v.union(
+	v.literal("ar-khaleeji"),
+	v.literal("ar-msa"),
+	v.literal("ar-levantine"),
+);
+
 const SETTINGS_SINGLETON = "app";
 
 async function readSettings(ctx: QueryCtx | MutationCtx): Promise<Doc<"settings"> | null> {
@@ -46,6 +52,7 @@ export const setDefaultProvider = mutation({
 		await ctx.db.insert("settings", {
 			key: SETTINGS_SINGLETON,
 			defaultProvider: provider,
+			outputLanguages: ["ar-khaleeji"],
 			updatedAt: Date.now(),
 		});
 	},
@@ -64,6 +71,26 @@ export const setDefaultImageProvider = mutation({
 			key: SETTINGS_SINGLETON,
 			defaultProvider: "glm",
 			defaultImageProvider: provider,
+			outputLanguages: ["ar-khaleeji"],
+			updatedAt: Date.now(),
+		});
+	},
+});
+
+export const setOutputLanguages = mutation({
+	args: { languages: v.array(outputLanguageValidator) },
+	handler: async (ctx, { languages }) => {
+		await requireUser(ctx);
+		const deduped = [...new Set(languages)];
+		const existing = await readSettings(ctx);
+		if (existing) {
+			await ctx.db.patch(existing._id, { outputLanguages: deduped, updatedAt: Date.now() });
+			return;
+		}
+		await ctx.db.insert("settings", {
+			key: SETTINGS_SINGLETON,
+			defaultProvider: "glm",
+			outputLanguages: deduped,
 			updatedAt: Date.now(),
 		});
 	},
@@ -78,6 +105,7 @@ export const getInternal = internalQuery({
 			key: v.string(),
 			defaultProvider: providerValidator,
 			defaultImageProvider: v.optional(imageProviderValidator),
+			outputLanguages: v.optional(v.array(outputLanguageValidator)),
 			updatedAt: v.number(),
 		}),
 		v.null(),
