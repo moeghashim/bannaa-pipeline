@@ -308,3 +308,15 @@ Append-only learning log for commits and deploys. Add new entries only at the en
   - convex/publish/scheduleDraft.ts
   - docs/adr-en-first.md
   - progress.md
+## 2026-04-24T12:56:28.382Z
+- Trigger: commit
+- Learning: Feedback ships as the third PRD slice in the UI: draft cards, media assets, and carousel slides expose up/down/regenerate controls with closed-vocabulary tags and notes, while Brand eval rollups read the stored feedback provenance.
+- Context: feat(feedback): add rating controls to drafts
+- Branch: codex/prd-feedback-loop
+- Actor: Moe Ghashim <mohanadgh@gmail.com>
+- Changed Paths:
+  - apps/web/app/_components/views/drafts.tsx
+  - apps/web/app/_components/views/draftsCarousel.tsx
+  - apps/web/app/_components/views/feedbackControls.tsx
+  - docs/adr-feedback-loop.md
+  - progress.md

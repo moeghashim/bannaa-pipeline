@@ -22,6 +22,7 @@ import {
 } from "./draftsLanguages";
 import { DraftMedia } from "./draftsMedia";
 import { SchedulePopover } from "./draftsScheduler";
+import { FeedbackControls } from "./feedbackControls";
 
 const CHANNELS: { value: Channel | "all"; label: string }[] = [
 	{ value: "all", label: "All channels" },
@@ -353,6 +354,7 @@ const DraftCard = ({
 							onSelect={selectLanguage}
 							translating={translating}
 						/>
+						<FeedbackControls targetKind="draft" targetId={draft._id} draftId={draft._id} compact />
 						<div className="row gap-2" style={{ marginTop: "auto", flexWrap: "wrap" }}>
 							{draft.concepts.map((c) => (
 								<span key={c} className="concept-tag" style={{ height: 18, fontSize: 10, padding: "0 6px" }}>
@@ -372,6 +374,14 @@ const DraftCard = ({
 								channel={draft.channel}
 							/>
 							{hasComposite && <BaseOverlayToggle value={view} onChange={setView} />}
+							{displayedAsset && (
+								<FeedbackControls
+									targetKind="mediaAsset"
+									targetId={displayedAsset._id}
+									draftId={draft._id}
+									compact
+								/>
+							)}
 						</div>
 						<div className="copy">
 							{editing ? (
@@ -391,6 +401,7 @@ const DraftCard = ({
 								onSelect={selectLanguage}
 								translating={translating}
 							/>
+							<FeedbackControls targetKind="draft" targetId={draft._id} draftId={draft._id} compact />
 							<div className="row gap-2" style={{ marginTop: "auto", flexWrap: "wrap" }}>
 								{draft.concepts.map((c) => (
 									<span key={c} className="concept-tag" style={{ height: 18, fontSize: 10, padding: "0 6px" }}>
