@@ -265,7 +265,11 @@ const AnalysisDiff = ({
 				<div className="col gap-2">
 					{analysis.outputs.map((o, i) => (
 						<PromoteRow
-							key={`${o.kind}-${i}`}
+							// Include analysisId in the key so React remounts this
+							// row when the operator switches analyses — the
+							// row's promote state (idle / promoting / done)
+							// resets automatically without needing useEffect.
+							key={`${analysis.id}-${o.kind}-${i}`}
 							analysisId={analysis.id}
 							kind={o.kind}
 							hook={o.hook}
@@ -277,7 +281,9 @@ const AnalysisDiff = ({
 				<div className="section-h" style={{ marginBottom: 8, marginTop: 22 }}>
 					Carousel
 				</div>
-				<PromoteCarouselRow analysisId={analysis.id} onOpenDrafts={onOpenDrafts} />
+				{/* key={analysis.id} so the carousel row also remounts on an
+				    analysis switch, clearing slide count + promote state. */}
+				<PromoteCarouselRow key={analysis.id} analysisId={analysis.id} onOpenDrafts={onOpenDrafts} />
 			</div>
 		</div>
 	);

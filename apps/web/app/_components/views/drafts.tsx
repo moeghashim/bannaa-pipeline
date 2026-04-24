@@ -550,7 +550,9 @@ const DraftCard = ({
 					<SchedulePopover
 						draftId={draft._id}
 						channel={draft.channel}
-						selection={view}
+						// TODO: widen publishSelection to include "baked"; for
+						// now coerce so scheduling still works from that view.
+						selection={view === "baked" ? "overlay" : view}
 						onClose={() => setSchedulerOpen(false)}
 						onScheduled={() => setSchedulerOpen(false)}
 					/>
