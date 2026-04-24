@@ -4,6 +4,7 @@ import { api } from "@convex/_generated/api";
 import type { Doc, Id } from "@convex/_generated/dataModel";
 import { useQuery } from "convex/react";
 import type { ReactNode } from "react";
+import { FeedbackControls } from "./feedbackControls";
 
 // Carousel helpers split out of drafts.tsx so the parent file stays under
 // the 600-line cap. Kept as pure rendering + a tiny `ReadyImage`
@@ -211,6 +212,7 @@ const CarouselSlide = ({
 			>
 				{slide.primary ?? slide.ar}
 			</div>
+			<FeedbackControls targetKind="carouselSlide" targetId={slide._id} draftId={slide.draftId} compact />
 		</div>
 	);
 };
