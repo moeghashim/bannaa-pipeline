@@ -430,7 +430,11 @@ const InboxDetail = ({
 		<div className="inbox-detail-body">
 			<h2 style={{ textWrap: "balance" }}>{item.title}</h2>
 
-			<div style={{ color: "var(--ink-2)", fontSize: 14, lineHeight: 1.6, marginBottom: 22 }}>{item.snippet}</div>
+			{item.source === "x" ? (
+				<TweetCard item={item} />
+			) : (
+				<div style={{ color: "var(--ink-2)", fontSize: 14, lineHeight: 1.6, marginBottom: 22 }}>{item.snippet}</div>
+			)}
 
 			<div className="panel" style={{ marginBottom: 18 }}>
 				<div className="panel-h">
@@ -509,6 +513,44 @@ const InboxDetail = ({
 		</div>
 	</div>
 );
+
+const TweetCard = ({ item }: { item: InboxItem }) => {
+	const displayName = (item.handle ?? "").replace(/^@/, "") || "user";
+	const handleText = item.handle?.startsWith("@") ? item.handle : `@${displayName}`;
+	const initial = displayName.slice(0, 1).toUpperCase() || "·";
+	return (
+		<div className="tweet-card">
+			<div className="tweet-head">
+				<div className="tweet-avatar" aria-hidden="true">
+					{initial}
+				</div>
+				<div className="tweet-id">
+					<div className="tweet-name">{displayName}</div>
+					<div className="tweet-handle">{handleText}</div>
+				</div>
+				{item.url && (
+					<a
+						href={item.url}
+						target="_blank"
+						rel="noreferrer noopener"
+						className="tweet-link"
+						title="Open on x.com"
+					>
+						<Icons.Arrow size={13} />
+					</a>
+				)}
+			</div>
+			<div className="tweet-body" dir={item.lang === "ar" ? "rtl" : "ltr"}>
+				{item.snippet}
+			</div>
+			<div className="tweet-meta">
+				<span className="mono">{fmtDateTime(item.captured)}</span>
+				<span className="bullet" />
+				<span>x.com</span>
+			</div>
+		</div>
+	);
+};
 
 const InboxDetailLoading = () => (
 	<div className="inbox-detail" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
