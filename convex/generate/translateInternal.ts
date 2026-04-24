@@ -72,7 +72,6 @@ export const saveDraftTranslation = internalMutation({
 		];
 		await ctx.db.patch(args.draftId, {
 			translations: next,
-			ar: args.lang.startsWith("ar-") ? args.text : draft.ar,
 		});
 		return runId;
 	},
@@ -129,7 +128,6 @@ export const saveSlideTranslation = internalMutation({
 		];
 		await ctx.db.patch(args.slideId, {
 			translations,
-			ar: args.lang.startsWith("ar-") ? args.text : slide.ar,
 		});
 	},
 });

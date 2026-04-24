@@ -179,9 +179,8 @@ export const bakedCarouselForDraft = action({
 });
 
 function slideTextForLanguage(slide: Doc<"carouselSlides">, lang: OutputLanguage): string {
-	if (lang === "en") return slide.primary ?? slide.ar;
+	if (lang === "en") return slide.primary;
 	const translation = slide.translations?.find((t) => t.lang === lang);
 	if (translation) return translation.text;
-	if (lang === "ar-khaleeji" && slide.ar) return slide.ar;
 	throw new Error(`No ${lang} copy exists for carousel slide ${slide.orderIndex}`);
 }

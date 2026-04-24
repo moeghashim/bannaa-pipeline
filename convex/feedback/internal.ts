@@ -89,8 +89,6 @@ export const saveDraftRegeneration = internalMutation({
 		});
 		await ctx.db.patch(args.draftId, {
 			primary: args.primary,
-			en: args.primary,
-			ar: "",
 			translations: [],
 			chars: args.primary.length,
 			concepts: args.concepts,
@@ -134,7 +132,6 @@ export const saveCarouselSlideRegeneration = internalMutation({
 		});
 		await ctx.db.patch(args.slideId, {
 			primary: args.primary,
-			ar: "",
 			translations: [],
 			imagePrompt: args.imagePrompt,
 			genRunId: runId,

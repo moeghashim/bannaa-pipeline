@@ -74,8 +74,7 @@ export const generateForDraft = action({
 			channel: draft.channel as Channel,
 			analysisSummary: analysis.summary,
 			analysisConcepts: analysis.concepts,
-			ar: draft.ar,
-			en: draft.primary ?? draft.en,
+			primary: draft.primary,
 			track: analysis.track,
 			brand,
 		});

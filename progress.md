@@ -320,3 +320,50 @@ Append-only learning log for commits and deploys. Add new entries only at the en
   - apps/web/app/_components/views/feedbackControls.tsx
   - docs/adr-feedback-loop.md
   - progress.md
+## 2026-04-24T15:24:42.000Z
+- Trigger: agent-worktree
+- Learning: PR-2a narrows the language schema after the migration overlap: `drafts.primary` and `carouselSlides.primary` are now required, legacy `ar`/`en` write mirrors and read fallbacks are removed, and the one-shot split migration is deleted after it ran successfully.
+- Context: chore(en-first): narrow language schema after overlap
+- Branch: codex/prd-en-first-schema-narrow
+- Actor: Codex
+- Changed Paths:
+  - convex/schema.ts
+  - convex/generate
+  - convex/feedback
+  - convex/publish
+  - apps/web/app/_components/views
+  - docs/adr-en-first.md
+## 2026-04-24T15:25:45.842Z
+- Trigger: commit
+- Learning: PR-2a removes the migration overlap now that splitDraftsLanguage has run: is required on drafts and carouselSlides, legacy ar/en schema fields and write mirrors are gone, read paths no longer fall back to legacy text, and the one-shot split migration file is deleted.
+- Context: chore(en-first): narrow language schema
+- Branch: codex/prd-en-first-schema-narrow
+- Actor: Moe Ghashim <mohanadgh@gmail.com>
+- Changed Paths:
+  - apps/web/app/_components/views/draftsCarousel.tsx
+  - apps/web/app/_components/views/draftsLanguages.tsx
+  - convex/_generated/api.d.ts
+  - convex/drafts/mutate.ts
+  - convex/feedback/internal.ts
+  - convex/feedback/regenerate.ts
+  - convex/generate/carouselInternal.ts
+  - convex/generate/image/action.ts
+  - convex/generate/image/bakedAction.ts
+  - convex/generate/image/bakedCarouselAction.ts
+  - convex/generate/image/prompts.ts
+  - convex/generate/internal.ts
+  - convex/generate/translate.ts
+  - convex/generate/translateInternal.ts
+  - convex/migrations/splitDraftsLanguage.ts
+  - convex/publish/scheduleDraft.ts
+  - convex/schema.ts
+  - docs/adr-en-first.md
+  - progress.md
+## 2026-04-24T15:25:54.000Z
+- Trigger: agent-worktree
+- Learning: Correction to the previous PR-2a progress entry: `primary` is the required field on drafts and carouselSlides after schema narrowing.
+- Context: chore(en-first): narrow language schema progress correction
+- Branch: codex/prd-en-first-schema-narrow
+- Actor: Codex
+- Changed Paths:
+  - progress.md

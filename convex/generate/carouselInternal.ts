@@ -48,8 +48,6 @@ export const insertCarouselDraft = internalMutation({
 
 		const draftId = await ctx.db.insert("drafts", {
 			channel: "ig",
-			ar: "",
-			en: args.channelPrimary,
 			primary: args.channelPrimary,
 			translations: [],
 			chars: args.chars,
@@ -68,7 +66,6 @@ export const insertCarouselDraft = internalMutation({
 			await ctx.db.insert("carouselSlides", {
 				draftId,
 				orderIndex: slide.orderIndex,
-				ar: "",
 				primary: slide.primary,
 				translations: [],
 				imagePrompt: slide.imagePrompt,

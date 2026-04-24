@@ -2,7 +2,6 @@
 summary: "ADR: make English primary copy and treat Arabic as generated translations"
 read_when:
   - Editing draft generation, translation, language chips, or publish language selection.
-  - Planning the follow-up schema narrow that removes legacy ar/en fields.
 ---
 
 # ADR: EN-first output
@@ -14,8 +13,8 @@ Draft generation now writes English `primary` copy first. Secondary outputs are 
 ## Alternatives considered
 
 - Continue generating Arabic and English together. Rejected because it couples markets and spends translation tokens before the operator approves the core message.
-- Remove legacy `ar`/`en` immediately. Rejected because existing rows and UI paths need an overlap deploy before schema narrowing.
+- Keep legacy `ar`/`en` indefinitely. Rejected after the migration overlap because it leaves two sources of truth for generated copy.
 
 ## Rationale
 
-The overlap model lets new drafts follow the EN-first contract while old rows still render through fallbacks. The follow-up narrow can remove `ar` and `en` after the migration has run and legacy reads are confirmed gone.
+The migration overlap let new drafts follow the EN-first contract while old rows still rendered through fallbacks. After the migration ran and legacy reads were removed, the schema was narrowed so `primary` and `translations[]` are the only persisted language surfaces.

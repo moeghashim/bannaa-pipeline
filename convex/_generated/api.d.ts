@@ -64,7 +64,6 @@ import type * as mediaAssets_list from "../mediaAssets/list.js";
 import type * as mediaAssets_listInternal from "../mediaAssets/listInternal.js";
 import type * as mediaAssets_url from "../mediaAssets/url.js";
 import type * as migrations_seedBrand from "../migrations/seedBrand.js";
-import type * as migrations_splitDraftsLanguage from "../migrations/splitDraftsLanguage.js";
 import type * as publish_channelMatrix from "../publish/channelMatrix.js";
 import type * as publish_integrations from "../publish/integrations.js";
 import type * as publish_internal from "../publish/internal.js";
@@ -144,7 +143,6 @@ declare const fullApi: ApiFromModules<{
   "mediaAssets/listInternal": typeof mediaAssets_listInternal;
   "mediaAssets/url": typeof mediaAssets_url;
   "migrations/seedBrand": typeof migrations_seedBrand;
-  "migrations/splitDraftsLanguage": typeof migrations_splitDraftsLanguage;
   "publish/channelMatrix": typeof publish_channelMatrix;
   "publish/integrations": typeof publish_integrations;
   "publish/internal": typeof publish_internal;
