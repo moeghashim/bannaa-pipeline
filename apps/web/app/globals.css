@@ -1458,6 +1458,13 @@ kbd.key {
 	gap: 28px;
 }
 
+.brand-design-row {
+	display: grid;
+	grid-template-columns: 18px 74px minmax(0, 1fr);
+	gap: 8px;
+	align-items: center;
+}
+
 @media (max-width: 1040px) {
 	.brand-editor-grid { grid-template-columns: 1fr; }
 }

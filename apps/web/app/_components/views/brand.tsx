@@ -246,7 +246,7 @@ export const BrandView = () => {
 					<Field label="Palette">
 						<div className="col gap-2">
 							{(["primary", "accent", "neutral", "background", "text"] as const).map((key) => (
-								<label key={key} className="row gap-2" style={{ alignItems: "center" }}>
+								<label key={key} className="brand-design-row">
 									<span
 										style={{
 											width: 18,
@@ -258,7 +258,7 @@ export const BrandView = () => {
 												: "var(--surface-sunk)",
 										}}
 									/>
-									<span className="mono" style={{ width: 74, fontSize: 11 }}>
+									<span className="mono" style={{ fontSize: 11 }}>
 										{key}
 									</span>
 									<input
@@ -277,8 +277,9 @@ export const BrandView = () => {
 					<Field label="Typography">
 						<div className="col gap-2">
 							{(["heading", "body", "mono"] as const).map((key) => (
-								<label key={key} className="row gap-2" style={{ alignItems: "center" }}>
-									<span className="mono" style={{ width: 74, fontSize: 11 }}>
+								<label key={key} className="brand-design-row">
+									<span aria-hidden />
+									<span className="mono" style={{ fontSize: 11 }}>
 										{key}
 									</span>
 									<input
