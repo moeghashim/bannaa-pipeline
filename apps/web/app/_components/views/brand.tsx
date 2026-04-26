@@ -394,14 +394,21 @@ export const BrandView = () => {
 						<div className="lbl">Publish v{brand.version + 1}</div>
 						<div className="hlp">Creates an immutable snapshot and bumps the brand version.</div>
 					</div>
-					<div className="row gap-2">
+					<div className="row gap-2" style={{ justifyContent: "flex-end", flexWrap: "wrap" }}>
 						<input
 							className="input"
 							placeholder="Optional version note"
 							value={publishNote}
 							onChange={(e) => setPublishNote(e.currentTarget.value)}
+							style={{ flex: "1 1 200px", minWidth: 0, maxWidth: 280 }}
 						/>
-						<button type="button" className="btn accent" onClick={publish} disabled={publishing}>
+						<button
+							type="button"
+							className="btn accent"
+							onClick={publish}
+							disabled={publishing}
+							style={{ flex: "0 0 auto", whiteSpace: "nowrap" }}
+						>
 							<Icons.Check size={12} /> {publishing ? "Publishing..." : `Publish v${brand.version + 1}`}
 						</button>
 					</div>
