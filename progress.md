@@ -367,3 +367,15 @@ Append-only learning log for commits and deploys. Add new entries only at the en
 - Actor: Codex
 - Changed Paths:
   - progress.md
+## 2026-04-24T15:53:08.044Z
+- Trigger: commit
+- Learning: Brand config can now preserve and import Stitch DESIGN.md content: the Brand view adds an upload/paste importer, maps front-matter and Markdown tokens into existing palette/typography/style fields, and stores the original source on designMd for later reuse.
+- Context: feat(brand): accept DESIGN.md imports
+- Branch: codex/brand-design-md-import
+- Actor: Moe Ghashim <mohanadgh@gmail.com>
+- Changed Paths:
+  - apps/web/app/_components/views/brand.tsx
+  - apps/web/app/_components/views/designMd.ts
+  - apps/web/app/_components/views/designMdImport.tsx
+  - convex/brand/validators.ts
+  - convex/schema.ts

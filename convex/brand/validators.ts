@@ -46,4 +46,5 @@ export const brandDesignValidator = v.object({
 	}),
 	imageStyleGuide: v.string(),
 	bannedSubjects: v.array(v.string()),
+	designMd: v.optional(v.string()),
 });
