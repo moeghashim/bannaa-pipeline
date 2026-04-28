@@ -41,7 +41,7 @@ export const generateTranslation = action({
 			text: v.string(),
 			chars: v.number(),
 			runId: v.id("providerRuns"),
-			provider: v.union(v.literal("claude"), v.literal("glm"), v.literal("openrouter")),
+			provider: v.union(v.literal("claude"), v.literal("glm"), v.literal("openrouter"), v.literal("deepseek")),
 			model: v.string(),
 			cost: v.number(),
 		}),
@@ -82,6 +82,7 @@ export const generateTranslation = action({
 					primary,
 					targetLang,
 					brandVoicePreset: voicePreset,
+					angle: draft.angle,
 				}),
 				env,
 			});
@@ -115,6 +116,7 @@ export const generateTranslation = action({
 							primary: slidePrimary,
 							targetLang,
 							brandVoicePreset: voicePreset,
+							angle: draft.angle,
 						}),
 						env,
 					});

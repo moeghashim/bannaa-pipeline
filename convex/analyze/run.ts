@@ -13,7 +13,12 @@ import {
 	type ProviderId,
 } from "./providers";
 
-const providerValidator = v.union(v.literal("claude"), v.literal("glm"), v.literal("openrouter"));
+const providerValidator = v.union(
+	v.literal("claude"),
+	v.literal("glm"),
+	v.literal("openrouter"),
+	v.literal("deepseek"),
+);
 
 type RunResult =
 	| { ok: true; provider: ProviderId; model: string; cost: number }

@@ -2,7 +2,12 @@ import { v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery } from "../_generated/server";
 
-const textProviderValidator = v.union(v.literal("claude"), v.literal("glm"), v.literal("openrouter"));
+const textProviderValidator = v.union(
+	v.literal("claude"),
+	v.literal("glm"),
+	v.literal("openrouter"),
+	v.literal("deepseek"),
+);
 const imageProviderValidator = v.union(
 	v.literal("nano-banana"),
 	v.literal("gpt-image"),

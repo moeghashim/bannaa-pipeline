@@ -9,6 +9,15 @@ const outputLanguageValidator = v.union(
 	v.literal("ar-levantine"),
 );
 
+const angleValidator = v.union(
+	v.literal("explainer"),
+	v.literal("news"),
+	v.literal("hot_take"),
+	v.literal("use_case"),
+	v.literal("debunk"),
+	v.literal("tutorial"),
+);
+
 export const approve = mutation({
 	args: { id: v.id("drafts") },
 	handler: async (ctx, { id }) => {
@@ -73,6 +82,16 @@ export const updateText = mutation({
 		await ctx.db.patch(id, {
 			translations,
 		});
+	},
+});
+
+export const setAngle = mutation({
+	args: { id: v.id("drafts"), angle: angleValidator },
+	handler: async (ctx, { id, angle }) => {
+		await requireUser(ctx);
+		const row = await ctx.db.get(id);
+		if (!row) throw new Error("Draft not found");
+		await ctx.db.patch(id, { angle });
 	},
 });
 

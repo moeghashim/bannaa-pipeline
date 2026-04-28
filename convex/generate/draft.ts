@@ -8,6 +8,7 @@ import { callProvider, defaultProvider, type ProviderId } from "../analyze/provi
 import { defaultBrandInput } from "../brand/defaults";
 import { requireUser } from "../lib/requireUser";
 import { renderBrandSystemPrompt } from "./brandPrompt";
+import { cosine, DEDUP_RECENT_LIMIT, DEDUP_THRESHOLD, embedText } from "./embeddings";
 import {
 	buildDraftPrompt,
 	type Channel,
@@ -41,7 +42,7 @@ export const fromAnalysisOutput = action({
 		v.object({
 			ok: v.literal(true),
 			draftId: v.id("drafts"),
-			provider: v.union(v.literal("claude"), v.literal("glm"), v.literal("openrouter")),
+			provider: v.union(v.literal("claude"), v.literal("glm"), v.literal("openrouter"), v.literal("deepseek")),
 			model: v.string(),
 			cost: v.number(),
 		}),
@@ -92,6 +93,35 @@ export const fromAnalysisOutput = action({
 				throw new Error("Model did not return English primary copy");
 			}
 
+			let embedding: number[] | undefined;
+			let dedupSimilarity: number | undefined;
+			let dedupPriorDraftId: Id<"drafts"> | undefined;
+			const openaiKey = process.env.OPENAI_API_KEY;
+			if (openaiKey) {
+				try {
+					embedding = await embedText(result.output.primary, openaiKey);
+					const candidates = await ctx.runQuery(internal.generate.internal.listRecentDraftsForDedup, {
+						channel: args.channel,
+						limit: DEDUP_RECENT_LIMIT,
+					});
+					let bestSim = 0;
+					let bestId: Id<"drafts"> | undefined;
+					for (const c of candidates) {
+						const sim = cosine(embedding, c.embedding);
+						if (sim > bestSim) {
+							bestSim = sim;
+							bestId = c._id;
+						}
+					}
+					if (bestId && bestSim >= DEDUP_THRESHOLD) {
+						dedupSimilarity = bestSim;
+						dedupPriorDraftId = bestId;
+					}
+				} catch {
+					// Embedding is best-effort — never block draft creation on it.
+				}
+			}
+
 			const draftId: Id<"drafts"> = await ctx.runMutation(internal.generate.internal.insertDraft, {
 				channel: args.channel,
 				primary: result.output.primary,
@@ -99,6 +129,10 @@ export const fromAnalysisOutput = action({
 				analysisId: args.analysisId,
 				sourceItemId: analysis.itemId,
 				concepts: result.output.concepts ?? analysis.concepts.slice(0, 3),
+				angle: result.output.angle,
+				embedding,
+				dedupSimilarity,
+				dedupPriorDraftId,
 				capturedBy: userId,
 				provider: result.provider,
 				model: result.model,

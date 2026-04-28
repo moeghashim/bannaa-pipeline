@@ -10,7 +10,7 @@ import { NEWSLETTER } from "./data";
 import { Palette } from "./palette";
 import { FilterSeg, Select } from "./primitives";
 import { Sidebar } from "./sidebar";
-import type { Analysis, CapturePayload, InboxItem, State, ViewKey } from "./types";
+import type { Analysis, CapturePayload, InboxItem, ProviderId, State, ViewKey } from "./types";
 import { AnalysesView } from "./views/analyses";
 import { BrandView } from "./views/brand";
 import { DraftsView } from "./views/drafts";
@@ -80,9 +80,10 @@ const isViewKey = (v: string): v is ViewKey =>
 	v === "settings" ||
 	v === "brand";
 
-function providerLabel(provider: "claude" | "glm" | "openrouter" | undefined): string {
+function providerLabel(provider: ProviderId | undefined): string {
 	if (provider === "claude") return "claude-sonnet-4-6";
 	if (provider === "openrouter") return "openrouter";
+	if (provider === "deepseek") return "deepseek-v4-pro";
 	return "glm-5.1";
 }
 

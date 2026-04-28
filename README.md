@@ -9,7 +9,7 @@ Scope is deliberately narrow: **AI education only** — the tracks, concepts, an
 - **Next.js 15 + TypeScript** (App Router, Turbopack) — dashboard at `apps/web`
 - **Convex** — storage, queries, mutations, actions, crons, file storage; dev deployment `shiny-hare-202`
 - **Convex Auth** — magic-link sign-in via Resend; single-operator allowlist on `moe@bannaa.co`
-- **LLM providers** (text, tool-use): **GLM 5.1** (default, via Zhipu OpenAI-compatible), **Claude Sonnet 4.6** (Anthropic native), **OpenRouter** (routed); default is stored in a Convex `settings` doc and can be flipped from the Settings tab
+- **LLM providers** (text, tool-use): **GLM 5.1** (default, via Zhipu OpenAI-compatible), **Claude Sonnet 4.6** (Anthropic native), **OpenRouter** (routed), **DeepSeek V4 Pro** (DeepSeek OpenAI-compatible, model pinned to `deepseek-v4-pro`); default is stored in a Convex `settings` doc and can be flipped from the Settings tab
 - **Image providers** (5, direct integrations): **Nano Banana** (Google Gemini 2.5 Flash Image), **GPT Image** (OpenAI gpt-image-1), **Grok** (xAI grok-2-image), **Ideogram v3**, **OpenRouter** (image routing)
 - **HyperFrames** — server-side AR overlay compositor using **satori + @resvg/resvg-wasm**; Noto Naskh Arabic fetched from Google Fonts (module-cached)
 - **X API v2** (OAuth 2.0 PKCE) — bookmarks ingest, 15-min cron with per-account auto-sync toggle
@@ -59,7 +59,7 @@ convex/                   All backend
   auth.ts, auth.config.ts Convex Auth + Email (Resend) magic-link provider
   http.ts                 HTTP router (auth routes + /auth/x/callback)
   schema.ts               All tables; provider + channel + mediaKind unions
-  analyze/                Analyze action + provider dispatch (Claude / GLM / OpenRouter)
+  analyze/                Analyze action + provider dispatch (Claude / GLM / OpenRouter / DeepSeek)
   analyses/               Analyses queries
   inbox/                  Capture, list, get, reject, reopen
   drafts/                 List, counts, approve, reject, reopen
@@ -115,7 +115,8 @@ Magic-link sign-in + the default LLM provider work with **GLM + Resend** alone. 
 | GLM (default text LLM) | `GLM_API_KEY`, optional `GLM_MODEL` (default `glm-5.1`) | Analysis + draft generation |
 | Claude (optional text LLM) | `ANTHROPIC_API_KEY` | Switching default to Claude |
 | OpenRouter (optional text + image routing) | `OPENROUTER_API_KEY`, optional `OPENROUTER_MODEL`, `OPENROUTER_IMAGE_MODEL` | OpenRouter as text or image provider |
-| Default provider override | `DEFAULT_ANALYZE_PROVIDER` (`claude` / `glm` / `openrouter`) | Env-level default (Settings doc overrides this) |
+| DeepSeek (optional text LLM) | `DEEPSEEK_API_KEY` | Switching default to DeepSeek V4 Pro (model pinned to `deepseek-v4-pro`) |
+| Default provider override | `DEFAULT_ANALYZE_PROVIDER` (`claude` / `glm` / `openrouter` / `deepseek`) | Env-level default (Settings doc overrides this) |
 | Nano Banana | `GOOGLE_API_KEY` | Gemini 2.5 Flash Image |
 | GPT Image | `OPENAI_API_KEY` | `gpt-image-1` |
 | Grok | `GROK_API_KEY` | xAI `grok-2-image` |

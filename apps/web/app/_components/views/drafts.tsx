@@ -21,6 +21,7 @@ import {
 	textForLanguage,
 } from "./draftsLanguages";
 import { DraftMedia } from "./draftsMedia";
+import { AnglePicker, DedupBadge, type DraftAngle } from "./draftsMeta";
 import { SchedulePopover } from "./draftsScheduler";
 import { FeedbackControls } from "./feedbackControls";
 
@@ -64,6 +65,7 @@ export const DraftsView = ({ channel, setChannel }: { channel: string; setChanne
 	const reject = useMutation(api.drafts.mutate.reject);
 	const unschedule = useMutation(api.drafts.mutate.unschedule);
 	const updateText = useMutation(api.drafts.mutate.updateText);
+	const setAngle = useMutation(api.drafts.mutate.setAngle);
 
 	const loaded = drafts !== undefined;
 	const rows = drafts ?? [];
@@ -118,6 +120,7 @@ export const DraftsView = ({ channel, setChannel }: { channel: string; setChanne
 							onReject={() => reject({ id: d._id })}
 							onUnschedule={() => unschedule({ id: d._id })}
 							onSaveText={(lang, text) => updateText({ id: d._id, lang, text })}
+							onSetAngle={(angle) => setAngle({ id: d._id, angle })}
 						/>
 					))}
 				</div>
@@ -134,6 +137,7 @@ const DraftCard = ({
 	onReject,
 	onUnschedule,
 	onSaveText,
+	onSetAngle,
 }: {
 	draft: Doc<"drafts">;
 	defaultImageProvider: ImageProvider;
@@ -142,6 +146,7 @@ const DraftCard = ({
 	onReject: () => void;
 	onUnschedule: () => void;
 	onSaveText: (lang: OutputLanguage, text: string) => Promise<unknown>;
+	onSetAngle: (angle: DraftAngle) => Promise<unknown>;
 }) => {
 	const variant = channelFrame(draft.channel);
 	const videoChannel = isVideoChannel(draft.channel);
@@ -300,7 +305,16 @@ const DraftCard = ({
 						{timeAgo(draft.createdAt)}
 					</span>
 				</div>
-				<Chip state={draft.state} />
+				<div className="row gap-2" style={{ alignItems: "center" }}>
+					{draft.dedupSimilarity != null && (
+						<DedupBadge
+							similarity={draft.dedupSimilarity}
+							priorDraftId={draft.dedupPriorDraftId ? String(draft.dedupPriorDraftId) : undefined}
+						/>
+					)}
+					<AnglePicker angle={draft.angle} onChange={(a) => void onSetAngle(a)} />
+					<Chip state={draft.state} />
+				</div>
 			</div>
 
 			<div className="body">

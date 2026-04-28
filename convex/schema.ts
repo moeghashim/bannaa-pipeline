@@ -34,6 +34,15 @@ const channelType = v.union(
 	v.literal("linkedin-page"),
 );
 
+const angleType = v.union(
+	v.literal("explainer"),
+	v.literal("news"),
+	v.literal("hot_take"),
+	v.literal("use_case"),
+	v.literal("debunk"),
+	v.literal("tutorial"),
+);
+
 const mediaKindType = v.union(
 	v.literal("text"),
 	v.literal("single-image"),
@@ -183,7 +192,7 @@ export default defineSchema({
 
 	analyses: defineTable({
 		itemId: v.id("inboxItems"),
-		provider: v.union(v.literal("claude"), v.literal("glm"), v.literal("openrouter")),
+		provider: v.union(v.literal("claude"), v.literal("glm"), v.literal("openrouter"), v.literal("deepseek")),
 		runAt: v.number(),
 		summary: v.string(),
 		concepts: v.array(v.string()),
@@ -216,6 +225,18 @@ export default defineSchema({
 		analysisId: v.id("analyses"),
 		sourceItemId: v.id("inboxItems"),
 		concepts: v.array(v.string()),
+		// Editorial angle picked at draft time. Carries through translation
+		// so AR copy preserves the original intent (a hot_take should sound
+		// opinionated in AR, an explainer should not).
+		angle: v.optional(angleType),
+		// Embedding of `primary` (OpenAI text-embedding-3-small, 1536 dims).
+		// Used to detect near-duplicate drafts on the same channel.
+		embedding: v.optional(v.array(v.float64())),
+		// Set when this draft has cosine similarity >= DEDUP_THRESHOLD
+		// against an earlier draft on the same channel. Surfaced in the
+		// dashboard so the operator can merge or discard.
+		dedupSimilarity: v.optional(v.number()),
+		dedupPriorDraftId: v.optional(v.id("drafts")),
 		capturedBy: v.id("users"),
 		createdAt: v.number(),
 		// Unix ms the operator picked in the scheduler. Undefined until they
@@ -298,7 +319,7 @@ export default defineSchema({
 
 	settings: defineTable({
 		key: v.string(),
-		defaultProvider: v.union(v.literal("claude"), v.literal("glm"), v.literal("openrouter")),
+		defaultProvider: v.union(v.literal("claude"), v.literal("glm"), v.literal("openrouter"), v.literal("deepseek")),
 		defaultImageProvider: v.optional(imageGeneratorType),
 		outputLanguages: v.optional(v.array(secondaryOutputLanguageType)),
 		updatedAt: v.number(),
@@ -362,6 +383,7 @@ export default defineSchema({
 			v.literal("claude"),
 			v.literal("glm"),
 			v.literal("openrouter"),
+			v.literal("deepseek"),
 			v.literal("nano-banana"),
 			v.literal("gpt-image"),
 			v.literal("grok"),

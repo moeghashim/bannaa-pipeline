@@ -13,6 +13,7 @@ const PROVIDER_LABEL: Record<ProviderId, string> = {
 	claude: "Claude Sonnet 4.6",
 	glm: "GLM 5.1",
 	openrouter: "OpenRouter",
+	deepseek: "DeepSeek V4 Pro",
 };
 
 const KIND_TO_CHANNEL: Record<"tweet" | "reel" | "website", Channel | null> = {

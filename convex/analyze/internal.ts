@@ -37,7 +37,7 @@ export const recordFailure = internalMutation({
 export const recordSuccess = internalMutation({
 	args: {
 		itemId: v.id("inboxItems"),
-		provider: v.union(v.literal("claude"), v.literal("glm"), v.literal("openrouter")),
+		provider: v.union(v.literal("claude"), v.literal("glm"), v.literal("openrouter"), v.literal("deepseek")),
 		model: v.string(),
 		runAt: v.number(),
 		summary: v.string(),
@@ -103,7 +103,7 @@ export const recordSuccess = internalMutation({
 export const recordAudit = internalMutation({
 	args: {
 		itemId: v.id("inboxItems"),
-		provider: v.union(v.literal("claude"), v.literal("glm"), v.literal("openrouter")),
+		provider: v.union(v.literal("claude"), v.literal("glm"), v.literal("openrouter"), v.literal("deepseek")),
 		model: v.string(),
 		inputTokens: v.number(),
 		outputTokens: v.number(),

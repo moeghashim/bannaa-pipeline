@@ -38,6 +38,7 @@ import type * as generate_carousel from "../generate/carousel.js";
 import type * as generate_carouselInternal from "../generate/carouselInternal.js";
 import type * as generate_carouselPrompts from "../generate/carouselPrompts.js";
 import type * as generate_draft from "../generate/draft.js";
+import type * as generate_embeddings from "../generate/embeddings.js";
 import type * as generate_image_action from "../generate/image/action.js";
 import type * as generate_image_bakedAction from "../generate/image/bakedAction.js";
 import type * as generate_image_bakedCarouselAction from "../generate/image/bakedCarouselAction.js";
@@ -117,6 +118,7 @@ declare const fullApi: ApiFromModules<{
   "generate/carouselInternal": typeof generate_carouselInternal;
   "generate/carouselPrompts": typeof generate_carouselPrompts;
   "generate/draft": typeof generate_draft;
+  "generate/embeddings": typeof generate_embeddings;
   "generate/image/action": typeof generate_image_action;
   "generate/image/bakedAction": typeof generate_image_bakedAction;
   "generate/image/bakedCarouselAction": typeof generate_image_bakedCarouselAction;

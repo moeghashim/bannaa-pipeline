@@ -95,7 +95,7 @@ export const previewDraft = action({
 			ok: v.literal(true),
 			primary: v.string(),
 			concepts: v.array(v.string()),
-			provider: v.union(v.literal("claude"), v.literal("glm"), v.literal("openrouter")),
+			provider: v.union(v.literal("claude"), v.literal("glm"), v.literal("openrouter"), v.literal("deepseek")),
 			model: v.string(),
 			cost: v.number(),
 		}),

@@ -1,7 +1,7 @@
 export type Source = "x" | "youtube" | "article" | "manual" | "newsletter";
 export type State = "new" | "analyzing" | "draft" | "approved" | "rejected" | "published";
 export type Lang = "en" | "ar";
-export type ProviderId = "claude" | "glm" | "openrouter";
+export type ProviderId = "claude" | "glm" | "openrouter" | "deepseek";
 // External image generators (what the user can pick to generate a base image).
 export type ImageProvider = "nano-banana" | "gpt-image" | "grok" | "ideogram" | "openrouter";
 // Provider union that may appear on a mediaAsset row. Since the satori

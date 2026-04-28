@@ -4,7 +4,12 @@ import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { internalQuery, mutation, query } from "../_generated/server";
 import { requireUser } from "../lib/requireUser";
 
-const providerValidator = v.union(v.literal("claude"), v.literal("glm"), v.literal("openrouter"));
+const providerValidator = v.union(
+	v.literal("claude"),
+	v.literal("glm"),
+	v.literal("openrouter"),
+	v.literal("deepseek"),
+);
 
 // Settings only exposes generation providers. "hyperframes" is a compositor,
 // never a default generator, so it is intentionally absent from this union.

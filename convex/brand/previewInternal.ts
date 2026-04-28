@@ -6,6 +6,7 @@ const providerValidator = v.union(
 	v.literal("claude"),
 	v.literal("glm"),
 	v.literal("openrouter"),
+	v.literal("deepseek"),
 	v.literal("nano-banana"),
 	v.literal("gpt-image"),
 	v.literal("grok"),

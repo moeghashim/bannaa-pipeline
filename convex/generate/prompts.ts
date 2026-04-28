@@ -2,8 +2,28 @@ import type { ToolSpec } from "../analyze/providers";
 
 export type Channel = "x" | "ig" | "ig-reel" | "tiktok" | "yt-shorts" | "fb-page" | "linkedin-page";
 
-export const DRAFT_PROMPT_VERSION = "2026-04-24-b";
-export const TRANSLATE_PROMPT_VERSION = "2026-04-24-a";
+export type Angle = "explainer" | "news" | "hot_take" | "use_case" | "debunk" | "tutorial";
+
+export const ANGLES: readonly Angle[] = [
+	"explainer",
+	"news",
+	"hot_take",
+	"use_case",
+	"debunk",
+	"tutorial",
+] as const;
+
+export const ANGLE_GUIDANCE: Record<Angle, string> = {
+	explainer: "Walk the reader through how a concept or technique works. Calm, instructive tone.",
+	news: "Report a development plainly. Lead with what happened and who it affects.",
+	hot_take: "Stake an opinion. Confident, specific, willing to disagree with the popular take.",
+	use_case: "Show a concrete application or workflow. Practical, grounded in a real scenario.",
+	debunk: "Correct a misconception. Name the wrong claim, then state what's actually true.",
+	tutorial: "Give a short step-by-step. Numbered steps or imperative sentences.",
+};
+
+export const DRAFT_PROMPT_VERSION = "2026-04-27-a";
+export const TRANSLATE_PROMPT_VERSION = "2026-04-27-a";
 
 export const DRAFT_SYSTEM_PROMPT = `You are the draft-generation stage of a content pipeline for bannaa.co.
 
@@ -16,14 +36,15 @@ Hard rules:
 4. Match the hook structure to the channel.
 5. Do not add hashtags unless the channel is Instagram or TikTok.
 6. Reuse concept names from the provided analysis; do not invent new ones.
-7. If the source analysis is outside AI education scope, still draft — the operator will reject manually.`;
+7. Pick the editorial angle that best fits the analysis. The angle drives tone and structure — see the user prompt for the menu.
+8. If the source analysis is outside AI education scope, still draft — the operator will reject manually.`;
 
 export const DRAFT_TOOL_EN: ToolSpec = {
 	name: "record_draft",
 	description: "Record the generated English draft copy for one social channel. Must be called exactly once.",
 	input_schema: {
 		type: "object",
-		required: ["primary", "concepts"],
+		required: ["primary", "concepts", "angle"],
 		properties: {
 			primary: {
 				type: "string",
@@ -38,6 +59,11 @@ export const DRAFT_TOOL_EN: ToolSpec = {
 				minItems: 1,
 				maxItems: 4,
 			},
+			angle: {
+				type: "string",
+				enum: ANGLES as readonly string[],
+				description: "Editorial angle that best fits this draft.",
+			},
 		},
 	},
 };
@@ -45,6 +71,7 @@ export const DRAFT_TOOL_EN: ToolSpec = {
 export type DraftToolOutput = {
 	primary: string;
 	concepts: string[];
+	angle: Angle;
 };
 
 export const TRANSLATE_TOOL: ToolSpec = {
@@ -122,6 +149,7 @@ export function buildDraftPrompt(input: {
 	track: string;
 }): string {
 	const brief = CHANNEL_BRIEFS[input.channel];
+	const angleMenu = ANGLES.map((a) => `- ${a}: ${ANGLE_GUIDANCE[a]}`).join("\n");
 	return `Target channel: ${brief.label}
 Channel constraints:
 - Length: ${brief.charLimit}
@@ -137,10 +165,14 @@ Concepts from the analysis (reuse only these): ${input.analysisConcepts.join(", 
 Suggested hook (from the analysis, you can depart from this but preserve the intent):
 "${input.outputHook}" (output kind: ${input.outputKind})
 
+Editorial angles — pick the one that best fits the source and report it as \`angle\`:
+${angleMenu}
+
 Produce English copy fit for ${brief.label} that:
 - Follows the active brand voice
 - Honors the length budget strictly
 - Leads with the most interesting claim
+- Reflects the chosen angle in tone and structure
 
 Use only concepts from the supplied list. Do not invent new concept tags.`;
 }
@@ -150,14 +182,18 @@ export function buildTranslatePrompt(input: {
 	primary: string;
 	targetLang: string;
 	brandVoicePreset: string;
+	angle?: Angle;
 }): string {
 	const brief = CHANNEL_BRIEFS[input.channel];
+	const angleLine = input.angle
+		? `\nEditorial angle (preserve in translation): ${input.angle} — ${ANGLE_GUIDANCE[input.angle]}\n`
+		: "";
 	return `Target channel: ${brief.label}
 Target language: ${input.targetLang}
 Channel constraints:
 - Length: ${brief.charLimit}
 - Format: ${brief.format}
-
+${angleLine}
 Brand language guidance:
 ${input.brandVoicePreset}
 

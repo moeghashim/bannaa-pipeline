@@ -52,7 +52,7 @@ export const fromAnalysis = action({
 			ok: v.literal(true),
 			draftId: v.id("drafts"),
 			slideCount: v.number(),
-			provider: v.union(v.literal("claude"), v.literal("glm"), v.literal("openrouter")),
+			provider: v.union(v.literal("claude"), v.literal("glm"), v.literal("openrouter"), v.literal("deepseek")),
 			model: v.string(),
 			cost: v.number(),
 		}),

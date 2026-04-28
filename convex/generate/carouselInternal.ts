@@ -2,7 +2,12 @@ import { v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery } from "../_generated/server";
 
-const providerValidator = v.union(v.literal("claude"), v.literal("glm"), v.literal("openrouter"));
+const providerValidator = v.union(
+	v.literal("claude"),
+	v.literal("glm"),
+	v.literal("openrouter"),
+	v.literal("deepseek"),
+);
 
 // Insert a brand-new carousel draft + its carouselSlides rows + record the
 // providerRun — all in one transaction so the draft never exists without

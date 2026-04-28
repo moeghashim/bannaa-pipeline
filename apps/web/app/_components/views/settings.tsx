@@ -23,6 +23,7 @@ const PROVIDERS = [
 	{ k: "glm" as const, name: "GLM 5.1", note: "fast · multilingual" },
 	{ k: "claude" as const, name: "Claude Sonnet 4.6", note: "highest quality AR" },
 	{ k: "openrouter" as const, name: "OpenRouter", note: "route to any frontier model" },
+	{ k: "deepseek" as const, name: "DeepSeek V4 Pro", note: "cost-efficient open weights" },
 ];
 
 const IMAGE_PROVIDERS: { k: ImageProvider; name: string; note: string; envVar: string }[] = [

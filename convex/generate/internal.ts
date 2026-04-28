@@ -12,7 +12,44 @@ const channelValidator = v.union(
 	v.literal("linkedin-page"),
 );
 
-const providerValidator = v.union(v.literal("claude"), v.literal("glm"), v.literal("openrouter"));
+const angleValidator = v.union(
+	v.literal("explainer"),
+	v.literal("news"),
+	v.literal("hot_take"),
+	v.literal("use_case"),
+	v.literal("debunk"),
+	v.literal("tutorial"),
+);
+
+const providerValidator = v.union(
+	v.literal("claude"),
+	v.literal("glm"),
+	v.literal("openrouter"),
+	v.literal("deepseek"),
+);
+
+export type DedupCandidate = {
+	_id: Id<"drafts">;
+	embedding: number[];
+};
+
+export const listRecentDraftsForDedup = internalQuery({
+	args: { channel: channelValidator, limit: v.number() },
+	handler: async (ctx, { channel, limit }): Promise<DedupCandidate[]> => {
+		const rows = await ctx.db
+			.query("drafts")
+			.withIndex("by_channel", (q) => q.eq("channel", channel))
+			.order("desc")
+			.take(limit);
+		const out: DedupCandidate[] = [];
+		for (const row of rows) {
+			if (row.embedding && row.embedding.length > 0) {
+				out.push({ _id: row._id, embedding: row.embedding });
+			}
+		}
+		return out;
+	},
+});
 
 export const loadAnalysis = internalQuery({
 	args: { id: v.id("analyses") },
@@ -29,6 +66,10 @@ export const insertDraft = internalMutation({
 		analysisId: v.id("analyses"),
 		sourceItemId: v.id("inboxItems"),
 		concepts: v.array(v.string()),
+		angle: v.optional(angleValidator),
+		embedding: v.optional(v.array(v.float64())),
+		dedupSimilarity: v.optional(v.number()),
+		dedupPriorDraftId: v.optional(v.id("drafts")),
 		capturedBy: v.id("users"),
 		provider: providerValidator,
 		model: v.string(),
@@ -62,6 +103,10 @@ export const insertDraft = internalMutation({
 			analysisId: args.analysisId,
 			sourceItemId: args.sourceItemId,
 			concepts: args.concepts,
+			angle: args.angle,
+			embedding: args.embedding,
+			dedupSimilarity: args.dedupSimilarity,
+			dedupPriorDraftId: args.dedupPriorDraftId,
 			capturedBy: args.capturedBy,
 			createdAt: Date.now(),
 			genRunId: runId,
