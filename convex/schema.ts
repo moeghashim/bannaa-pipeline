@@ -237,6 +237,19 @@ export default defineSchema({
 		// dashboard so the operator can merge or discard.
 		dedupSimilarity: v.optional(v.number()),
 		dedupPriorDraftId: v.optional(v.id("drafts")),
+		// Rating triage layer. Total `rating` is 0-100, the sum of the
+		// four dimensions in `ratingBreakdown`. Filled in asynchronously
+		// after the draft is created — UI shows undefined as "pending".
+		rating: v.optional(v.number()),
+		ratingBreakdown: v.optional(
+			v.object({
+				substance: v.object({ score: v.number(), reason: v.string() }),
+				hook: v.object({ score: v.number(), reason: v.string() }),
+				accuracy: v.object({ score: v.number(), reason: v.string() }),
+				voiceFit: v.object({ score: v.number(), reason: v.string() }),
+			}),
+		),
+		ratingRunId: v.optional(v.id("providerRuns")),
 		capturedBy: v.id("users"),
 		createdAt: v.number(),
 		// Unix ms the operator picked in the scheduler. Undefined until they

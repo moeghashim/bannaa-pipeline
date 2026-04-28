@@ -51,6 +51,8 @@ import type * as generate_image_providers from "../generate/image/providers.js";
 import type * as generate_internal from "../generate/internal.js";
 import type * as generate_languages from "../generate/languages.js";
 import type * as generate_prompts from "../generate/prompts.js";
+import type * as generate_rating from "../generate/rating.js";
+import type * as generate_ratingPrompts from "../generate/ratingPrompts.js";
 import type * as generate_smokeTest from "../generate/smokeTest.js";
 import type * as generate_translate from "../generate/translate.js";
 import type * as generate_translateInternal from "../generate/translateInternal.js";
@@ -133,6 +135,8 @@ declare const fullApi: ApiFromModules<{
   "generate/internal": typeof generate_internal;
   "generate/languages": typeof generate_languages;
   "generate/prompts": typeof generate_prompts;
+  "generate/rating": typeof generate_rating;
+  "generate/ratingPrompts": typeof generate_ratingPrompts;
   "generate/smokeTest": typeof generate_smokeTest;
   "generate/translate": typeof generate_translate;
   "generate/translateInternal": typeof generate_translateInternal;

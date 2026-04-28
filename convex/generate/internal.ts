@@ -55,6 +55,63 @@ export const setDraftEmbedding = internalMutation({
 	},
 });
 
+export const loadDraftWithAnalysis = internalQuery({
+	args: { draftId: v.id("drafts") },
+	handler: async (
+		ctx,
+		{ draftId },
+	): Promise<{ draft: Doc<"drafts">; analysis: Doc<"analyses"> } | null> => {
+		const draft = await ctx.db.get(draftId);
+		if (!draft) return null;
+		const analysis = await ctx.db.get(draft.analysisId);
+		if (!analysis) return null;
+		return { draft, analysis };
+	},
+});
+
+export const applyRating = internalMutation({
+	args: {
+		draftId: v.id("drafts"),
+		rating: v.number(),
+		breakdown: v.object({
+			substance: v.object({ score: v.number(), reason: v.string() }),
+			hook: v.object({ score: v.number(), reason: v.string() }),
+			accuracy: v.object({ score: v.number(), reason: v.string() }),
+			voiceFit: v.object({ score: v.number(), reason: v.string() }),
+		}),
+		provider: providerValidator,
+		model: v.string(),
+		inputTokens: v.number(),
+		outputTokens: v.number(),
+		cost: v.number(),
+		brandVersion: v.optional(v.number()),
+		promptVersion: v.optional(v.string()),
+	},
+	returns: v.id("providerRuns"),
+	handler: async (ctx, args): Promise<Id<"providerRuns">> => {
+		const draft = await ctx.db.get(args.draftId);
+		if (!draft) throw new Error("Draft not found");
+		const runId = await ctx.db.insert("providerRuns", {
+			provider: args.provider,
+			model: args.model,
+			purpose: "rate-draft",
+			itemId: draft.sourceItemId,
+			inputTokens: args.inputTokens,
+			outputTokens: args.outputTokens,
+			cost: args.cost,
+			runAt: Date.now(),
+			brandVersion: args.brandVersion,
+			promptVersion: args.promptVersion,
+		});
+		await ctx.db.patch(args.draftId, {
+			rating: args.rating,
+			ratingBreakdown: args.breakdown,
+			ratingRunId: runId,
+		});
+		return runId;
+	},
+});
+
 export const recordEmbeddingRun = internalMutation({
 	args: {
 		model: v.string(),

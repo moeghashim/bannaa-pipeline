@@ -187,6 +187,10 @@ export const fromAnalysisOutput = action({
 				promptVersion: DRAFT_PROMPT_VERSION,
 			});
 
+			// Score the draft asynchronously. Failure is non-fatal — the
+			// draft is already saved; the score just stays undefined.
+			await ctx.scheduler.runAfter(0, internal.generate.rating.run, { draftId });
+
 			return {
 				ok: true,
 				draftId,
