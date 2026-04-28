@@ -1,6 +1,30 @@
 import type { ToolSpec } from "../analyze/providers";
 
-export const CAROUSEL_PROMPT_VERSION = "2026-04-24-b";
+export const CAROUSEL_PROMPT_VERSION = "2026-04-27-a";
+
+export type SlideRole = "hook" | "concept" | "mechanism" | "example" | "payoff";
+
+export const SLIDE_ROLES: readonly SlideRole[] = [
+	"hook",
+	"concept",
+	"mechanism",
+	"example",
+	"payoff",
+] as const;
+
+export const SLIDE_ROLE_GUIDANCE: Record<SlideRole, string> = {
+	hook: "First slide. One short attention-grabbing line. No setup, just the punch.",
+	concept: "Define the core idea. Short. Answer: what is this?",
+	mechanism: "Show how it works under the hood. Process, layers, flow.",
+	example: "A concrete instance. Real names or real numbers.",
+	payoff: "Final slide. Takeaway, question, or CTA that earns engagement.",
+};
+
+export function slideRolePlan(slideCount: number): SlideRole[] {
+	if (slideCount <= 3) return ["hook", "concept", "payoff"];
+	if (slideCount === 4) return ["hook", "concept", "example", "payoff"];
+	return ["hook", "concept", "mechanism", "example", "payoff"];
+}
 
 export const CAROUSEL_SYSTEM_PROMPT = `You are the carousel-generation stage of a content pipeline for bannaa.co.
 
@@ -14,7 +38,8 @@ Hard rules:
 5. Each slide has its own \`imagePrompt\` in English describing only that slide's scene — subject, action, composition focal point — in 60-180 characters.
 6. Reuse concept tags from the provided analysis; do not invent new ones.
 7. \`orderIndex\` is 1-based and must be contiguous from 1 to the requested slideCount.
-8. Never include hashtags inside \`slides[].primary\`. Caption-level hashtags in \`channelPrimary\` are optional.`;
+8. Each slide MUST be assigned the editorial \`role\` listed in the user prompt's plan. Match the role the plan dictates for that orderIndex; do not freelance.
+9. Never include hashtags inside \`slides[].primary\`. Caption-level hashtags in \`channelPrimary\` are optional.`;
 
 export const CAROUSEL_TOOL: ToolSpec = {
 	name: "record_carousel",
@@ -51,7 +76,7 @@ export const CAROUSEL_TOOL: ToolSpec = {
 				maxItems: 5,
 				items: {
 					type: "object",
-					required: ["primary", "imagePrompt", "orderIndex"],
+					required: ["primary", "imagePrompt", "orderIndex", "role"],
 					properties: {
 						primary: {
 							type: "string",
@@ -71,6 +96,11 @@ export const CAROUSEL_TOOL: ToolSpec = {
 							minimum: 1,
 							maximum: 5,
 						},
+						role: {
+							type: "string",
+							enum: SLIDE_ROLES as readonly string[],
+							description: "Editorial role assigned by the plan in the user prompt.",
+						},
 					},
 				},
 			},
@@ -82,6 +112,7 @@ export type CarouselSlideOutput = {
 	primary: string;
 	imagePrompt: string;
 	orderIndex: number;
+	role: SlideRole;
 };
 
 export type CarouselToolOutput = {
@@ -98,6 +129,10 @@ export function buildCarouselPrompt(input: {
 	keyPoints: string[];
 	track: string;
 }): string {
+	const plan = slideRolePlan(input.slideCount);
+	const planLines = plan
+		.map((role, i) => `- Slide ${i + 1} → role: ${role} — ${SLIDE_ROLE_GUIDANCE[role]}`)
+		.join("\n");
 	return `Target: Instagram feed carousel with exactly ${input.slideCount} slides.
 
 Source track: ${input.track}
@@ -110,10 +145,11 @@ ${input.keyPoints.map((k, i) => `${i + 1}. ${k}`).join("\n")}
 
 Concepts from the analysis (reuse only these): ${input.analysisConcepts.join(", ")}
 
+SLIDE PLAN (assign these exact roles by orderIndex):
+${planLines}
+
 Produce a coherent IG feed carousel with ${input.slideCount} slides:
-- Slide 1 is the hook — single punchy English line that makes a reader stop scrolling.
-- Middle slides each carry one idea from the key points. Short, readable on a phone.
-- Last slide is a payoff or a question that invites engagement.
+- Each slide must match the role assigned in the plan above. Set \`role\` accordingly.
 - The \`styleAnchor\` must describe the shared palette + composition + mood across ALL slides. Do NOT mention any specific slide subject. Do NOT ask for rendered text.
 - Each slide's \`imagePrompt\` (English) describes only that slide's visual scene.
 - The caption \`channelPrimary\` is a standalone IG caption body — a short paragraph that complements the carousel; it is NOT a repeat of the on-image text.

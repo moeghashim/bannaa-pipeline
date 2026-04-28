@@ -9,6 +9,14 @@ const providerValidator = v.union(
 	v.literal("deepseek"),
 );
 
+const slideRoleValidator = v.union(
+	v.literal("hook"),
+	v.literal("concept"),
+	v.literal("mechanism"),
+	v.literal("example"),
+	v.literal("payoff"),
+);
+
 // Insert a brand-new carousel draft + its carouselSlides rows + record the
 // providerRun — all in one transaction so the draft never exists without
 // slides or its run record.
@@ -33,6 +41,7 @@ export const insertCarouselDraft = internalMutation({
 				primary: v.string(),
 				imagePrompt: v.string(),
 				orderIndex: v.number(),
+				role: v.optional(slideRoleValidator),
 			}),
 		),
 	},
@@ -74,6 +83,7 @@ export const insertCarouselDraft = internalMutation({
 				primary: slide.primary,
 				translations: [],
 				imagePrompt: slide.imagePrompt,
+				role: slide.role,
 				genRunId: runId,
 				createdAt: Date.now(),
 			});

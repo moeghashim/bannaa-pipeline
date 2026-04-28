@@ -14,6 +14,7 @@ import {
 	CAROUSEL_SYSTEM_PROMPT,
 	CAROUSEL_TOOL,
 	type CarouselToolOutput,
+	slideRolePlan,
 } from "./carouselPrompts";
 
 const MIN_SLIDES = 3;
@@ -37,9 +38,12 @@ function sanitizeSlides(
 ): CarouselToolOutput["slides"] {
 	// Some providers return unordered or off-by-one orderIndex. Sort by the
 	// index they returned, then renumber 1..expected so the carousel is
-	// always contiguous and 1-based regardless of model behaviour.
+	// always contiguous and 1-based regardless of model behaviour. Also
+	// re-apply the canonical role plan in case the model freelanced — the
+	// plan is the source of truth, not the model's choice.
 	const sorted = [...raw].sort((a, b) => a.orderIndex - b.orderIndex).slice(0, expected);
-	return sorted.map((s, i) => ({ ...s, orderIndex: i + 1 }));
+	const plan = slideRolePlan(expected);
+	return sorted.map((s, i) => ({ ...s, orderIndex: i + 1, role: plan[i] }));
 }
 
 export const fromAnalysis = action({

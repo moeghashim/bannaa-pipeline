@@ -305,6 +305,18 @@ export default defineSchema({
 		primary: v.string(),
 		translations: v.optional(v.array(translationType)),
 		imagePrompt: v.string(),
+		// Editorial role of this slide in the carousel arc. Optional for
+		// backward compatibility with carousels generated before the role
+		// taxonomy. New carousels always set it.
+		role: v.optional(
+			v.union(
+				v.literal("hook"),
+				v.literal("concept"),
+				v.literal("mechanism"),
+				v.literal("example"),
+				v.literal("payoff"),
+			),
+		),
 		genRunId: v.optional(v.id("providerRuns")),
 		createdAt: v.number(),
 	}).index("by_draft", ["draftId"]),
