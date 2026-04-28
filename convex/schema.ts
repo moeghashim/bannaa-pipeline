@@ -388,6 +388,7 @@ export default defineSchema({
 			v.literal("gpt-image"),
 			v.literal("grok"),
 			v.literal("ideogram"),
+			v.literal("openai-embedding"),
 		),
 		model: v.string(),
 		purpose: v.string(),

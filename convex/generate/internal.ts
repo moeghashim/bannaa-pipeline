@@ -33,6 +33,55 @@ export type DedupCandidate = {
 	embedding: number[];
 };
 
+export const latestAnalysis = internalQuery({
+	args: {},
+	handler: async (ctx): Promise<Doc<"analyses"> | null> => {
+		const rows = await ctx.db.query("analyses").order("desc").take(1);
+		return rows[0] ?? null;
+	},
+});
+
+export const listDraftsForBackfill = internalQuery({
+	args: { limit: v.number() },
+	handler: async (ctx, { limit }): Promise<Doc<"drafts">[]> => {
+		return await ctx.db.query("drafts").withIndex("by_createdAt").order("asc").take(limit);
+	},
+});
+
+export const setDraftEmbedding = internalMutation({
+	args: { id: v.id("drafts"), embedding: v.array(v.float64()) },
+	handler: async (ctx, { id, embedding }): Promise<void> => {
+		await ctx.db.patch(id, { embedding });
+	},
+});
+
+export const recordEmbeddingRun = internalMutation({
+	args: {
+		model: v.string(),
+		itemId: v.optional(v.id("inboxItems")),
+		inputTokens: v.number(),
+		cost: v.number(),
+		purpose: v.string(),
+		brandVersion: v.optional(v.number()),
+		promptVersion: v.optional(v.string()),
+	},
+	returns: v.id("providerRuns"),
+	handler: async (ctx, args): Promise<Id<"providerRuns">> => {
+		return await ctx.db.insert("providerRuns", {
+			provider: "openai-embedding",
+			model: args.model,
+			purpose: args.purpose,
+			itemId: args.itemId,
+			inputTokens: args.inputTokens,
+			outputTokens: 0,
+			cost: args.cost,
+			runAt: Date.now(),
+			brandVersion: args.brandVersion,
+			promptVersion: args.promptVersion,
+		});
+	},
+});
+
 export const listRecentDraftsForDedup = internalQuery({
 	args: { channel: channelValidator, limit: v.number() },
 	handler: async (ctx, { channel, limit }): Promise<DedupCandidate[]> => {
@@ -120,6 +169,7 @@ export const recordFailedRun = internalMutation({
 		model: v.string(),
 		error: v.string(),
 		sourceItemId: v.id("inboxItems"),
+		purpose: v.optional(v.string()),
 		brandVersion: v.optional(v.number()),
 		promptVersion: v.optional(v.string()),
 	},
@@ -128,7 +178,7 @@ export const recordFailedRun = internalMutation({
 		return await ctx.db.insert("providerRuns", {
 			provider: args.provider,
 			model: args.model,
-			purpose: "generate-draft",
+			purpose: args.purpose ?? "generate-draft",
 			itemId: args.sourceItemId,
 			inputTokens: 0,
 			outputTokens: 0,

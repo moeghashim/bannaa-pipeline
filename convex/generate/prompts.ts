@@ -140,6 +140,37 @@ const CHANNEL_BRIEFS: Record<Channel, { label: string; charLimit: string; format
 	},
 };
 
+export const MAX_CHARS_BY_CHANNEL: Record<Channel, number> = {
+	x: 280,
+	ig: 400,
+	"ig-reel": 200,
+	tiktok: 300,
+	"yt-shorts": 200,
+	"fb-page": 600,
+	"linkedin-page": 800,
+};
+
+export function buildTightenPrompt(input: {
+	channel: Channel;
+	previous: string;
+	angle: Angle | undefined;
+	concepts: string[];
+	maxChars: number;
+}): string {
+	const brief = CHANNEL_BRIEFS[input.channel];
+	return `Your previous draft was ${input.previous.length} characters, which exceeds the ${brief.label} hard limit of ${input.maxChars} characters.
+
+Rewrite the draft under ${input.maxChars} characters while preserving:
+- The chosen angle: ${input.angle ?? "(unset)"}
+- The concept tags (reuse only these): ${input.concepts.join(", ")}
+- The hook and the most interesting claim
+
+Previous draft:
+"${input.previous}"
+
+Call \`record_draft\` with the tightened version. Same angle and concepts.`;
+}
+
 export function buildDraftPrompt(input: {
 	channel: Channel;
 	analysisSummary: string;

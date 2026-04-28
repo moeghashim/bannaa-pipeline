@@ -8,14 +8,16 @@ import { callProvider, defaultProvider, type ProviderId } from "../analyze/provi
 import { defaultBrandInput } from "../brand/defaults";
 import { requireUser } from "../lib/requireUser";
 import { renderBrandSystemPrompt } from "./brandPrompt";
-import { cosine, DEDUP_RECENT_LIMIT, DEDUP_THRESHOLD, embedText } from "./embeddings";
+import { cosine, DEDUP_RECENT_LIMIT, DEDUP_THRESHOLD, embedText, EMBEDDING_MODEL } from "./embeddings";
 import {
 	buildDraftPrompt,
+	buildTightenPrompt,
 	type Channel,
 	DRAFT_PROMPT_VERSION,
 	DRAFT_SYSTEM_PROMPT,
 	DRAFT_TOOL_EN,
 	type DraftToolOutput,
+	MAX_CHARS_BY_CHANNEL,
 } from "./prompts";
 
 const channelValidator = v.union(
@@ -80,17 +82,49 @@ export const fromAnalysisOutput = action({
 			track: analysis.track,
 		});
 
+		const systemPrompt = `${renderBrandSystemPrompt(brand, args.channel as Channel)}\n\n${DRAFT_SYSTEM_PROMPT}`;
+
 		try {
-			const result = await callProvider<DraftToolOutput>({
+			const firstResult = await callProvider<DraftToolOutput>({
 				provider,
-				systemPrompt: `${renderBrandSystemPrompt(brand, args.channel as Channel)}\n\n${DRAFT_SYSTEM_PROMPT}`,
+				systemPrompt,
 				tool: DRAFT_TOOL_EN,
 				userPrompt,
 				env,
 			});
 
-			if (!result.output?.primary) {
+			if (!firstResult.output?.primary) {
 				throw new Error("Model did not return English primary copy");
+			}
+
+			let result = firstResult;
+			const maxChars = MAX_CHARS_BY_CHANNEL[args.channel as Channel];
+			if (firstResult.output.primary.length > maxChars) {
+				try {
+					const retry = await callProvider<DraftToolOutput>({
+						provider,
+						systemPrompt,
+						tool: DRAFT_TOOL_EN,
+						userPrompt: buildTightenPrompt({
+							channel: args.channel as Channel,
+							previous: firstResult.output.primary,
+							angle: firstResult.output.angle,
+							concepts: firstResult.output.concepts ?? analysis.concepts.slice(0, 3),
+							maxChars,
+						}),
+						env,
+					});
+					if (retry.output?.primary && retry.output.primary.length <= maxChars) {
+						result = {
+							...retry,
+							inputTokens: firstResult.inputTokens + retry.inputTokens,
+							outputTokens: firstResult.outputTokens + retry.outputTokens,
+							cost: firstResult.cost + retry.cost,
+						};
+					}
+				} catch {
+					// Tightening is best-effort; keep the original on retry failure.
+				}
 			}
 
 			let embedding: number[] | undefined;
@@ -99,7 +133,17 @@ export const fromAnalysisOutput = action({
 			const openaiKey = process.env.OPENAI_API_KEY;
 			if (openaiKey) {
 				try {
-					embedding = await embedText(result.output.primary, openaiKey);
+					const embedResult = await embedText(result.output.primary, openaiKey);
+					embedding = embedResult.embedding;
+					await ctx.runMutation(internal.generate.internal.recordEmbeddingRun, {
+						model: EMBEDDING_MODEL,
+						itemId: analysis.itemId,
+						inputTokens: embedResult.inputTokens,
+						cost: embedResult.cost,
+						purpose: "dedup-draft",
+						brandVersion: brand.version,
+						promptVersion: DRAFT_PROMPT_VERSION,
+					});
 					const candidates = await ctx.runQuery(internal.generate.internal.listRecentDraftsForDedup, {
 						channel: args.channel,
 						limit: DEDUP_RECENT_LIMIT,
