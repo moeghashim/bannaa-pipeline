@@ -298,6 +298,7 @@ export function Shell() {
 	};
 
 	const chrome = resolveChrome(view, inboxItems, counts, inboxFilter, setInboxFilter, inboxSource, setInboxSource);
+	const llmLabel = providerLabel(settings?.defaultProvider);
 
 	const identity = me
 		? { initial: (me.name ?? me.email ?? "?").slice(0, 1).toUpperCase(), name: me.name ?? me.email ?? "operator" }
@@ -333,6 +334,7 @@ export function Shell() {
 								filter={inboxFilter}
 								sourceFilter={inboxSource}
 								loading={inboxDocs === undefined}
+								llmLabel={llmLabel}
 							/>
 						)}
 						{view === "analyses" && (
@@ -357,7 +359,7 @@ export function Shell() {
 					spendToday={budget?.total ?? 0}
 					spendCap={budget?.cap ?? 6}
 					runCount={budget?.runs ?? 0}
-					providerLabel={providerLabel(settings?.defaultProvider)}
+					providerLabel={llmLabel}
 				/>
 			</div>
 

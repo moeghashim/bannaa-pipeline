@@ -214,6 +214,7 @@ export const InboxView = ({
 	filter,
 	sourceFilter,
 	loading,
+	llmLabel,
 }: {
 	items: InboxItem[];
 	onCapture: (p: CapturePayload, done: () => void) => void;
@@ -230,6 +231,7 @@ export const InboxView = ({
 	filter: string;
 	sourceFilter: string;
 	loading?: boolean;
+	llmLabel: string;
 }) => {
 	const filtered = items.filter((it) => {
 		if (filter !== "all" && it.state !== filter) return false;
@@ -364,6 +366,7 @@ export const InboxView = ({
 					onAnalyze={() => onAnalyze([sel.id])}
 					onReject={() => onReject(sel.id)}
 					onOpenAnalysis={() => onOpenAnalysis(sel.id)}
+					llmLabel={llmLabel}
 				/>
 			) : (
 				<InboxDetailEmpty />
@@ -377,11 +380,13 @@ const InboxDetail = ({
 	onAnalyze,
 	onReject,
 	onOpenAnalysis,
+	llmLabel,
 }: {
 	item: InboxItem;
 	onAnalyze: () => void;
 	onReject: () => void;
 	onOpenAnalysis: () => void;
+	llmLabel: string;
 }) => (
 	<div className="inbox-detail">
 		<div className="inbox-detail-head">
@@ -487,7 +492,7 @@ const InboxDetail = ({
 				<div className="panel-h">
 					<span className="section-h">Next step</span>
 					<span className="mono" style={{ fontSize: 10.5, color: "var(--muted)" }}>
-						llm: glm-5.1 (default)
+						llm: {llmLabel} (default)
 					</span>
 				</div>
 				<div className="panel-body" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
