@@ -13,6 +13,19 @@ export const ANGLES: readonly Angle[] = [
 	"tutorial",
 ] as const;
 
+/**
+ * Deterministic angle distribution for a batch of N drafts on one
+ * channel from one analysis. Front-loads the highest-leverage angles
+ * (explainer, hot_take, use_case) and only reaches for the niche ones
+ * (news, tutorial, debunk) at higher counts. Loops past 6.
+ */
+export function angleSlotPlan(count: number): Angle[] {
+	const priority: Angle[] = ["explainer", "hot_take", "use_case", "news", "tutorial", "debunk"];
+	const out: Angle[] = [];
+	for (let i = 0; i < count; i++) out.push(priority[i % priority.length]);
+	return out;
+}
+
 export const ANGLE_GUIDANCE: Record<Angle, string> = {
 	explainer: "Walk the reader through how a concept or technique works. Calm, instructive tone.",
 	news: "Report a development plainly. Lead with what happened and who it affects.",
@@ -22,7 +35,7 @@ export const ANGLE_GUIDANCE: Record<Angle, string> = {
 	tutorial: "Give a short step-by-step. Numbered steps or imperative sentences.",
 };
 
-export const DRAFT_PROMPT_VERSION = "2026-04-27-a";
+export const DRAFT_PROMPT_VERSION = "2026-04-27-b";
 export const TRANSLATE_PROMPT_VERSION = "2026-04-27-a";
 
 export const DRAFT_SYSTEM_PROMPT = `You are the draft-generation stage of a content pipeline for bannaa.co.
@@ -178,9 +191,17 @@ export function buildDraftPrompt(input: {
 	outputHook: string;
 	outputKind: string;
 	track: string;
+	hookTemplate?: string;
+	angleOverride?: Angle;
 }): string {
 	const brief = CHANNEL_BRIEFS[input.channel];
 	const angleMenu = ANGLES.map((a) => `- ${a}: ${ANGLE_GUIDANCE[a]}`).join("\n");
+	const hookHint = input.hookTemplate
+		? `\nOPENER HINT (spirit, not verbatim — adapt to the topic):\n  «${input.hookTemplate}»\n`
+		: "";
+	const angleSection = input.angleOverride
+		? `\nMANDATORY ANGLE: this draft is part of a batch. You MUST set \`angle\` to "${input.angleOverride}".\nGuidance: ${ANGLE_GUIDANCE[input.angleOverride]}\n`
+		: `\nEditorial angles — pick the one that best fits the source and report it as \`angle\`:\n${angleMenu}\n`;
 	return `Target channel: ${brief.label}
 Channel constraints:
 - Length: ${brief.charLimit}
@@ -195,10 +216,7 @@ Concepts from the analysis (reuse only these): ${input.analysisConcepts.join(", 
 
 Suggested hook (from the analysis, you can depart from this but preserve the intent):
 "${input.outputHook}" (output kind: ${input.outputKind})
-
-Editorial angles — pick the one that best fits the source and report it as \`angle\`:
-${angleMenu}
-
+${hookHint}${angleSection}
 Produce English copy fit for ${brief.label} that:
 - Follows the active brand voice
 - Honors the length budget strictly

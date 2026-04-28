@@ -30,6 +30,15 @@ const channelValidator = v.union(
 	v.literal("linkedin-page"),
 );
 
+const angleValidator = v.union(
+	v.literal("explainer"),
+	v.literal("news"),
+	v.literal("hot_take"),
+	v.literal("use_case"),
+	v.literal("debunk"),
+	v.literal("tutorial"),
+);
+
 type RunResult =
 	| { ok: true; draftId: Id<"drafts">; provider: ProviderId; model: string; cost: number }
 	| { ok: false; error: string };
@@ -39,6 +48,7 @@ export const fromAnalysisOutput = action({
 		analysisId: v.id("analyses"),
 		channel: channelValidator,
 		outputIndex: v.number(),
+		angleOverride: v.optional(angleValidator),
 	},
 	returns: v.union(
 		v.object({
@@ -73,6 +83,10 @@ export const fromAnalysisOutput = action({
 		const output = analysis.outputs[args.outputIndex];
 		if (!output) return { ok: false, error: `Output index ${args.outputIndex} not found` };
 
+		const hookTemplate = await ctx.runQuery(internal.generate.hookTemplates.pickForChannel, {
+			channel: args.channel,
+		});
+
 		const userPrompt = buildDraftPrompt({
 			channel: args.channel as Channel,
 			analysisSummary: analysis.summary,
@@ -80,6 +94,8 @@ export const fromAnalysisOutput = action({
 			outputHook: output.hook,
 			outputKind: output.kind,
 			track: analysis.track,
+			hookTemplate: hookTemplate?.pattern,
+			angleOverride: args.angleOverride,
 		});
 
 		const systemPrompt = `${renderBrandSystemPrompt(brand, args.channel as Channel)}\n\n${DRAFT_SYSTEM_PROMPT}`;
@@ -173,7 +189,7 @@ export const fromAnalysisOutput = action({
 				analysisId: args.analysisId,
 				sourceItemId: analysis.itemId,
 				concepts: result.output.concepts ?? analysis.concepts.slice(0, 3),
-				angle: result.output.angle,
+				angle: args.angleOverride ?? result.output.angle,
 				embedding,
 				dedupSimilarity,
 				dedupPriorDraftId,
@@ -186,6 +202,12 @@ export const fromAnalysisOutput = action({
 				brandVersion: brand.version,
 				promptVersion: DRAFT_PROMPT_VERSION,
 			});
+
+			if (hookTemplate) {
+				await ctx.runMutation(internal.generate.hookTemplates.incrementUsage, {
+					id: hookTemplate._id,
+				});
+			}
 
 			// Score the draft asynchronously. Failure is non-fatal — the
 			// draft is already saved; the score just stays undefined.

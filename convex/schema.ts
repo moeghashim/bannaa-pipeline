@@ -299,6 +299,24 @@ export default defineSchema({
 	// B.3 carousel script rows — one per slide. Kept separate from `drafts`
 	// so the mediaAssets table stays generic and the per-slide text +
 	// image prompt survive the text-vs-image-generation split.
+	hookTemplates: defineTable({
+		// Channel this opener pattern is appropriate for. Patterns are
+		// channel-scoped because what works on X is too punchy for LinkedIn
+		// and vice versa.
+		channel: channelType,
+		// Short pattern shown to the model as a "spirit-of" opener hint.
+		// Not literally inserted — the model adapts it to the topic.
+		pattern: v.string(),
+		usedCount: v.number(),
+		// Operator can star a pattern to bump it in rotation, or block it
+		// to take it out without deleting.
+		starred: v.optional(v.boolean()),
+		blocked: v.optional(v.boolean()),
+		createdAt: v.number(),
+	})
+		.index("by_channel", ["channel"])
+		.index("by_channel_used", ["channel", "usedCount"]),
+
 	carouselSlides: defineTable({
 		draftId: v.id("drafts"),
 		orderIndex: v.number(),
