@@ -258,6 +258,8 @@ a { color: inherit; text-decoration: none; }
 	color: var(--ink);
 	font-size: 12px;
 	font-weight: 500;
+	white-space: nowrap;
+	flex-shrink: 0;
 	transition: background 120ms, border-color 120ms;
 }
 .btn:hover   { background: var(--surface-sunk); border-color: var(--border-strong); }
@@ -1159,6 +1161,8 @@ kbd.key {
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
+	flex-wrap: wrap;
+	gap: 8px;
 	padding: 10px 14px;
 	border-top: 1px solid var(--border-faint);
 	background: var(--surface-2);
