@@ -63,64 +63,69 @@ export const scheduleDraft = action({
 			};
 		}
 
-		const target = resolvePublishTarget(draft.channel, draft.mediaKind ?? "text");
+		const mediaKind = draft.mediaKind ?? "text";
+		const target = resolvePublishTarget(draft.channel, mediaKind);
 		if (!target.ok) return { ok: false, error: target.reason };
 
-		// Collect mediaAssets for the draft. We want the operator's
-		// selection (base vs overlay) in orderIndex order. Grouping by
-		// orderIndex + picking base-or-overlay per slot keeps the carousel
-		// order deterministic even when retries interleaved the inserts.
-		const assets: Doc<"mediaAssets">[] = await ctx.runQuery(
-			internal.mediaAssets.listInternal.readyForDraft,
-			{ draftId },
-		);
-		if (assets.length === 0) {
-			return { ok: false, error: "No ready media — generate images first" };
-		}
-		const byIndex = new Map<number, Doc<"mediaAssets">[]>();
-		for (const a of assets) {
-			const arr = byIndex.get(a.orderIndex) ?? [];
-			arr.push(a);
-			byIndex.set(a.orderIndex, arr);
-		}
-		const slots: Doc<"mediaAssets">[] = [];
-		for (const idx of [...byIndex.keys()].sort((a, b) => a - b)) {
-			const group = byIndex.get(idx);
-			if (!group) continue;
-			const composite = group.find((a) => a.overlaidFrom);
-			const base = group.find((a) => !a.overlaidFrom);
-			const pick = selection === "overlay" ? (composite ?? base) : (base ?? composite);
-			if (pick) slots.push(pick);
-		}
-		if (slots.length === 0) {
-			return {
-				ok: false,
-				error: `No ${selection} assets ready for this draft — switch selection or generate first`,
-			};
-		}
-
-		// Upload each slot sequentially. Postiz's /upload handles one file
-		// per call; we could parallelise but sequential keeps the log tidy
-		// and Postiz has modest rate limits on their public API.
+		// Text-only drafts (X / FB Page / LinkedIn Page can publish copy
+		// without media) skip the asset pipeline entirely. For everything
+		// else we collect mediaAssets in the operator's selection (base vs
+		// overlay) in orderIndex order. Grouping by orderIndex + picking
+		// base-or-overlay per slot keeps the carousel order deterministic
+		// even when retries interleaved the inserts.
 		const uploaded: Array<{ id: string; path: string }> = [];
-		for (const [i, asset] of slots.entries()) {
-			if (!asset.storageId) {
-				return { ok: false, error: `Slot ${i + 1} has no storage blob` };
+		if (mediaKind !== "text") {
+			const assets: Doc<"mediaAssets">[] = await ctx.runQuery(
+				internal.mediaAssets.listInternal.readyForDraft,
+				{ draftId },
+			);
+			if (assets.length === 0) {
+				return { ok: false, error: "No ready media — generate images first" };
 			}
-			const blob = await ctx.storage.get(asset.storageId);
-			if (!blob) {
-				return { ok: false, error: `Slot ${i + 1} storage blob missing` };
+			const byIndex = new Map<number, Doc<"mediaAssets">[]>();
+			for (const a of assets) {
+				const arr = byIndex.get(a.orderIndex) ?? [];
+				arr.push(a);
+				byIndex.set(a.orderIndex, arr);
 			}
-			const bytes = new Uint8Array(await blob.arrayBuffer());
-			const r = await uploadMedia({
-				bytes,
-				contentType: "image/png",
-				filename: `${draftId}-${selection}-${i + 1}.png`,
-			});
-			if (!r.ok) {
-				return { ok: false, error: `Upload slot ${i + 1}: ${r.error}` };
+			const slots: Doc<"mediaAssets">[] = [];
+			for (const idx of [...byIndex.keys()].sort((a, b) => a - b)) {
+				const group = byIndex.get(idx);
+				if (!group) continue;
+				const composite = group.find((a) => a.overlaidFrom);
+				const base = group.find((a) => !a.overlaidFrom);
+				const pick = selection === "overlay" ? (composite ?? base) : (base ?? composite);
+				if (pick) slots.push(pick);
 			}
-			uploaded.push({ id: r.id, path: r.path });
+			if (slots.length === 0) {
+				return {
+					ok: false,
+					error: `No ${selection} assets ready for this draft — switch selection or generate first`,
+				};
+			}
+
+			// Upload each slot sequentially. Postiz's /upload handles one file
+			// per call; we could parallelise but sequential keeps the log tidy
+			// and Postiz has modest rate limits on their public API.
+			for (const [i, asset] of slots.entries()) {
+				if (!asset.storageId) {
+					return { ok: false, error: `Slot ${i + 1} has no storage blob` };
+				}
+				const blob = await ctx.storage.get(asset.storageId);
+				if (!blob) {
+					return { ok: false, error: `Slot ${i + 1} storage blob missing` };
+				}
+				const bytes = new Uint8Array(await blob.arrayBuffer());
+				const r = await uploadMedia({
+					bytes,
+					contentType: "image/png",
+					filename: `${draftId}-${selection}-${i + 1}.png`,
+				});
+				if (!r.ok) {
+					return { ok: false, error: `Upload slot ${i + 1}: ${r.error}` };
+				}
+				uploaded.push({ id: r.id, path: r.path });
+			}
 		}
 
 		const posted = await schedulePost({

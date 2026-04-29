@@ -76,14 +76,14 @@ export function resolvePublishTarget(
 			// surface we don't model today.
 			return { ok: false, reason: "YT Shorts requires video — not yet supported" };
 		case "fb-page":
-			if (mediaKind === "carousel" || mediaKind === "single-image") {
+			if (mediaKind === "carousel" || mediaKind === "single-image" || mediaKind === "text") {
 				return { ok: true, postizProvider: "facebook", settings: {} };
 			}
-			return { ok: false, reason: "FB Page needs an image or carousel" };
+			return { ok: false, reason: "FB Page can't publish this media kind" };
 		case "linkedin-page":
-			if (mediaKind === "carousel" || mediaKind === "single-image") {
+			if (mediaKind === "carousel" || mediaKind === "single-image" || mediaKind === "text") {
 				return { ok: true, postizProvider: "linkedin", settings: {} };
 			}
-			return { ok: false, reason: "LinkedIn Page needs an image or carousel" };
+			return { ok: false, reason: "LinkedIn Page can't publish this media kind" };
 	}
 }
