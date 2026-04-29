@@ -1,11 +1,19 @@
 // Baked-text carousel generation (Phase 2 · B.4).
 //
-// For each ready base asset, calls gpt-image-2 with a merged prompt — the
-// original scene instructions + selected-language caption + explicit chrome layout
-// — so the model renders the final slide with text baked in. Inserted
-// assets carry `overlaidFrom = base._id` so slidesForDraft treats them as
-// composites (preferred over the base). This is the selected-language overlay
-// path now that the satori compositor has been removed.
+// For each ready base asset, calls the image-edit endpoint with the base PNG
+// + a text+chrome prompt so the model bakes the caption / logo chip / slide
+// counter / footer directly on top of the *actual* base image. Inserted
+// assets carry `overlaidFrom = base._id` so slidesForDraft prefers them
+// over the bare base.
+//
+// This used to re-generate the scene from scratch via /v1/images/generations
+// — that produced an inconsistent visual under the text and doubled the
+// scene-roll cost. Switching to /v1/images/edits keeps the underlying
+// composition pixel-locked to whatever the operator approved as the base.
+//
+// Provider stays gpt-image (the only edit-capable + Arabic-fluent backend
+// today). The MODEL is operator-tunable via settings.overlayModel so we
+// can roll forward (gpt-image-2 → gpt-image-3) without a deploy.
 
 import { v } from "convex/values";
 import { internal } from "../../_generated/api";
@@ -14,19 +22,17 @@ import { action } from "../../_generated/server";
 import { defaultBrandInput } from "../../brand/defaults";
 import { requireUser } from "../../lib/requireUser";
 import { LANG_LABELS, type OutputLanguage } from "../languages";
-import { callImageProvider, type ImageProvider, type ImageProviderEnv } from "./providers";
+import { callImageProviderEdit, type ImageProvider, type ImageProviderEnv } from "./providers";
 
-const BAKED_MODEL = "gpt-image-2";
 const BAKED_PROVIDER: ImageProvider = "gpt-image";
-export const BAKED_PROMPT_VERSION = "2026-04-24-b";
+const BAKED_MODEL_DEFAULT = "gpt-image-2";
+export const BAKED_PROMPT_VERSION = "2026-04-29-c";
 
 type BakedResult =
 	| { ok: true; generated: number; failed: number; totalCost: number; model: string }
 	| { ok: false; error: string };
 
 function buildBakedSlidePrompt(input: {
-	styleAnchor: string;
-	slidePrompt: string;
 	text: string;
 	languageLabel: string;
 	slideIndex: number;
@@ -34,19 +40,22 @@ function buildBakedSlidePrompt(input: {
 	brand: Pick<Doc<"brands">, "design">;
 }): string {
 	const design = input.brand.design;
+	// Edit-mode prompt: the model already sees the base PNG via the multipart
+	// `image` field, so the prompt does NOT redescribe the scene. Instead we
+	// tell it to preserve the underlying image and bake text + chrome on top.
 	return [
-		input.styleAnchor,
-		input.slidePrompt,
-		"Square 1080x1080 composition.",
+		"Edit this image. Preserve the entire underlying scene exactly — do not regenerate, recolor, recompose, or alter the existing illustration. Only add the text overlays, chip marks, footer, and gradient described below.",
 		"",
-		`Render the following short ${input.languageLabel} sentence as visible text, bottom-right, aligned for the selected language, bright warm off-white (${design.palette.background}), ${design.typography.heading} display font at ~64px, fontWeight 600, soft dark drop-shadow for legibility. The text MUST be rendered accurately glyph-for-glyph — do NOT paraphrase, translate, or improvise characters. Preserve every letter, mark, and punctuation exactly as provided.`,
+		`Caption: render this short ${input.languageLabel} sentence as visible text in the bottom-right area, aligned for the selected language, bright warm off-white (${design.palette.background}), ${design.typography.heading} display font at ~64px, fontWeight 600, with a soft dark drop-shadow for legibility. Render glyph-for-glyph verbatim — do NOT paraphrase, translate, omit, or improvise characters. Preserve every letter, mark, and punctuation exactly as provided.`,
 		`Text to render verbatim (${input.languageLabel}): ${input.text}`,
 		"",
-		`Top-left chip: render the uppercase monospace label "${design.logoChipText} · IG" in small letters (~20px), ${design.palette.background} at 70% opacity, ${design.typography.mono} style.`,
-		`Top-right chip: render the uppercase monospace label "${input.slideIndex}/${input.slideTotal}" in small letters (~20px), ${design.palette.background} at 70% opacity, ${design.typography.mono} style.`,
-		`Bottom-left footer: render "⎯ ${design.footerText}" in small monospace (~22px), ${design.palette.background} at 75% opacity, ${design.typography.mono} style.`,
+		`Top-left chip: uppercase monospace label "${design.logoChipText} · IG" in small letters (~20px), ${design.palette.background} at 70% opacity, ${design.typography.mono} style.`,
+		`Top-right chip: uppercase monospace label "${input.slideIndex}/${input.slideTotal}" in small letters (~20px), ${design.palette.background} at 70% opacity, ${design.typography.mono} style.`,
+		`Bottom-left footer: "⎯ ${design.footerText}" in small monospace (~22px), ${design.palette.background} at 75% opacity, ${design.typography.mono} style.`,
 		"",
-		"Add a subtle bottom-to-top dark gradient overlay behind the text block so the letters stay readable against whatever scene is underneath.",
+		"Add a subtle bottom-to-top dark gradient overlay behind the caption block so the letters stay readable against whatever scene is underneath.",
+		"",
+		"Output: same square composition as the input image, with only the additions above. Do not add any other text, captions, or UI chrome beyond the four items specified.",
 	].join("\n");
 }
 
@@ -81,6 +90,12 @@ export const bakedCarouselForDraft = action({
 		const activeBrand = await ctx.runQuery(internal.brand.doc.getActiveInternal, {});
 		const brand = activeBrand ?? defaultBrandInput(Date.now());
 
+		// Operator-tunable model — falls through to the hardcoded baseline if
+		// settings have not been touched. Provider stays fixed (see file
+		// header for why).
+		const settings: Doc<"settings"> | null = await ctx.runQuery(internal.settings.doc.getInternal, {});
+		const model = settings?.overlayModel ?? BAKED_MODEL_DEFAULT;
+
 		const loaded: {
 			draft: Doc<"drafts">;
 			analysis: Doc<"analyses">;
@@ -97,7 +112,6 @@ export const bakedCarouselForDraft = action({
 		for (const s of slides) slidesByIndex.set(s.orderIndex, s);
 
 		const slideTotal = Math.max(slides.length, baseAssets.length);
-		const styleAnchor = draft.styleAnchor ?? "";
 
 		let generated = 0;
 		let failed = 0;
@@ -109,10 +123,13 @@ export const bakedCarouselForDraft = action({
 				failed += 1;
 				continue;
 			}
+			if (!base.storageId) {
+				console.error(`[bakedCarouselForDraft] slide ${base.orderIndex} base has no storageId`);
+				failed += 1;
+				continue;
+			}
 
 			const prompt = buildBakedSlidePrompt({
-				styleAnchor,
-				slidePrompt: slide.imagePrompt,
 				text: slideTextForLanguage(slide, targetLang ?? "ar-khaleeji"),
 				languageLabel: LANG_LABELS[targetLang ?? "ar-khaleeji"],
 				slideIndex: base.orderIndex,
@@ -121,11 +138,19 @@ export const bakedCarouselForDraft = action({
 			});
 
 			try {
-				const result = await callImageProvider({
+				// Pull the base PNG from storage so the edit endpoint operates
+				// on the exact bytes the operator approved as the base — this
+				// is the whole point of the edit-vs-regenerate switch.
+				const baseBlob = await ctx.storage.get(base.storageId);
+				if (!baseBlob) throw new Error(`base storage blob missing for slide ${base.orderIndex}`);
+				const baseBytes = new Uint8Array(await baseBlob.arrayBuffer());
+
+				const result = await callImageProviderEdit({
 					provider: BAKED_PROVIDER,
 					prompt,
-					model: BAKED_MODEL,
+					model,
 					env,
+					inputImage: baseBytes,
 				});
 				const blob = new Blob([result.bytes as BlobPart], { type: "image/png" });
 				const storageId: Id<"_storage"> = await ctx.storage.store(blob);
@@ -134,7 +159,7 @@ export const bakedCarouselForDraft = action({
 					internal.generate.image.internal.recordImageRun,
 					{
 						provider: BAKED_PROVIDER,
-						model: BAKED_MODEL,
+						model,
 						purpose: "bake-carousel-slide",
 						cost: result.cost,
 						sourceItemId: analysis.itemId,
@@ -151,7 +176,7 @@ export const bakedCarouselForDraft = action({
 					width: result.width,
 					height: result.height,
 					provider: BAKED_PROVIDER,
-					model: BAKED_MODEL,
+					model,
 					prompt,
 					orderIndex: base.orderIndex,
 					genRunId: runId,
@@ -162,7 +187,7 @@ export const bakedCarouselForDraft = action({
 				console.error(`[bakedCarouselForDraft] slide ${base.orderIndex} failed: ${msg}`);
 				await ctx.runMutation(internal.generate.image.internal.recordImageRun, {
 					provider: BAKED_PROVIDER,
-					model: BAKED_MODEL,
+					model,
 					purpose: "bake-carousel-slide",
 					cost: 0,
 					error: msg,
@@ -174,7 +199,7 @@ export const bakedCarouselForDraft = action({
 			}
 		}
 
-		return { ok: true, generated, failed, totalCost, model: BAKED_MODEL };
+		return { ok: true, generated, failed, totalCost, model };
 	},
 });
 

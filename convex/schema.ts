@@ -364,6 +364,13 @@ export default defineSchema({
 		key: v.string(),
 		defaultProvider: v.union(v.literal("claude"), v.literal("glm"), v.literal("openrouter"), v.literal("deepseek")),
 		defaultImageProvider: v.optional(imageGeneratorType),
+		// Model used for the overlay/baked step (text + chrome rendered on top of
+		// the base via the provider's image-edit endpoint). Provider is fixed at
+		// gpt-image for now because it is the only edit-capable + Arabic-fluent
+		// option we trust; the model string is configurable so we can roll
+		// forward to gpt-image-3 / etc. without a deploy. Defaults to
+		// "gpt-image-2" at read-time when unset.
+		overlayModel: v.optional(v.string()),
 		outputLanguages: v.optional(v.array(secondaryOutputLanguageType)),
 		updatedAt: v.number(),
 	}).index("by_key", ["key"]),

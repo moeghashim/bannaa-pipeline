@@ -1,10 +1,18 @@
 // Single-image baked-text generation (replaces composite.ts / satori overlay).
 //
-// Given a single-image draft with a ready base asset, calls gpt-image-2 with
-// a merged scene + selected-language caption + brand-chrome prompt so the model produces
-// the final publishable slide in one shot. Inserted asset carries
-// `overlaidFrom = base._id` so `firstReadyByDraft` prefers it over the base,
-// mirroring how the old satori composite worked from the UI's perspective.
+// Given a single-image draft with a ready base asset, calls the image-edit
+// endpoint with the base PNG + a text+chrome prompt so the model bakes the
+// caption + brand chrome directly on top of the operator-approved base
+// image. Inserted asset carries `overlaidFrom = base._id` so
+// `firstReadyByDraft` prefers it over the base.
+//
+// Used to re-generate the scene from scratch alongside the text — that meant
+// the overlay's underlying scene drifted from the base. Switching to
+// /v1/images/edits keeps the underlying scene pixel-locked to whatever the
+// operator approved.
+//
+// Provider stays gpt-image (the only edit-capable + Arabic-fluent backend
+// today). MODEL is operator-tunable via settings.overlayModel.
 
 import { v } from "convex/values";
 import { internal } from "../../_generated/api";
@@ -13,11 +21,11 @@ import { action } from "../../_generated/server";
 import { defaultBrandInput } from "../../brand/defaults";
 import { LANG_LABELS, type OutputLanguage } from "../languages";
 import { requireUser } from "../../lib/requireUser";
-import { callImageProvider, type ImageProvider, type ImageProviderEnv } from "./providers";
+import { callImageProviderEdit, type ImageProvider, type ImageProviderEnv } from "./providers";
 
-const BAKED_MODEL = "gpt-image-2";
 const BAKED_PROVIDER: ImageProvider = "gpt-image";
-export const BAKED_PROMPT_VERSION = "2026-04-24-b";
+const BAKED_MODEL_DEFAULT = "gpt-image-2";
+export const BAKED_PROMPT_VERSION = "2026-04-29-c";
 
 type BakedResult =
 	| { ok: true; assetId: Id<"mediaAssets">; cost: number; model: string }
@@ -27,17 +35,16 @@ function buildBakedPrompt(input: {
 	text: string;
 	languageLabel: string;
 	channel: string;
-	baseScenePrompt: string;
 	brand: Pick<Doc<"brands">, "design">;
 }): string {
 	const design = input.brand.design;
 	const chipCorner = design.layout.chipPosition === "top-left" ? "Top-left" : "Top-right";
 	const footerCorner = design.layout.footerPosition === "bottom-left" ? "Bottom-left" : "Bottom-right";
+	// Edit-mode prompt: model receives the base PNG via the multipart `image`
+	// field, so we do NOT redescribe the scene. We tell it to preserve the
+	// underlying image and only add the text + chrome listed below.
 	return [
-		"Produce a single square 1080x1080 Instagram-ready slide.",
-		"",
-		"Scene (covers the middle of the image, roughly y=120 to y=820):",
-		input.baseScenePrompt,
+		"Edit this image. Preserve the entire underlying scene exactly — do not regenerate, recolor, recompose, or alter the existing illustration. Only add the text overlays, chip marks, footer, and gradient described below.",
 		"",
 		"Text overlays — render all four EXACTLY as specified, preserving every character literally:",
 		"",
@@ -47,15 +54,15 @@ function buildBakedPrompt(input: {
 		`2. Opposite top chip, ${design.typography.mono} uppercase, ~20px, ${design.palette.background} at 70% opacity:`,
 		`   ${input.languageLabel}`,
 		"",
-		`3. ${input.languageLabel} caption block (x=60..1020, y=720..880), visually aligned for the selected language, ${design.typography.heading} bold display, ~64px, color ${design.palette.background} with a soft dark drop-shadow for legibility. Render the text glyph-for-glyph verbatim — do NOT paraphrase, translate, or omit characters:`,
+		`3. ${input.languageLabel} caption block in the lower portion of the image, visually aligned for the selected language, ${design.typography.heading} bold display, ~64px, color ${design.palette.background} with a soft dark drop-shadow for legibility. Render the text glyph-for-glyph verbatim — do NOT paraphrase, translate, or omit characters:`,
 		`   ${input.text}`,
 		"",
 		`4. ${footerCorner} footer, ${design.typography.mono} ~22px, ${design.palette.background} at 75% opacity, margin ${design.layout.margins}px:`,
 		`   ⎯ ${design.footerText}`,
 		"",
-		"Add a subtle bottom-to-top dark gradient (rgba(0,0,0,0.65) at y=1080 → rgba(0,0,0,0) at y=600) behind the caption block so the letters stay legible regardless of what the scene is.",
+		"Add a subtle bottom-to-top dark gradient behind the caption block so the letters stay legible regardless of what the scene is.",
 		"",
-		"Do not add any extra text, captions, or UI chrome beyond the four items above.",
+		"Output: same square composition as the input image with only the four overlays + gradient added. Do not add any other text, captions, or UI chrome.",
 	].join("\n");
 }
 
@@ -89,6 +96,12 @@ export const bakedForDraft = action({
 		const activeBrand = await ctx.runQuery(internal.brand.doc.getActiveInternal, {});
 		const brand = activeBrand ?? defaultBrandInput(Date.now());
 
+		// Operator-tunable model — falls through to the hardcoded baseline
+		// if the operator hasn't set one in Settings. Provider stays fixed
+		// (only gpt-image's edit endpoint is wired today).
+		const settings: Doc<"settings"> | null = await ctx.runQuery(internal.settings.doc.getInternal, {});
+		const model = settings?.overlayModel ?? BAKED_MODEL_DEFAULT;
+
 		const loaded: { draft: Doc<"drafts">; analysis: Doc<"analyses"> } | null = await ctx.runQuery(
 			internal.generate.image.internal.loadDraftWithAnalysis,
 			{ id: draftId },
@@ -101,21 +114,29 @@ export const bakedForDraft = action({
 			{ draftId },
 		);
 		if (!base) return { ok: false, error: "no ready base image" };
+		if (!base.storageId) return { ok: false, error: "base image has no storageId" };
 
 		const prompt = buildBakedPrompt({
 			text: textForLanguage(draft, targetLang ?? "ar-khaleeji"),
 			languageLabel: LANG_LABELS[targetLang ?? "ar-khaleeji"],
 			channel: draft.channel,
-			baseScenePrompt: base.prompt,
 			brand,
 		});
 
 		try {
-			const result = await callImageProvider({
+			// Pull the base PNG so the edit endpoint operates on the exact
+			// bytes the operator approved — that's what makes the overlay
+			// scene identical to the base scene.
+			const baseBlob = await ctx.storage.get(base.storageId);
+			if (!baseBlob) return { ok: false, error: "base storage blob missing" };
+			const baseBytes = new Uint8Array(await baseBlob.arrayBuffer());
+
+			const result = await callImageProviderEdit({
 				provider: BAKED_PROVIDER,
 				prompt,
-				model: BAKED_MODEL,
+				model,
 				env,
+				inputImage: baseBytes,
 			});
 			const blob = new Blob([result.bytes as BlobPart], { type: "image/png" });
 			const storageId: Id<"_storage"> = await ctx.storage.store(blob);
@@ -124,7 +145,7 @@ export const bakedForDraft = action({
 				internal.generate.image.internal.recordImageRun,
 				{
 					provider: BAKED_PROVIDER,
-					model: BAKED_MODEL,
+					model,
 					purpose: "bake-single-image",
 					cost: result.cost,
 					sourceItemId: analysis.itemId,
@@ -142,20 +163,20 @@ export const bakedForDraft = action({
 					width: result.width,
 					height: result.height,
 					provider: BAKED_PROVIDER,
-					model: BAKED_MODEL,
+					model,
 					prompt,
 					orderIndex: 0,
 					genRunId: runId,
 				},
 			);
 
-			return { ok: true, assetId, cost: result.cost, model: BAKED_MODEL };
+			return { ok: true, assetId, cost: result.cost, model };
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : String(err);
 			console.error(`[bakedForDraft] failed: ${msg}`);
 			await ctx.runMutation(internal.generate.image.internal.recordImageRun, {
 				provider: BAKED_PROVIDER,
-				model: BAKED_MODEL,
+				model,
 				purpose: "bake-single-image",
 				cost: 0,
 				error: msg,

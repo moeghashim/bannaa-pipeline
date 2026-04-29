@@ -9,6 +9,7 @@ import { Chip } from "../primitives";
 import type { ImageProvider } from "../types";
 import { SettingsBrandSection } from "./settingsBrand";
 import { SettingsOutputLanguagesSection } from "./settingsOutputLanguages";
+import { SettingsOverlayModelSection } from "./settingsOverlayModel";
 
 function fmtRelative(ms: number | undefined): string {
 	if (!ms) return "never";
@@ -22,6 +23,7 @@ function fmtRelative(ms: number | undefined): string {
 const PROVIDERS = [
 	{ k: "glm" as const, name: "GLM 5.1", note: "fast · multilingual" },
 	{ k: "claude" as const, name: "Claude Sonnet 4.6", note: "highest quality AR" },
+	{ k: "deepseek" as const, name: "DeepSeek V4 Flash", note: "low-cost · long context" },
 	{ k: "openrouter" as const, name: "OpenRouter", note: "route to any frontier model" },
 	{ k: "deepseek" as const, name: "DeepSeek V4 Pro", note: "cost-efficient open weights" },
 ];
@@ -360,9 +362,7 @@ const XConnection = () => {
 			setSyncing(false);
 		}
 	};
-
 	const autoSyncEnabled = autoSyncOverride ?? (status?.connected ? status.autoSync : true);
-
 	const toggleAutoSync = (next: boolean) => {
 		setAutoSyncOverride(next);
 		setAutoSync({ enabled: next }).catch(() => {
@@ -475,6 +475,8 @@ export const SettingsView = ({ onOpenBrand }: { onOpenBrand: () => void }) => {
 			</div>
 
 			<ImageProviderSection />
+
+			<SettingsOverlayModelSection />
 
 			<SettingsOutputLanguagesSection />
 

@@ -82,6 +82,33 @@ export const setDefaultImageProvider = mutation({
 	},
 });
 
+// Overlay model (the model used by the image-edit step that bakes
+// caption + brand chrome on top of the base). Provider stays gpt-image
+// because that is the only edit-capable backend we have wired today;
+// only the model string is operator-tunable so we can roll forward
+// (gpt-image-2 → gpt-image-3) without redeploying. Empty string clears
+// the override and falls back to the hardcoded default at read-time.
+export const setOverlayModel = mutation({
+	args: { model: v.string() },
+	handler: async (ctx, { model }) => {
+		await requireUser(ctx);
+		const trimmed = model.trim();
+		const value = trimmed.length === 0 ? undefined : trimmed;
+		const existing = await readSettings(ctx);
+		if (existing) {
+			await ctx.db.patch(existing._id, { overlayModel: value, updatedAt: Date.now() });
+			return;
+		}
+		await ctx.db.insert("settings", {
+			key: SETTINGS_SINGLETON,
+			defaultProvider: "glm",
+			overlayModel: value,
+			outputLanguages: ["ar-khaleeji"],
+			updatedAt: Date.now(),
+		});
+	},
+});
+
 export const setOutputLanguages = mutation({
 	args: { languages: v.array(outputLanguageValidator) },
 	handler: async (ctx, { languages }) => {
@@ -110,6 +137,7 @@ export const getInternal = internalQuery({
 			key: v.string(),
 			defaultProvider: providerValidator,
 			defaultImageProvider: v.optional(imageProviderValidator),
+			overlayModel: v.optional(v.string()),
 			outputLanguages: v.optional(v.array(outputLanguageValidator)),
 			updatedAt: v.number(),
 		}),

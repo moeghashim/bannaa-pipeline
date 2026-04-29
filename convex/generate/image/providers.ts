@@ -62,6 +62,30 @@ export async function callImageProvider(args: {
 	return callOpenRouterImage(args.prompt, model, args.env);
 }
 
+// Image-edit dispatch — used by the overlay/baked path so the text+chrome
+// pass operates on the *actual* base PNG instead of re-rolling the scene.
+// Today only gpt-image is wired (its `/v1/images/edits` endpoint accepts a
+// PNG + prompt and preserves the underlying scene while baking text on top).
+// Other providers throw with an explicit message so a misconfigured override
+// fails loudly at action time rather than silently falling back to scene
+// re-generation. When we add ideogram-edit / nano-banana multi-modal-edit
+// support, extend this dispatch + the overlay-provider validator together.
+export async function callImageProviderEdit(args: {
+	provider: ImageProvider;
+	prompt: string;
+	model?: string;
+	env: ImageProviderEnv;
+	inputImage: Uint8Array;
+}): Promise<ImageProviderCall> {
+	const model = args.model ?? defaultImageModel(args.provider, args.env);
+	if (args.provider === "gpt-image") return callGptImageEdit(args.prompt, model, args.env, args.inputImage);
+	throw new Error(
+		`Image-edit (overlay) is not implemented for provider "${args.provider}". ` +
+			`Only "gpt-image" is supported today — change the overlay model in Settings to a gpt-image model, ` +
+			`or extend providers.ts with an edit endpoint for "${args.provider}".`,
+	);
+}
+
 function base64ToBytes(b64: string): Uint8Array {
 	const clean = b64.replace(/^data:[^;]+;base64,/, "");
 	const bin = atob(clean);
@@ -245,6 +269,56 @@ async function callOpenRouterImage(
 		width: DEFAULT_SIZE,
 		height: DEFAULT_SIZE,
 		cost: DEFAULT_COST.openrouter,
+	};
+}
+
+// OpenAI image-edit: send the base PNG via multipart/form-data along with
+// the edit prompt. The model preserves the underlying image and applies the
+// instructed changes (in our case: render caption + brand chrome on top).
+// gpt-image-2 supports the same /v1/images/edits route as gpt-image-1, so
+// the operator can swap models in Settings without code changes.
+async function callGptImageEdit(
+	prompt: string,
+	model: string,
+	env: ImageProviderEnv,
+	inputImage: Uint8Array,
+): Promise<ImageProviderCall> {
+	const apiKey = env.OPENAI_API_KEY;
+	if (!apiKey) throw new Error("OPENAI_API_KEY is not configured in Convex env");
+
+	const form = new FormData();
+	const blob = new Blob([inputImage as BlobPart], { type: "image/png" });
+	form.set("image", blob, "base.png");
+	form.set("model", model);
+	form.set("prompt", prompt);
+	form.set("size", "1024x1024");
+	form.set("n", "1");
+
+	const resp = await fetch("https://api.openai.com/v1/images/edits", {
+		method: "POST",
+		headers: { Authorization: `Bearer ${apiKey}` },
+		body: form,
+	});
+	if (!resp.ok) {
+		const text = await resp.text();
+		throw new Error(`GPT Image edit ${resp.status}: ${text.slice(0, 400)}`);
+	}
+	const json = (await resp.json()) as { data?: Array<{ b64_json?: string; url?: string }> };
+	const first = json.data?.[0];
+	if (!first) throw new Error("GPT Image edit returned no data[]");
+	const bytes = first.b64_json
+		? base64ToBytes(first.b64_json)
+		: first.url
+			? await fetchUrlBytes(first.url)
+			: null;
+	if (!bytes) throw new Error("GPT Image edit returned neither b64_json nor url");
+	return {
+		provider: "gpt-image",
+		model,
+		bytes,
+		width: DEFAULT_SIZE,
+		height: DEFAULT_SIZE,
+		cost: DEFAULT_COST["gpt-image"],
 	};
 }
 
