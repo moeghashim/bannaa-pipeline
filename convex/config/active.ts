@@ -11,6 +11,7 @@ export const active = action({
 		const env = {
 			GLM_MODEL: process.env.GLM_MODEL,
 			OPENROUTER_MODEL: process.env.OPENROUTER_MODEL,
+			DEEPSEEK_MODEL: process.env.DEEPSEEK_MODEL,
 			DEFAULT_ANALYZE_PROVIDER: process.env.DEFAULT_ANALYZE_PROVIDER,
 		};
 		const provider = defaultProvider(env);
@@ -19,6 +20,7 @@ export const active = action({
 			anthropic: Boolean(process.env.ANTHROPIC_API_KEY),
 			glm: Boolean(process.env.GLM_API_KEY),
 			openrouter: Boolean(process.env.OPENROUTER_API_KEY),
+			deepseek: Boolean(process.env.DEEPSEEK_API_KEY),
 		};
 		return { provider, model, keysPresent };
 	},
