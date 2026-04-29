@@ -69,6 +69,7 @@ export const fromAnalysisOutput = action({
 			GLM_MODEL: process.env.GLM_MODEL,
 			OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
 			OPENROUTER_MODEL: process.env.OPENROUTER_MODEL,
+			DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY,
 			DEFAULT_ANALYZE_PROVIDER: process.env.DEFAULT_ANALYZE_PROVIDER,
 		};
 
