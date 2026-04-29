@@ -7,7 +7,7 @@ import { action } from "../_generated/server";
 import { callProvider, defaultProvider, type ProviderId } from "../analyze/providers";
 import { defaultBrandInput } from "../brand/defaults";
 import { renderBrandSystemPrompt } from "./brandPrompt";
-import type { OutputLanguage } from "./languages";
+import type { LegacyOutputLanguage, OutputLanguage } from "./languages";
 import {
 	buildTranslatePrompt,
 	type Channel,
@@ -17,12 +17,14 @@ import {
 } from "./prompts";
 import { requireUser } from "../lib/requireUser";
 
-const outputLanguageValidator = v.union(v.literal("ar-khaleeji"), v.literal("ar-msa"), v.literal("ar-levantine"));
+import { transitionalOutputLanguageValidator } from "./languages";
+
+const outputLanguageValidator = transitionalOutputLanguageValidator;
 
 type TranslationResult =
 	| {
 			ok: true;
-			lang: Exclude<OutputLanguage, "en">;
+			lang: Exclude<LegacyOutputLanguage, "en">;
 			text: string;
 			chars: number;
 			runId: Id<"providerRuns">;
@@ -49,6 +51,9 @@ export const generateTranslation = action({
 	),
 	handler: async (ctx, { draftId, targetLang }): Promise<TranslationResult> => {
 		await requireUser(ctx);
+		if (targetLang === "en") {
+			return { ok: false, error: "English is the source language; pick a non-English target" };
+		}
 		const env = {
 			ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
 			GLM_API_KEY: process.env.GLM_API_KEY,
@@ -66,21 +71,29 @@ export const generateTranslation = action({
 		if (!loaded) return { ok: false, error: "Draft or analysis not found" };
 		const { draft } = loaded;
 		const primary = draft.primary.trim();
-		if (!primary) return { ok: false, error: "Draft has no English primary copy" };
+		if (!primary) return { ok: false, error: "Draft has no primary copy" };
+		const sourceLang: OutputLanguage = (draft.primaryLang as OutputLanguage | undefined) ?? "en";
+		if (sourceLang === targetLang) {
+			return { ok: false, error: `Draft is already in ${targetLang}; pick a different target` };
+		}
 
-		const voicePreset = targetLang.startsWith("ar-")
+		// Brand voice presets are Arabic-dialect-specific. Apply them only
+		// when the target is one of the AR dialects; otherwise rely on the
+		// brand system prompt to carry the voice.
+		const targetIsArabic = targetLang === "ar-msa" || targetLang === "ar-saudi" || targetLang === "ar-egy" || targetLang === "ar-khaleeji" || targetLang === "ar-levantine";
+		const voicePreset = targetIsArabic
 			? (brand.tone.arPresets[targetLang] ?? brand.tone.arPresets[brand.tone.activeArPreset] ?? "")
 			: "";
-		if (!voicePreset) return { ok: false, error: `Unsupported target language ${targetLang}` };
 
 		try {
 			const result = await callProvider<TranslateToolOutput>({
 				provider,
-				systemPrompt: `${renderBrandSystemPrompt(brand, draft.channel as Channel)}\n\nTranslate approved English copy into the requested output language. Respond only with the translation tool.`,
+				systemPrompt: `${renderBrandSystemPrompt(brand, draft.channel as Channel)}\n\nTranslate the primary copy into the requested output language. Respond only with the translation tool.`,
 				tool: TRANSLATE_TOOL,
 				userPrompt: buildTranslatePrompt({
 					channel: draft.channel as Channel,
 					primary,
+					sourceLang,
 					targetLang,
 					brandVoicePreset: voicePreset,
 					angle: draft.angle,
@@ -108,6 +121,8 @@ export const generateTranslation = action({
 				for (const slide of slides) {
 					const slidePrimary = slide.primary.trim();
 					if (!slidePrimary) continue;
+					const slideSourceLang: OutputLanguage =
+						(slide.primaryLang as OutputLanguage | undefined) ?? sourceLang;
 					const slideResult = await callProvider<TranslateToolOutput>({
 						provider,
 						systemPrompt: `${renderBrandSystemPrompt(brand, draft.channel as Channel)}\n\nTranslate a short carousel slide into the requested output language. Respond only with the translation tool.`,
@@ -115,6 +130,7 @@ export const generateTranslation = action({
 						userPrompt: buildTranslatePrompt({
 							channel: draft.channel as Channel,
 							primary: slidePrimary,
+							sourceLang: slideSourceLang,
 							targetLang,
 							brandVoicePreset: voicePreset,
 							angle: draft.angle,

@@ -8,9 +8,19 @@ type IconProps = {
 	sw?: number;
 	children?: ReactNode;
 	style?: CSSProperties;
+	"data-flip-rtl"?: "";
 };
 
-const Icon = ({ d, size = 16, fill, stroke = "currentColor", sw = 1.4, children, style }: IconProps) => (
+const Icon = ({
+	d,
+	size = 16,
+	fill,
+	stroke = "currentColor",
+	sw = 1.4,
+	children,
+	style,
+	"data-flip-rtl": flipRtl,
+}: IconProps) => (
 	<svg
 		width={size}
 		height={size}
@@ -23,6 +33,7 @@ const Icon = ({ d, size = 16, fill, stroke = "currentColor", sw = 1.4, children,
 		style={{ flexShrink: 0, ...style }}
 		aria-hidden
 		role="presentation"
+		data-flip-rtl={flipRtl}
 	>
 		<title>icon</title>
 		{d ? <path d={d} /> : children}
@@ -93,7 +104,7 @@ export const Icons = {
 		</Icon>
 	),
 	Chevron: (p: P) => (
-		<Icon {...p}>
+		<Icon {...p} data-flip-rtl="">
 			<path d="M8 5l6 6-6 6" />
 		</Icon>
 	),
@@ -128,7 +139,7 @@ export const Icons = {
 		</Icon>
 	),
 	Arrow: (p: P) => (
-		<Icon {...p}>
+		<Icon {...p} data-flip-rtl="">
 			<path d="M4 11h14M13 6l5 5-5 5" />
 		</Icon>
 	),

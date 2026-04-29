@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Inter_Tight, JetBrains_Mono, Newsreader, Noto_Naskh_Arabic } from "next/font/google";
 import type { ReactNode } from "react";
 import { AgentationDev } from "./_components/agentation-dev";
+import { HtmlDirSync } from "./_components/htmlDirSync";
 import { Providers } from "./providers";
 
 import "./globals.css";
@@ -45,7 +46,10 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
 				className={`${fontSans.variable} ${fontMono.variable} ${fontSerif.variable} ${fontAr.variable}`}
 			>
 				<body>
-					<Providers>{children}</Providers>
+					<Providers>
+						<HtmlDirSync />
+						{children}
+					</Providers>
 					<AgentationDev />
 				</body>
 			</html>

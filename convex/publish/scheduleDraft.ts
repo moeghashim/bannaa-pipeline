@@ -19,16 +19,15 @@ import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Doc } from "../_generated/dataModel";
 import { action } from "../_generated/server";
+import {
+	type LegacyOutputLanguage,
+	transitionalOutputLanguageValidator,
+} from "../generate/languages";
 import { requireUser } from "../lib/requireUser";
 import { resolvePublishTarget } from "./channelMatrix";
 import { schedulePost, uploadMedia } from "./postiz";
 
-const publishLanguageValidator = v.union(
-	v.literal("en"),
-	v.literal("ar-khaleeji"),
-	v.literal("ar-msa"),
-	v.literal("ar-levantine"),
-);
+const publishLanguageValidator = transitionalOutputLanguageValidator;
 
 type ScheduleResult =
 	| { ok: true; postizPostId: string; scheduledAt: number }
@@ -146,8 +145,10 @@ export const scheduleDraft = action({
 	},
 });
 
-function textForLanguage(draft: Doc<"drafts">, lang: "en" | "ar-khaleeji" | "ar-msa" | "ar-levantine"): string {
-	if (lang === "en") return draft.primary;
+function textForLanguage(draft: Doc<"drafts">, lang: LegacyOutputLanguage): string {
+	const draftLang = draft.primaryLang ?? "en";
+	if (lang === draftLang) return draft.primary;
+	if (lang === "en" && !draft.primaryLang) return draft.primary;
 	const translation = draft.translations?.find((t) => t.lang === lang);
 	if (translation) return translation.text;
 	throw new Error(`No ${lang} copy exists for this draft`);

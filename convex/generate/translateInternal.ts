@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery } from "../_generated/server";
+import { transitionalOutputLanguageValidator } from "./languages";
 
 const providerValidator = v.union(
 	v.literal("claude"),
@@ -8,7 +9,7 @@ const providerValidator = v.union(
 	v.literal("openrouter"),
 	v.literal("deepseek"),
 );
-const outputLanguageValidator = v.union(v.literal("ar-khaleeji"), v.literal("ar-msa"), v.literal("ar-levantine"));
+const outputLanguageValidator = transitionalOutputLanguageValidator;
 
 export const loadDraftWithAnalysis = internalQuery({
 	args: { draftId: v.id("drafts") },

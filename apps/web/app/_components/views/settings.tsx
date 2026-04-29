@@ -8,8 +8,8 @@ import { Icons } from "../icons";
 import { Chip } from "../primitives";
 import type { ImageProvider } from "../types";
 import { SettingsBrandSection } from "./settingsBrand";
-import { SettingsOutputLanguagesSection } from "./settingsOutputLanguages";
 import { SettingsOverlayModelSection } from "./settingsOverlayModel";
+import { SettingsPrimaryLanguageSection } from "./settingsPrimaryLanguage";
 
 function fmtRelative(ms: number | undefined): string {
 	if (!ms) return "never";
@@ -474,11 +474,11 @@ export const SettingsView = ({ onOpenBrand }: { onOpenBrand: () => void }) => {
 				</div>
 			</div>
 
-			<ImageProviderSection />
+			<SettingsPrimaryLanguageSection />
 
 			<SettingsOverlayModelSection />
 
-			<SettingsOutputLanguagesSection />
+			<ImageProviderSection />
 
 			<div className="settings-group">
 				<h3>Connections</h3>

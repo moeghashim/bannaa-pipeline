@@ -9,15 +9,17 @@ import { defaultBrandInput } from "../brand/defaults";
 import { BAKED_PROMPT_VERSION } from "../generate/image/bakedAction";
 import { callImageProvider, type ImageProviderEnv } from "../generate/image/providers";
 import { renderBrandSystemPrompt } from "../generate/brandPrompt";
+import { LANG_LABELS, type OutputLanguage } from "../generate/languages";
 import {
 	buildDraftPrompt,
+	buildDraftSystemPrompt,
 	type Channel,
 	DRAFT_PROMPT_VERSION,
-	DRAFT_SYSTEM_PROMPT,
-	DRAFT_TOOL_EN,
+	DRAFT_TOOL,
 	type DraftToolOutput,
 } from "../generate/prompts";
 import { requireUser } from "../lib/requireUser";
+import { sampleCaptionFor } from "./sampleText";
 
 const channelValidator = v.union(
 	v.literal("x"),
@@ -62,8 +64,10 @@ type BakedPreviewResult =
 	  }
 	| { ok: false; error: string };
 
-function previewBakedPrompt(brand: Doc<"brands">): string {
+function previewBakedPrompt(brand: Doc<"brands">, lang: OutputLanguage): string {
 	const design = brand.design;
+	const sample = sampleCaptionFor(lang);
+	const langChip = LANG_LABELS[lang];
 	return [
 		"Produce a single square 1080x1080 sample social slide that previews this brand design.",
 		"Use an abstract AI-education scene with warm architectural negative space.",
@@ -72,15 +76,15 @@ function previewBakedPrompt(brand: Doc<"brands">): string {
 		"",
 		"Render these overlays exactly:",
 		`1. Top-left chip: ${design.logoChipText} · IG, ${design.typography.mono}, ${design.palette.background} at 70% opacity.`,
-		`2. Top-right chip: AR, ${design.typography.mono}, ${design.palette.background} at 70% opacity.`,
-		`3. Bottom sample caption: وكيل ذكي يحتاج حلقة مراجعة واضحة, ${design.typography.heading}, ${design.palette.background}, aligned for the selected language.`,
+		`2. Top-right chip: ${langChip}, ${design.typography.mono}, ${design.palette.background} at 70% opacity.`,
+		`3. Bottom sample caption: ${sample}, ${design.typography.heading}, ${design.palette.background}, aligned for the selected language.`,
 		`4. Bottom-left footer: ⎯ ${design.footerText}, ${design.typography.mono}, ${design.palette.background} at 75% opacity.`,
 		"Do not add any other text.",
 	].join("\n");
 }
 
-async function hashDesign(brand: Doc<"brands">): Promise<string> {
-	const payload = JSON.stringify({ design: brand.design, version: brand.version });
+async function hashDesign(brand: Doc<"brands">, lang: OutputLanguage): Promise<string> {
+	const payload = JSON.stringify({ design: brand.design, version: brand.version, lang });
 	const bytes = new TextEncoder().encode(payload);
 	const digest = await crypto.subtle.digest("SHA-256", bytes);
 	return Array.from(new Uint8Array(digest))
@@ -114,6 +118,7 @@ export const previewDraft = action({
 		};
 		const settings: Doc<"settings"> | null = await ctx.runQuery(internal.settings.doc.getInternal, {});
 		const provider: ProviderId = settings?.defaultProvider ?? defaultProvider(env);
+		const lang: OutputLanguage = settings?.defaultPrimaryLanguage ?? "en";
 		const model = activeModelForProvider(provider, env);
 		const activeBrand = await ctx.runQuery(internal.brand.doc.getActiveInternal, {});
 		const brand = activeBrand ?? defaultBrandInput(Date.now());
@@ -126,17 +131,18 @@ export const previewDraft = action({
 			outputHook: SAMPLE_ANALYSIS.outputHook,
 			outputKind: SAMPLE_ANALYSIS.outputKind,
 			track: SAMPLE_ANALYSIS.track,
+			lang,
 		});
 
 		try {
 			const result = await callProvider<DraftToolOutput>({
 				provider,
-				systemPrompt: `${renderBrandSystemPrompt(brand, typedChannel)}\n\n${DRAFT_SYSTEM_PROMPT}`,
-				tool: DRAFT_TOOL_EN,
+				systemPrompt: `${renderBrandSystemPrompt(brand, typedChannel)}\n\n${buildDraftSystemPrompt(lang)}`,
+				tool: DRAFT_TOOL,
 				userPrompt,
 				env,
 			});
-			if (!result.output?.primary) throw new Error("Model did not return English primary copy");
+			if (!result.output?.primary) throw new Error("Model did not return primary copy");
 			await ctx.runMutation(internal.brand.previewInternal.recordPreviewRun, {
 				provider: result.provider,
 				model: result.model,
@@ -188,10 +194,12 @@ export const previewBakedImage = action({
 	),
 	handler: async (ctx): Promise<BakedPreviewResult> => {
 		await requireUser(ctx);
+		const settings: Doc<"settings"> | null = await ctx.runQuery(internal.settings.doc.getInternal, {});
+		const lang: OutputLanguage = settings?.defaultPrimaryLanguage ?? "en";
 		const activeBrand = await ctx.runQuery(internal.brand.doc.getActiveInternal, {});
 		if (!activeBrand) return { ok: false, error: "Active brand is not initialized" };
 
-		const hash = await hashDesign(activeBrand);
+		const hash = await hashDesign(activeBrand, lang);
 		const cached = await ctx.runQuery(internal.brand.previewInternal.getCachedBakedPreview, {
 			brandId: activeBrand._id,
 			hash,
@@ -215,7 +223,7 @@ export const previewBakedImage = action({
 			OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
 			OPENROUTER_IMAGE_MODEL: process.env.OPENROUTER_IMAGE_MODEL,
 		};
-		const prompt = previewBakedPrompt(activeBrand);
+		const prompt = previewBakedPrompt(activeBrand, lang);
 
 		try {
 			const result = await callImageProvider({

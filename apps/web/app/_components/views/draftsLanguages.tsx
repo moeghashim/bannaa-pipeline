@@ -1,18 +1,28 @@
 "use client";
 
 import type { Doc } from "@convex/_generated/dataModel";
+import {
+	directionFor,
+	isRtl,
+	LANG_LABELS,
+	LANG_NAMES,
+	LANGUAGE_CODES,
+	type OutputLanguage,
+} from "../../_lib/languages";
 import { Icons } from "../icons";
 
-export type OutputLanguage = "en" | "ar-khaleeji" | "ar-msa" | "ar-levantine";
+// Re-export for callers that still import these names from this file.
+export { LANG_LABELS as LANGUAGE_LABELS, type OutputLanguage, directionFor, isRtl, LANG_NAMES, LANGUAGE_CODES };
 
-export const LANGUAGE_LABELS: Record<OutputLanguage, string> = {
-	en: "EN",
-	"ar-khaleeji": "Arabic",
-	"ar-msa": "Arabic MSA",
-	"ar-levantine": "Arabic Levantine",
-};
+export const FALLBACK_OUTPUT_LANGUAGES: OutputLanguage[] = ["en"];
 
-export const FALLBACK_OUTPUT_LANGUAGES: OutputLanguage[] = ["ar-khaleeji"];
+export function primaryLangOf(draft: Pick<Doc<"drafts">, "primaryLang">): OutputLanguage {
+	const value = draft.primaryLang as OutputLanguage | "ar-khaleeji" | "ar-levantine" | undefined;
+	if (!value) return "en";
+	if (value === "ar-khaleeji") return "ar-saudi";
+	if (value === "ar-levantine") return "ar-msa";
+	return value;
+}
 
 export const LanguageSwitcher = ({
 	draft,
@@ -27,11 +37,12 @@ export const LanguageSwitcher = ({
 	onSelect: (lang: OutputLanguage) => void;
 	translating: OutputLanguage | null;
 }) => {
-	const options: OutputLanguage[] = ["en", ...languages.filter((lang) => lang !== "en")];
+	const primary = primaryLangOf(draft);
+	const options: OutputLanguage[] = [primary, ...languages.filter((lang) => lang !== primary)];
 	return (
 		<div className="row gap-1" style={{ flexWrap: "wrap" }}>
 			{options.map((lang) => {
-				const generated = lang === "en" || hasTranslation(draft, lang);
+				const generated = lang === primary || hasTranslation(draft, lang);
 				const busy = translating === lang;
 				return (
 					<button
@@ -46,9 +57,9 @@ export const LanguageSwitcher = ({
 								<Icons.Clock size={11} /> translating...
 							</>
 						) : generated ? (
-							LANGUAGE_LABELS[lang]
+							LANG_LABELS[lang]
 						) : (
-							`+ ${LANGUAGE_LABELS[lang]}`
+							`+ ${LANG_LABELS[lang]}`
 						)}
 					</button>
 				);
@@ -58,14 +69,29 @@ export const LanguageSwitcher = ({
 };
 
 export function textForLanguage(draft: Doc<"drafts">, lang: OutputLanguage): string {
-	if (lang === "en") return draft.primary;
-	const translation = draft.translations?.find((t) => t.lang === lang);
+	const primary = primaryLangOf(draft);
+	if (lang === primary) return draft.primary;
+	const translation = draft.translations?.find((t) => normalizeLegacyLang(t.lang) === lang);
 	if (translation) return translation.text;
 	return "";
 }
 
 export function hasTranslation(draft: Doc<"drafts">, lang: OutputLanguage): boolean {
-	if (lang === "en") return true;
-	if (draft.translations?.some((t) => t.lang === lang)) return true;
+	const primary = primaryLangOf(draft);
+	if (lang === primary) return true;
+	if (draft.translations?.some((t) => normalizeLegacyLang(t.lang) === lang)) return true;
 	return false;
+}
+
+function normalizeLegacyLang(lang: string): OutputLanguage {
+	if (lang === "ar-khaleeji") return "ar-saudi";
+	if (lang === "ar-levantine") return "ar-msa";
+	return lang as OutputLanguage;
+}
+
+// All canonical languages except the draft's primary, suitable as translation
+// targets in the LanguageSwitcher chip row.
+export function translationTargetsForDraft(draft: Pick<Doc<"drafts">, "primaryLang">): OutputLanguage[] {
+	const primary = primaryLangOf(draft);
+	return LANGUAGE_CODES.filter((c) => c !== primary);
 }

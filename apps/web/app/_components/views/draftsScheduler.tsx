@@ -5,6 +5,7 @@ import type { Id } from "@convex/_generated/dataModel";
 import { useAction } from "convex/react";
 import { useState } from "react";
 import { useMountEffect } from "../../../lib/use-mount-effect";
+import type { OutputLanguage } from "../../_lib/languages";
 import { fmtDate } from "../format";
 import { Icons } from "../icons";
 import type { Channel } from "../types";
@@ -59,7 +60,7 @@ export const SchedulePopover = ({
 	draftId: Id<"drafts">;
 	channel: Channel;
 	selection: "base" | "overlay";
-	publishLang: "en" | "ar-khaleeji" | "ar-msa" | "ar-levantine";
+	publishLang: OutputLanguage;
 	onClose: () => void;
 	onScheduled: (scheduledAt: number) => void;
 }) => {

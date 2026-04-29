@@ -1,8 +1,8 @@
 export const DEFAULT_AR_PRESETS: Record<string, string> = {
-	"ar-khaleeji":
-		"Gulf dialect, conversational, natural for Gulf readers, not formal MSA. Avoid stiff academic phrasing.",
-	"ar-msa": "Modern Standard Arabic, formal, publication-ready, no dialect markers.",
-	"ar-levantine": "Levantine dialect, Syria/Lebanon/Jordan register, conversational.",
+	"ar-msa": "Modern Standard Arabic (Fusha), formal, publication-ready, no dialect markers.",
+	"ar-saudi":
+		"Saudi/Khaleeji dialect, conversational, natural for Gulf readers, not formal MSA. Avoid stiff academic phrasing.",
+	"ar-egy": "Egyptian Arabic, Cairene register, conversational. Common markers like إزاي, كده, ده/دي welcome.",
 };
 
 export const DEFAULT_CHANNEL_OVERRIDES: Record<string, string> = {
@@ -34,7 +34,7 @@ export function defaultBrandInput(now: number) {
 			doPhrases: [],
 			dontPhrases: [],
 			arPresets: DEFAULT_AR_PRESETS,
-			activeArPreset: "ar-khaleeji",
+			activeArPreset: "ar-saudi",
 			channelOverrides: DEFAULT_CHANNEL_OVERRIDES,
 		},
 		design: {

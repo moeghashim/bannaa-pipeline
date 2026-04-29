@@ -21,7 +21,13 @@ import type { Doc, Id } from "../../_generated/dataModel";
 import { action } from "../../_generated/server";
 import { defaultBrandInput } from "../../brand/defaults";
 import { requireUser } from "../../lib/requireUser";
-import { LANG_LABELS, type OutputLanguage } from "../languages";
+import {
+	canonicalizeLanguage,
+	LANG_LABELS,
+	type LegacyOutputLanguage,
+	type OutputLanguage,
+	transitionalOutputLanguageValidator,
+} from "../languages";
 import { callImageProviderEdit, type ImageProvider, type ImageProviderEnv } from "./providers";
 
 const BAKED_PROVIDER: ImageProvider = "gpt-image";
@@ -62,9 +68,7 @@ function buildBakedSlidePrompt(input: {
 export const bakedCarouselForDraft = action({
 	args: {
 		draftId: v.id("drafts"),
-		targetLang: v.optional(
-			v.union(v.literal("en"), v.literal("ar-khaleeji"), v.literal("ar-msa"), v.literal("ar-levantine")),
-		),
+		targetLang: v.optional(transitionalOutputLanguageValidator),
 	},
 	returns: v.union(
 		v.object({
@@ -129,9 +133,12 @@ export const bakedCarouselForDraft = action({
 				continue;
 			}
 
+			const fallback: OutputLanguage = slide.primaryLang ?? draft.primaryLang ?? "en";
+			const requested: LegacyOutputLanguage = targetLang ?? fallback;
+			const langForLabel: OutputLanguage = canonicalizeLanguage(requested);
 			const prompt = buildBakedSlidePrompt({
-				text: slideTextForLanguage(slide, targetLang ?? "ar-khaleeji"),
-				languageLabel: LANG_LABELS[targetLang ?? "ar-khaleeji"],
+				text: slideTextForLanguage(slide, requested),
+				languageLabel: LANG_LABELS[langForLabel],
 				slideIndex: base.orderIndex,
 				slideTotal,
 				brand,
@@ -203,8 +210,10 @@ export const bakedCarouselForDraft = action({
 	},
 });
 
-function slideTextForLanguage(slide: Doc<"carouselSlides">, lang: OutputLanguage): string {
-	if (lang === "en") return slide.primary;
+function slideTextForLanguage(slide: Doc<"carouselSlides">, lang: LegacyOutputLanguage): string {
+	const slideLang = slide.primaryLang ?? "en";
+	if (lang === slideLang) return slide.primary;
+	if (lang === "en" && !slide.primaryLang) return slide.primary;
 	const translation = slide.translations?.find((t) => t.lang === lang);
 	if (translation) return translation.text;
 	throw new Error(`No ${lang} copy exists for carousel slide ${slide.orderIndex}`);

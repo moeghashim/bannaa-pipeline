@@ -13,12 +13,15 @@ import { BaseOverlayToggle } from "./draftsBaseOverlayToggle";
 import { CarouselStrip, carouselStatusLabel } from "./draftsCarousel";
 import { ImageProviderPicker } from "./draftsImagePicker";
 import {
-	FALLBACK_OUTPUT_LANGUAGES,
+	directionFor,
 	hasTranslation,
+	isRtl,
 	LANGUAGE_LABELS,
 	LanguageSwitcher,
 	type OutputLanguage,
+	primaryLangOf,
 	textForLanguage,
+	translationTargetsForDraft,
 } from "./draftsLanguages";
 import { DraftMedia } from "./draftsMedia";
 import { AnglePicker, DedupBadge, type DraftAngle } from "./draftsMeta";
@@ -71,9 +74,6 @@ export const DraftsView = ({ channel, setChannel }: { channel: string; setChanne
 	const rows = drafts ?? [];
 	const filtered = channel === "all" ? rows : rows.filter((d) => d.channel === channel);
 	const defaultImageProvider: ImageProvider = settings?.defaultImageProvider ?? "nano-banana";
-	const outputLanguages = (settings?.outputLanguages ?? FALLBACK_OUTPUT_LANGUAGES).filter(
-		(lang): lang is OutputLanguage => lang === "ar-khaleeji" || lang === "ar-msa" || lang === "ar-levantine",
-	);
 
 	return (
 		<div className="drafts-view">
@@ -115,7 +115,6 @@ export const DraftsView = ({ channel, setChannel }: { channel: string; setChanne
 							key={d._id}
 							draft={d}
 							defaultImageProvider={defaultImageProvider}
-							outputLanguages={outputLanguages}
 							onApprove={() => approve({ id: d._id })}
 							onReject={() => reject({ id: d._id })}
 							onUnschedule={() => unschedule({ id: d._id })}
@@ -132,7 +131,6 @@ export const DraftsView = ({ channel, setChannel }: { channel: string; setChanne
 const DraftCard = ({
 	draft,
 	defaultImageProvider,
-	outputLanguages,
 	onApprove,
 	onReject,
 	onUnschedule,
@@ -141,7 +139,6 @@ const DraftCard = ({
 }: {
 	draft: Doc<"drafts">;
 	defaultImageProvider: ImageProvider;
-	outputLanguages: OutputLanguage[];
 	onApprove: () => void;
 	onReject: () => void;
 	onUnschedule: () => void;
@@ -169,13 +166,15 @@ const DraftCard = ({
 	const [view, setView] = useState<"overlay" | "base">("overlay");
 	const [schedulerOpen, setSchedulerOpen] = useState(false);
 	const [editing, setEditing] = useState(false);
-	const [selectedLang, setSelectedLang] = useState<OutputLanguage>("en");
+	const draftPrimary: OutputLanguage = primaryLangOf(draft);
+	const [selectedLang, setSelectedLang] = useState<OutputLanguage>(draftPrimary);
 	const selectedText = textForLanguage(draft, selectedLang);
 	const selectedChars = selectedText.length;
 	const [editDraft, setEditDraft] = useState(selectedText);
 	const [editError, setEditError] = useState<string | null>(null);
 	const [editSaving, setEditSaving] = useState(false);
 	const [translating, setTranslating] = useState<OutputLanguage | null>(null);
+	const translationTargets = translationTargetsForDraft(draft);
 	const editLocked =
 		!!draft.postizStatus && draft.postizStatus !== "failed"
 			? `Copy locked while post is ${draft.postizStatus} — unschedule first`
@@ -200,8 +199,8 @@ const DraftCard = ({
 		onSave: saveAr,
 		error: editError,
 		saving: editSaving,
-		dir: selectedLang === "en" ? ("ltr" as const) : ("rtl" as const),
-		lang: selectedLang === "en" ? "en" : "ar",
+		dir: directionFor(selectedLang),
+		lang: selectedLang,
 	};
 
 	const selectLanguage = async (lang: OutputLanguage) => {
@@ -210,7 +209,7 @@ const DraftCard = ({
 		setSelectedLang(lang);
 		const existing = textForLanguage(draft, lang);
 		setEditDraft(existing);
-		if (lang !== "en" && !hasTranslation(draft, lang)) {
+		if (lang !== draftPrimary && !hasTranslation(draft, lang)) {
 			setTranslating(lang);
 			try {
 				const result = await generateTranslation({ draftId: draft._id, targetLang: lang });
@@ -355,7 +354,8 @@ const DraftCard = ({
 							<ArEditor {...editorProps} />
 						) : (
 							<div
-								className={selectedLang === "en" ? "en-text" : "ar-text"}
+								className={isRtl(selectedLang) ? "ar-text" : "en-text"}
+								dir={directionFor(selectedLang)}
 								style={{ fontSize: 13, textWrap: "pretty" }}
 							>
 								{selectedText || "Generate this language first."}
@@ -363,7 +363,7 @@ const DraftCard = ({
 						)}
 						<LanguageSwitcher
 							draft={draft}
-							languages={outputLanguages}
+							languages={translationTargets}
 							selected={selectedLang}
 							onSelect={selectLanguage}
 							translating={translating}
@@ -402,7 +402,8 @@ const DraftCard = ({
 								<ArEditor {...editorProps} />
 							) : (
 								<div
-									className={selectedLang === "en" ? "en-text" : "ar-text"}
+									className={isRtl(selectedLang) ? "ar-text" : "en-text"}
+									dir={directionFor(selectedLang)}
 									style={{ fontSize: 14, textWrap: "pretty" }}
 								>
 									{selectedText || "Generate this language first."}
@@ -410,7 +411,7 @@ const DraftCard = ({
 							)}
 							<LanguageSwitcher
 								draft={draft}
-								languages={outputLanguages}
+								languages={translationTargets}
 								selected={selectedLang}
 								onSelect={selectLanguage}
 								translating={translating}

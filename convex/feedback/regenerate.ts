@@ -7,13 +7,14 @@ import { action, type ActionCtx } from "../_generated/server";
 import { callProvider, defaultProvider, type ProviderId, type ToolSpec } from "../analyze/providers";
 import { defaultBrandInput } from "../brand/defaults";
 import { renderBrandSystemPrompt } from "../generate/brandPrompt";
-import { CAROUSEL_PROMPT_VERSION, CAROUSEL_SYSTEM_PROMPT } from "../generate/carouselPrompts";
+import { buildCarouselSystemPrompt, CAROUSEL_PROMPT_VERSION } from "../generate/carouselPrompts";
+import type { OutputLanguage } from "../generate/languages";
 import {
 	buildDraftPrompt,
+	buildDraftSystemPrompt,
 	type Channel,
 	DRAFT_PROMPT_VERSION,
-	DRAFT_SYSTEM_PROMPT,
-	DRAFT_TOOL_EN,
+	DRAFT_TOOL,
 	type DraftToolOutput,
 } from "../generate/prompts";
 import { IMAGE_PROMPT_VERSION } from "../generate/image/prompts";
@@ -141,6 +142,9 @@ async function regenerateDraft(
 	const loaded = await ctx.runQuery(internal.feedback.internal.loadDraftTarget, { draftId });
 	if (!loaded) return { ok: false, error: "Draft or analysis not found" };
 	const { draft, analysis } = loaded;
+	// Prefer the draft's recorded primaryLang so regen preserves the original
+	// language even if the global setting changed since the draft was made.
+	const lang: OutputLanguage = draft.primaryLang ?? settings?.defaultPrimaryLanguage ?? "en";
 	const activeBrand = await ctx.runQuery(internal.brand.doc.getActiveInternal, {});
 	const brand = activeBrand ?? defaultBrandInput(Date.now());
 	const output = analysis.outputs[0];
@@ -154,18 +158,19 @@ async function regenerateDraft(
 			outputHook: output?.hook ?? draft.primary,
 			outputKind: output?.kind ?? "tweet",
 			track: analysis.track,
+			lang,
 		}),
 	].join("\n");
 
 	try {
 		const result = await callProvider<DraftToolOutput>({
 			provider,
-			systemPrompt: `${renderBrandSystemPrompt(brand, draft.channel as Channel)}\n\n${DRAFT_SYSTEM_PROMPT}`,
-			tool: DRAFT_TOOL_EN,
+			systemPrompt: `${renderBrandSystemPrompt(brand, draft.channel as Channel)}\n\n${buildDraftSystemPrompt(lang)}`,
+			tool: DRAFT_TOOL,
 			userPrompt: prompt,
 			env,
 		});
-		if (!result.output?.primary) throw new Error("Model did not return English primary copy");
+		if (!result.output?.primary) throw new Error("Model did not return primary copy");
 		const runId = await ctx.runMutation(internal.feedback.internal.saveDraftRegeneration, {
 			draftId,
 			primary: result.output.primary,
@@ -209,6 +214,7 @@ async function regenerateCarouselSlide(
 	if (!loaded) return { ok: false, error: "Carousel slide, draft, or analysis not found" };
 	if (loaded.draft._id !== draftId) return { ok: false, error: "Carousel slide does not belong to draft" };
 	const { slide, draft, analysis } = loaded;
+	const lang: OutputLanguage = slide.primaryLang ?? draft.primaryLang ?? settings?.defaultPrimaryLanguage ?? "en";
 	const activeBrand = await ctx.runQuery(internal.brand.doc.getActiveInternal, {});
 	const brand = activeBrand ?? defaultBrandInput(Date.now());
 	const prompt = [
@@ -233,7 +239,7 @@ async function regenerateCarouselSlide(
 	try {
 		const result = await callProvider<CarouselSlideRegenerationOutput>({
 			provider,
-			systemPrompt: `${renderBrandSystemPrompt(brand, "ig")}\n\n${CAROUSEL_SYSTEM_PROMPT}`,
+			systemPrompt: `${renderBrandSystemPrompt(brand, "ig")}\n\n${buildCarouselSystemPrompt(lang)}`,
 			tool: CAROUSEL_SLIDE_TOOL,
 			userPrompt: prompt,
 			env,

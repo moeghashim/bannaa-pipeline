@@ -1,6 +1,13 @@
 import type { ToolSpec } from "../analyze/providers";
+import { LANG_NAMES, type OutputLanguage } from "./languages";
 
-export const CAROUSEL_PROMPT_VERSION = "2026-04-27-a";
+export const CAROUSEL_PROMPT_VERSION = "2026-04-28-a";
+
+const DIALECT_HINT: Partial<Record<OutputLanguage, string>> = {
+	"ar-msa": "Use Modern Standard Arabic (Fusha). Formal register, no dialect markers.",
+	"ar-saudi": "Use Saudi/Khaleeji dialect — Gulf register.",
+	"ar-egy": "Use Egyptian Arabic dialect — Cairene register.",
+};
 
 export type SlideRole = "hook" | "concept" | "mechanism" | "example" | "payoff";
 
@@ -26,20 +33,31 @@ export function slideRolePlan(slideCount: number): SlideRole[] {
 	return ["hook", "concept", "mechanism", "example", "payoff"];
 }
 
-export const CAROUSEL_SYSTEM_PROMPT = `You are the carousel-generation stage of a content pipeline for bannaa.co.
+export function buildCarouselSystemPrompt(lang: OutputLanguage): string {
+	const langName = LANG_NAMES[lang];
+	const dialect = DIALECT_HINT[lang];
+	const langLine = `Slide on-image text and the IG caption are written in ${langName}.${dialect ? ` ${dialect}` : ""}`;
+	return `You are the carousel-generation stage of a content pipeline for bannaa.co.
 
-Your job is to turn an approved analysis into an Instagram feed carousel — a sequence of visually coherent slides, each with short English on-image text.
+Your job is to turn an approved analysis into an Instagram feed carousel — a sequence of visually coherent slides, each with short on-image text.
+
+${langLine}
 
 Hard rules:
 1. Respond ONLY by calling the \`record_carousel\` tool. Never respond in free text.
 2. Follow the active brand voice supplied in the system context. Each slide's primary text is what appears ON the image, so it must be short and punchy, not a paragraph.
 3. The channelPrimary is the Instagram caption body (what the reader sees under the carousel).
-4. \`styleAnchor\` describes ONLY the shared visual language (palette, composition, mood, texture). It MUST NOT mention specific subjects of any single slide, and MUST NOT request rendering text — it is the coherence vector so all slides look like siblings.
-5. Each slide has its own \`imagePrompt\` in English describing only that slide's scene — subject, action, composition focal point — in 60-180 characters.
-6. Reuse concept tags from the provided analysis; do not invent new ones.
+4. \`styleAnchor\` describes ONLY the shared visual language (palette, composition, mood, texture) IN ENGLISH (it's an image-prompt control, not user-facing copy). It MUST NOT mention specific subjects of any single slide, and MUST NOT request rendering text — it is the coherence vector so all slides look like siblings.
+5. Each slide has its own \`imagePrompt\` IN ENGLISH describing only that slide's scene — subject, action, composition focal point — in 60-180 characters. Image prompts are control language for the image generator, not user copy.
+6. Reuse concept tags from the provided analysis; do not invent new ones (concept tags stay in English regardless of caption language).
 7. \`orderIndex\` is 1-based and must be contiguous from 1 to the requested slideCount.
 8. Each slide MUST be assigned the editorial \`role\` listed in the user prompt's plan. Match the role the plan dictates for that orderIndex; do not freelance.
 9. Never include hashtags inside \`slides[].primary\`. Caption-level hashtags in \`channelPrimary\` are optional.`;
+}
+
+// Kept so any direct importer compiles; new code should call
+// `buildCarouselSystemPrompt(lang)`.
+export const CAROUSEL_SYSTEM_PROMPT = buildCarouselSystemPrompt("en");
 
 export const CAROUSEL_TOOL: ToolSpec = {
 	name: "record_carousel",
@@ -57,7 +75,7 @@ export const CAROUSEL_TOOL: ToolSpec = {
 			},
 			channelPrimary: {
 				type: "string",
-				description: "The IG caption body in English. 150-400 chars.",
+				description: "The IG caption body in the language specified by the system prompt. 150-400 chars.",
 				minLength: 80,
 				maxLength: 500,
 			},
@@ -71,7 +89,7 @@ export const CAROUSEL_TOOL: ToolSpec = {
 			slides: {
 				type: "array",
 				description:
-					"The ordered slide list. Each slide has its English on-image text, English image prompt, and 1-based orderIndex.",
+					"The ordered slide list. Each slide has its on-image text (in the language specified by the system prompt), an English image prompt, and a 1-based orderIndex.",
 				minItems: 3,
 				maxItems: 5,
 				items: {
@@ -80,13 +98,13 @@ export const CAROUSEL_TOOL: ToolSpec = {
 					properties: {
 						primary: {
 							type: "string",
-							description: "Short English text shown on this slide. 30-90 chars.",
+							description: "Short on-image text in the language specified by the system prompt. 30-90 chars.",
 							minLength: 10,
 							maxLength: 120,
 						},
 						imagePrompt: {
 							type: "string",
-							description: "English description of this slide's visual only (subject + composition). 60-180 chars.",
+							description: "English description of this slide's visual only (subject + composition). 60-180 chars. Image-generator control language; always English regardless of caption language.",
 							minLength: 30,
 							maxLength: 240,
 						},
@@ -128,12 +146,15 @@ export function buildCarouselPrompt(input: {
 	analysisConcepts: string[];
 	keyPoints: string[];
 	track: string;
+	lang?: OutputLanguage;
 }): string {
 	const plan = slideRolePlan(input.slideCount);
 	const planLines = plan
 		.map((role, i) => `- Slide ${i + 1} → role: ${role} — ${SLIDE_ROLE_GUIDANCE[role]}`)
 		.join("\n");
+	const langName = LANG_NAMES[input.lang ?? "en"];
 	return `Target: Instagram feed carousel with exactly ${input.slideCount} slides.
+Output language for slide.primary and channelPrimary: ${langName}
 
 Source track: ${input.track}
 
@@ -150,8 +171,9 @@ ${planLines}
 
 Produce a coherent IG feed carousel with ${input.slideCount} slides:
 - Each slide must match the role assigned in the plan above. Set \`role\` accordingly.
-- The \`styleAnchor\` must describe the shared palette + composition + mood across ALL slides. Do NOT mention any specific slide subject. Do NOT ask for rendered text.
-- Each slide's \`imagePrompt\` (English) describes only that slide's visual scene.
+- The \`styleAnchor\` must describe the shared palette + composition + mood across ALL slides IN ENGLISH. Do NOT mention any specific slide subject. Do NOT ask for rendered text.
+- Each slide's \`imagePrompt\` (always English) describes only that slide's visual scene.
+- Slide \`primary\` and \`channelPrimary\` are written in ${langName}.
 - The caption \`channelPrimary\` is a standalone IG caption body — a short paragraph that complements the carousel; it is NOT a repeat of the on-image text.
 
 Use only concepts from the supplied list. Do not invent new concept tags.`;

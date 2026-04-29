@@ -10,12 +10,13 @@ import { requireUser } from "../lib/requireUser";
 import { renderBrandSystemPrompt } from "./brandPrompt";
 import {
 	buildCarouselPrompt,
+	buildCarouselSystemPrompt,
 	CAROUSEL_PROMPT_VERSION,
-	CAROUSEL_SYSTEM_PROMPT,
 	CAROUSEL_TOOL,
 	type CarouselToolOutput,
 	slideRolePlan,
 } from "./carouselPrompts";
+import type { OutputLanguage } from "./languages";
 
 const MIN_SLIDES = 3;
 const MAX_SLIDES = 5;
@@ -79,6 +80,7 @@ export const fromAnalysis = action({
 
 		const settings: Doc<"settings"> | null = await ctx.runQuery(internal.settings.doc.getInternal, {});
 		const provider: ProviderId = settings?.defaultProvider ?? defaultProvider(env);
+		const lang: OutputLanguage = settings?.defaultPrimaryLanguage ?? "en";
 		const activeBrand = await ctx.runQuery(internal.brand.doc.getActiveInternal, {});
 		const brand = activeBrand ?? defaultBrandInput(Date.now());
 
@@ -93,12 +95,13 @@ export const fromAnalysis = action({
 			analysisConcepts: analysis.concepts,
 			keyPoints: analysis.keyPoints,
 			track: analysis.track,
+			lang,
 		});
 
 		try {
 			const result = await callProvider<CarouselToolOutput>({
 				provider,
-				systemPrompt: `${renderBrandSystemPrompt(brand, "ig")}\n\n${CAROUSEL_SYSTEM_PROMPT}`,
+				systemPrompt: `${renderBrandSystemPrompt(brand, "ig")}\n\n${buildCarouselSystemPrompt(lang)}`,
 				tool: CAROUSEL_TOOL,
 				userPrompt,
 				env,
@@ -118,6 +121,7 @@ export const fromAnalysis = action({
 				internal.generate.carouselInternal.insertCarouselDraft,
 				{
 					channelPrimary: out.channelPrimary,
+					primaryLang: lang,
 					chars: out.channelPrimary.length,
 					analysisId: args.analysisId,
 					sourceItemId: analysis.itemId,

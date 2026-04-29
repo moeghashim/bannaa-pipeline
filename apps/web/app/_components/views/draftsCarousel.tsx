@@ -4,7 +4,16 @@ import { api } from "@convex/_generated/api";
 import type { Doc, Id } from "@convex/_generated/dataModel";
 import { useQuery } from "convex/react";
 import type { ReactNode } from "react";
+import { directionFor, isRtl, type OutputLanguage } from "../../_lib/languages";
 import { FeedbackControls } from "./feedbackControls";
+
+function slideLangOf(slide: Pick<Doc<"carouselSlides">, "primaryLang">): OutputLanguage {
+	const v = slide.primaryLang as OutputLanguage | "ar-khaleeji" | "ar-levantine" | undefined;
+	if (!v) return "en";
+	if (v === "ar-khaleeji") return "ar-saudi";
+	if (v === "ar-levantine") return "ar-msa";
+	return v;
+}
 
 // Carousel helpers split out of drafts.tsx so the parent file stays under
 // the 600-line cap. Kept as pure rendering + a tiny `ReadyImage`
@@ -205,9 +214,9 @@ const CarouselSlide = ({
 				</span>
 			</div>
 			<div
-				className="ar-text"
-				dir="rtl"
-				lang="ar"
+				className={isRtl(slideLangOf(slide)) ? "rtl" : ""}
+				dir={directionFor(slideLangOf(slide))}
+				lang={slideLangOf(slide)}
 				style={{ fontSize: 11, lineHeight: 1.35, textWrap: "pretty", color: "var(--ink-2)" }}
 			>
 				{slide.primary}

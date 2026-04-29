@@ -1,6 +1,7 @@
 import { authTables } from "@convex-dev/auth/server";
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { outputLanguageValidator } from "./generate/languages";
 
 const sourceType = v.union(
 	v.literal("x"),
@@ -123,16 +124,13 @@ const brandDesignType = v.object({
 	designMd: v.optional(v.string()),
 });
 
+// Schema-level validator. Accepts the canonical wide language set plus the
+// two legacy Arabic codes (`ar-khaleeji`, `ar-levantine`) so existing rows
+// validate during the rename migration. Tighten to `outputLanguageValidator`
+// alone after `migrations/renameLanguageCodes:run` completes against prod.
 const outputLanguageType = v.union(
-	v.literal("en"),
+	outputLanguageValidator,
 	v.literal("ar-khaleeji"),
-	v.literal("ar-msa"),
-	v.literal("ar-levantine"),
-);
-
-const secondaryOutputLanguageType = v.union(
-	v.literal("ar-khaleeji"),
-	v.literal("ar-msa"),
 	v.literal("ar-levantine"),
 );
 
@@ -219,6 +217,10 @@ export default defineSchema({
 	drafts: defineTable({
 		channel: channelType,
 		primary: v.string(),
+		// Language the `primary` field is written in. Optional for rows
+		// created before the multi-language refactor — read sites should
+		// default to "en" when absent.
+		primaryLang: v.optional(outputLanguageValidator),
 		translations: v.optional(v.array(translationType)),
 		chars: v.number(),
 		state: stateType,
@@ -321,6 +323,7 @@ export default defineSchema({
 		draftId: v.id("drafts"),
 		orderIndex: v.number(),
 		primary: v.string(),
+		primaryLang: v.optional(outputLanguageValidator),
 		translations: v.optional(v.array(translationType)),
 		imagePrompt: v.string(),
 		// Editorial role of this slide in the carousel arc. Optional for
@@ -371,7 +374,24 @@ export default defineSchema({
 		// forward to gpt-image-3 / etc. without a deploy. Defaults to
 		// "gpt-image-2" at read-time when unset.
 		overlayModel: v.optional(v.string()),
-		outputLanguages: v.optional(v.array(secondaryOutputLanguageType)),
+		// Drives every generation surface (drafts, carousels, regen, brand
+		// preview). Optional during transition — defaults to "en" at read
+		// sites until the migration backfills the singleton row.
+		defaultPrimaryLanguage: v.optional(outputLanguageValidator),
+		// Legacy multi-select for displaying secondary Arabic dialects on
+		// draft cards. Superseded by `defaultPrimaryLanguage`. Kept on the
+		// schema so old rows validate; the migration drops the field.
+		outputLanguages: v.optional(
+			v.array(
+				v.union(
+					v.literal("ar-khaleeji"),
+					v.literal("ar-msa"),
+					v.literal("ar-levantine"),
+					v.literal("ar-saudi"),
+					v.literal("ar-egy"),
+				),
+			),
+		),
 		updatedAt: v.number(),
 	}).index("by_key", ["key"]),
 

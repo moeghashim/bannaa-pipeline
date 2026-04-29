@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery } from "../_generated/server";
+import { outputLanguageValidator } from "./languages";
 
 const channelValidator = v.union(
 	v.literal("x"),
@@ -168,6 +169,7 @@ export const insertDraft = internalMutation({
 	args: {
 		channel: channelValidator,
 		primary: v.string(),
+		primaryLang: v.optional(outputLanguageValidator),
 		chars: v.number(),
 		analysisId: v.id("analyses"),
 		sourceItemId: v.id("inboxItems"),
@@ -203,6 +205,7 @@ export const insertDraft = internalMutation({
 		return await ctx.db.insert("drafts", {
 			channel: args.channel,
 			primary: args.primary,
+			primaryLang: args.primaryLang,
 			translations: [],
 			chars: args.chars,
 			state: "new",

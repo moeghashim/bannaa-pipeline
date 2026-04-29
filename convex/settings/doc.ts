@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { internalQuery, mutation, query } from "../_generated/server";
+import { outputLanguageValidator as canonicalLangValidator } from "../generate/languages";
 import { requireUser } from "../lib/requireUser";
 
 const providerValidator = v.union(
@@ -21,10 +22,16 @@ const imageProviderValidator = v.union(
 	v.literal("openrouter"),
 );
 
+// Legacy secondary-language validator. Phase 2 retires the
+// `setOutputLanguages` mutation that uses it; the union also lists the new
+// canonical Arabic codes so `getInternal` matches the wider schema validator
+// during the migration window.
 const outputLanguageValidator = v.union(
 	v.literal("ar-khaleeji"),
 	v.literal("ar-msa"),
 	v.literal("ar-levantine"),
+	v.literal("ar-saudi"),
+	v.literal("ar-egy"),
 );
 
 const SETTINGS_SINGLETON = "app";
@@ -57,7 +64,7 @@ export const setDefaultProvider = mutation({
 		await ctx.db.insert("settings", {
 			key: SETTINGS_SINGLETON,
 			defaultProvider: provider,
-			outputLanguages: ["ar-khaleeji"],
+			defaultPrimaryLanguage: "en",
 			updatedAt: Date.now(),
 		});
 	},
@@ -76,7 +83,7 @@ export const setDefaultImageProvider = mutation({
 			key: SETTINGS_SINGLETON,
 			defaultProvider: "glm",
 			defaultImageProvider: provider,
-			outputLanguages: ["ar-khaleeji"],
+			defaultPrimaryLanguage: "en",
 			updatedAt: Date.now(),
 		});
 	},
@@ -103,26 +110,32 @@ export const setOverlayModel = mutation({
 			key: SETTINGS_SINGLETON,
 			defaultProvider: "glm",
 			overlayModel: value,
-			outputLanguages: ["ar-khaleeji"],
+			defaultPrimaryLanguage: "en",
 			updatedAt: Date.now(),
 		});
 	},
 });
 
-export const setOutputLanguages = mutation({
-	args: { languages: v.array(outputLanguageValidator) },
-	handler: async (ctx, { languages }) => {
+export const setDefaultPrimaryLanguage = mutation({
+	args: { language: canonicalLangValidator },
+	handler: async (ctx, { language }) => {
 		await requireUser(ctx);
-		const deduped = [...new Set(languages)];
 		const existing = await readSettings(ctx);
 		if (existing) {
-			await ctx.db.patch(existing._id, { outputLanguages: deduped, updatedAt: Date.now() });
+			await ctx.db.patch(existing._id, {
+				defaultPrimaryLanguage: language,
+				// Drop the legacy multi-select field whenever the operator
+				// touches the primary-language setting; one-shot upgrade for
+				// rows that haven't been hit by the rename migration yet.
+				outputLanguages: undefined,
+				updatedAt: Date.now(),
+			});
 			return;
 		}
 		await ctx.db.insert("settings", {
 			key: SETTINGS_SINGLETON,
 			defaultProvider: "glm",
-			outputLanguages: deduped,
+			defaultPrimaryLanguage: language,
 			updatedAt: Date.now(),
 		});
 	},
@@ -138,6 +151,7 @@ export const getInternal = internalQuery({
 			defaultProvider: providerValidator,
 			defaultImageProvider: v.optional(imageProviderValidator),
 			overlayModel: v.optional(v.string()),
+			defaultPrimaryLanguage: v.optional(canonicalLangValidator),
 			outputLanguages: v.optional(v.array(outputLanguageValidator)),
 			updatedAt: v.number(),
 		}),

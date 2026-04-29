@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery } from "../_generated/server";
+import { outputLanguageValidator } from "./languages";
 
 const providerValidator = v.union(
 	v.literal("claude"),
@@ -23,6 +24,7 @@ const slideRoleValidator = v.union(
 export const insertCarouselDraft = internalMutation({
 	args: {
 		channelPrimary: v.string(),
+		primaryLang: v.optional(outputLanguageValidator),
 		chars: v.number(),
 		analysisId: v.id("analyses"),
 		sourceItemId: v.id("inboxItems"),
@@ -63,6 +65,7 @@ export const insertCarouselDraft = internalMutation({
 		const draftId = await ctx.db.insert("drafts", {
 			channel: "ig",
 			primary: args.channelPrimary,
+			primaryLang: args.primaryLang,
 			translations: [],
 			chars: args.chars,
 			state: "new",
@@ -81,6 +84,7 @@ export const insertCarouselDraft = internalMutation({
 				draftId,
 				orderIndex: slide.orderIndex,
 				primary: slide.primary,
+				primaryLang: args.primaryLang,
 				translations: [],
 				imagePrompt: slide.imagePrompt,
 				role: slide.role,

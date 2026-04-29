@@ -1,4 +1,5 @@
 import type { ToolSpec } from "../analyze/providers";
+import { isArabicDialect, LANG_NAMES, type OutputLanguage } from "./languages";
 
 export type Channel = "x" | "ig" | "ig-reel" | "tiktok" | "yt-shorts" | "fb-page" | "linkedin-page";
 
@@ -35,12 +36,23 @@ export const ANGLE_GUIDANCE: Record<Angle, string> = {
 	tutorial: "Give a short step-by-step. Numbered steps or imperative sentences.",
 };
 
-export const DRAFT_PROMPT_VERSION = "2026-04-27-b";
-export const TRANSLATE_PROMPT_VERSION = "2026-04-27-a";
+export const DRAFT_PROMPT_VERSION = "2026-04-28-a";
+export const TRANSLATE_PROMPT_VERSION = "2026-04-28-a";
 
-export const DRAFT_SYSTEM_PROMPT = `You are the draft-generation stage of a content pipeline for bannaa.co.
+const DIALECT_HINT: Partial<Record<OutputLanguage, string>> = {
+	"ar-msa": "Use Modern Standard Arabic (Fusha). Formal register, no dialect markers.",
+	"ar-saudi": "Use Saudi/Khaleeji dialect — Gulf register. Common Saudi colloquialisms welcome.",
+	"ar-egy": "Use Egyptian Arabic dialect — Cairene register. Use markers like إزاي / كده / ده / دي.",
+};
+
+export function buildDraftSystemPrompt(lang: OutputLanguage): string {
+	const dialect = DIALECT_HINT[lang];
+	const langLine = `Write the primary copy in ${LANG_NAMES[lang]}.${dialect ? ` ${dialect}` : ""}`;
+	return `You are the draft-generation stage of a content pipeline for bannaa.co.
 
 Your job is to turn an approved analysis output into a publish-ready draft for a specific social channel.
+
+${langLine}
 
 Hard rules:
 1. Respond ONLY by calling the \`record_draft\` tool. Never respond in free text.
@@ -48,26 +60,31 @@ Hard rules:
 3. Honor the channel's length constraints (see user prompt).
 4. Match the hook structure to the channel.
 5. Do not add hashtags unless the channel is Instagram or TikTok.
-6. Reuse concept names from the provided analysis; do not invent new ones.
+6. Reuse concept names from the provided analysis; do not invent new ones (concept tags stay in English regardless of primary language — they're internal taxonomy).
 7. Pick the editorial angle that best fits the analysis. The angle drives tone and structure — see the user prompt for the menu.
 8. If the source analysis is outside AI education scope, still draft — the operator will reject manually.`;
+}
 
-export const DRAFT_TOOL_EN: ToolSpec = {
+// Kept so any remaining direct importers compile; new code should call
+// `buildDraftSystemPrompt(lang)`.
+export const DRAFT_SYSTEM_PROMPT = buildDraftSystemPrompt("en");
+
+export const DRAFT_TOOL: ToolSpec = {
 	name: "record_draft",
-	description: "Record the generated English draft copy for one social channel. Must be called exactly once.",
+	description: "Record the generated draft copy for one social channel. Must be called exactly once.",
 	input_schema: {
 		type: "object",
 		required: ["primary", "concepts", "angle"],
 		properties: {
 			primary: {
 				type: "string",
-				description: "English copy sized for the target channel.",
+				description: "Primary copy in the language specified by the system prompt, sized for the target channel.",
 				minLength: 20,
 				maxLength: 800,
 			},
 			concepts: {
 				type: "array",
-				description: "2\u20134 concept tags reused from the analysis.",
+				description: "2\u20134 concept tags reused from the analysis (English tags, internal taxonomy).",
 				items: { type: "string", minLength: 2, maxLength: 48 },
 				minItems: 1,
 				maxItems: 4,
@@ -80,6 +97,9 @@ export const DRAFT_TOOL_EN: ToolSpec = {
 		},
 	},
 };
+
+// Deprecated alias. New code should import `DRAFT_TOOL`.
+export const DRAFT_TOOL_EN = DRAFT_TOOL;
 
 export type DraftToolOutput = {
 	primary: string;
@@ -169,11 +189,13 @@ export function buildTightenPrompt(input: {
 	angle: Angle | undefined;
 	concepts: string[];
 	maxChars: number;
+	lang?: OutputLanguage;
 }): string {
 	const brief = CHANNEL_BRIEFS[input.channel];
+	const langName = LANG_NAMES[input.lang ?? "en"];
 	return `Your previous draft was ${input.previous.length} characters, which exceeds the ${brief.label} hard limit of ${input.maxChars} characters.
 
-Rewrite the draft under ${input.maxChars} characters while preserving:
+Rewrite the draft under ${input.maxChars} characters in ${langName} while preserving:
 - The chosen angle: ${input.angle ?? "(unset)"}
 - The concept tags (reuse only these): ${input.concepts.join(", ")}
 - The hook and the most interesting claim
@@ -181,7 +203,7 @@ Rewrite the draft under ${input.maxChars} characters while preserving:
 Previous draft:
 "${input.previous}"
 
-Call \`record_draft\` with the tightened version. Same angle and concepts.`;
+Call \`record_draft\` with the tightened version. Same angle and concepts. Stay in ${langName}.`;
 }
 
 export function buildDraftPrompt(input: {
@@ -193,6 +215,7 @@ export function buildDraftPrompt(input: {
 	track: string;
 	hookTemplate?: string;
 	angleOverride?: Angle;
+	lang?: OutputLanguage;
 }): string {
 	const brief = CHANNEL_BRIEFS[input.channel];
 	const angleMenu = ANGLES.map((a) => `- ${a}: ${ANGLE_GUIDANCE[a]}`).join("\n");
@@ -202,7 +225,9 @@ export function buildDraftPrompt(input: {
 	const angleSection = input.angleOverride
 		? `\nMANDATORY ANGLE: this draft is part of a batch. You MUST set \`angle\` to "${input.angleOverride}".\nGuidance: ${ANGLE_GUIDANCE[input.angleOverride]}\n`
 		: `\nEditorial angles — pick the one that best fits the source and report it as \`angle\`:\n${angleMenu}\n`;
+	const langName = LANG_NAMES[input.lang ?? "en"];
 	return `Target channel: ${brief.label}
+Output language: ${langName}
 Channel constraints:
 - Length: ${brief.charLimit}
 - Format: ${brief.format}
@@ -217,18 +242,19 @@ Concepts from the analysis (reuse only these): ${input.analysisConcepts.join(", 
 Suggested hook (from the analysis, you can depart from this but preserve the intent):
 "${input.outputHook}" (output kind: ${input.outputKind})
 ${hookHint}${angleSection}
-Produce English copy fit for ${brief.label} that:
+Produce ${langName} copy fit for ${brief.label} that:
 - Follows the active brand voice
 - Honors the length budget strictly
 - Leads with the most interesting claim
 - Reflects the chosen angle in tone and structure
 
-Use only concepts from the supplied list. Do not invent new concept tags.`;
+Use only concepts from the supplied list. Do not invent new concept tags. Concept tags stay in English (internal taxonomy).`;
 }
 
 export function buildTranslatePrompt(input: {
 	channel: Channel;
 	primary: string;
+	sourceLang?: OutputLanguage;
 	targetLang: string;
 	brandVoicePreset: string;
 	angle?: Angle;
@@ -237,16 +263,19 @@ export function buildTranslatePrompt(input: {
 	const angleLine = input.angle
 		? `\nEditorial angle (preserve in translation): ${input.angle} — ${ANGLE_GUIDANCE[input.angle]}\n`
 		: "";
+	const sourceName = LANG_NAMES[input.sourceLang ?? "en"];
+	const targetIsArabic = isArabicDialect(input.targetLang as OutputLanguage);
+	const brandBlock = input.brandVoicePreset && targetIsArabic
+		? `\nBrand language guidance:\n${input.brandVoicePreset}\n`
+		: "";
 	return `Target channel: ${brief.label}
+Source language: ${sourceName}
 Target language: ${input.targetLang}
 Channel constraints:
 - Length: ${brief.charLimit}
 - Format: ${brief.format}
-${angleLine}
-Brand language guidance:
-${input.brandVoicePreset}
-
-English source copy:
+${angleLine}${brandBlock}
+${sourceName} source copy:
 ${input.primary}
 
 Translate the source into the target language. Preserve the intent, hook, and channel fit. Do not add claims or concept names.`;

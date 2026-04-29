@@ -9,13 +9,14 @@ import { defaultBrandInput } from "../brand/defaults";
 import { requireUser } from "../lib/requireUser";
 import { renderBrandSystemPrompt } from "./brandPrompt";
 import { cosine, DEDUP_RECENT_LIMIT, DEDUP_THRESHOLD, embedText, EMBEDDING_MODEL } from "./embeddings";
+import type { OutputLanguage } from "./languages";
 import {
 	buildDraftPrompt,
+	buildDraftSystemPrompt,
 	buildTightenPrompt,
 	type Channel,
 	DRAFT_PROMPT_VERSION,
-	DRAFT_SYSTEM_PROMPT,
-	DRAFT_TOOL_EN,
+	DRAFT_TOOL,
 	type DraftToolOutput,
 	MAX_CHARS_BY_CHANNEL,
 } from "./prompts";
@@ -75,6 +76,7 @@ export const fromAnalysisOutput = action({
 
 		const settings: Doc<"settings"> | null = await ctx.runQuery(internal.settings.doc.getInternal, {});
 		const provider: ProviderId = settings?.defaultProvider ?? defaultProvider(env);
+		const lang: OutputLanguage = settings?.defaultPrimaryLanguage ?? "en";
 		const activeBrand = await ctx.runQuery(internal.brand.doc.getActiveInternal, {});
 		const brand = activeBrand ?? defaultBrandInput(Date.now());
 
@@ -97,21 +99,22 @@ export const fromAnalysisOutput = action({
 			track: analysis.track,
 			hookTemplate: hookTemplate?.pattern,
 			angleOverride: args.angleOverride,
+			lang,
 		});
 
-		const systemPrompt = `${renderBrandSystemPrompt(brand, args.channel as Channel)}\n\n${DRAFT_SYSTEM_PROMPT}`;
+		const systemPrompt = `${renderBrandSystemPrompt(brand, args.channel as Channel)}\n\n${buildDraftSystemPrompt(lang)}`;
 
 		try {
 			const firstResult = await callProvider<DraftToolOutput>({
 				provider,
 				systemPrompt,
-				tool: DRAFT_TOOL_EN,
+				tool: DRAFT_TOOL,
 				userPrompt,
 				env,
 			});
 
 			if (!firstResult.output?.primary) {
-				throw new Error("Model did not return English primary copy");
+				throw new Error("Model did not return primary copy");
 			}
 
 			let result = firstResult;
@@ -121,13 +124,14 @@ export const fromAnalysisOutput = action({
 					const retry = await callProvider<DraftToolOutput>({
 						provider,
 						systemPrompt,
-						tool: DRAFT_TOOL_EN,
+						tool: DRAFT_TOOL,
 						userPrompt: buildTightenPrompt({
 							channel: args.channel as Channel,
 							previous: firstResult.output.primary,
 							angle: firstResult.output.angle,
 							concepts: firstResult.output.concepts ?? analysis.concepts.slice(0, 3),
 							maxChars,
+							lang,
 						}),
 						env,
 					});
@@ -186,6 +190,7 @@ export const fromAnalysisOutput = action({
 			const draftId: Id<"drafts"> = await ctx.runMutation(internal.generate.internal.insertDraft, {
 				channel: args.channel,
 				primary: result.output.primary,
+				primaryLang: lang,
 				chars: result.output.primary.length,
 				analysisId: args.analysisId,
 				sourceItemId: analysis.itemId,

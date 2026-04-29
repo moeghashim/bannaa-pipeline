@@ -19,7 +19,13 @@ import { internal } from "../../_generated/api";
 import type { Doc, Id } from "../../_generated/dataModel";
 import { action } from "../../_generated/server";
 import { defaultBrandInput } from "../../brand/defaults";
-import { LANG_LABELS, type OutputLanguage } from "../languages";
+import {
+	canonicalizeLanguage,
+	LANG_LABELS,
+	type LegacyOutputLanguage,
+	type OutputLanguage,
+	transitionalOutputLanguageValidator,
+} from "../languages";
 import { requireUser } from "../../lib/requireUser";
 import { callImageProviderEdit, type ImageProvider, type ImageProviderEnv } from "./providers";
 
@@ -69,9 +75,7 @@ function buildBakedPrompt(input: {
 export const bakedForDraft = action({
 	args: {
 		draftId: v.id("drafts"),
-		targetLang: v.optional(
-			v.union(v.literal("en"), v.literal("ar-khaleeji"), v.literal("ar-msa"), v.literal("ar-levantine")),
-		),
+		targetLang: v.optional(transitionalOutputLanguageValidator),
 	},
 	returns: v.union(
 		v.object({
@@ -116,9 +120,12 @@ export const bakedForDraft = action({
 		if (!base) return { ok: false, error: "no ready base image" };
 		if (!base.storageId) return { ok: false, error: "base image has no storageId" };
 
+		const fallback: OutputLanguage = draft.primaryLang ?? "en";
+		const requested: LegacyOutputLanguage = targetLang ?? fallback;
+		const lang: OutputLanguage = canonicalizeLanguage(requested);
 		const prompt = buildBakedPrompt({
-			text: textForLanguage(draft, targetLang ?? "ar-khaleeji"),
-			languageLabel: LANG_LABELS[targetLang ?? "ar-khaleeji"],
+			text: textForLanguage(draft, requested),
+			languageLabel: LANG_LABELS[lang],
 			channel: draft.channel,
 			brand,
 		});
@@ -189,8 +196,10 @@ export const bakedForDraft = action({
 	},
 });
 
-function textForLanguage(draft: Doc<"drafts">, lang: OutputLanguage): string {
-	if (lang === "en") return draft.primary;
+function textForLanguage(draft: Doc<"drafts">, lang: LegacyOutputLanguage): string {
+	const draftLang = draft.primaryLang ?? "en";
+	if (lang === draftLang) return draft.primary;
+	if (lang === "en" && !draft.primaryLang) return draft.primary;
 	const translation = draft.translations?.find((t) => t.lang === lang);
 	if (translation) return translation.text;
 	throw new Error(`No ${lang} copy exists for this draft`);

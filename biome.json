@@ -36,7 +36,8 @@
 			"scripts/**/*.mjs",
 			"!**/node_modules/**/*",
 			"!**/.next/**/*",
-			"!**/dist/**/*"
+			"!**/dist/**/*",
+			"!**/.claude/**/*"
 		]
 	},
 	"overrides": [
