@@ -378,6 +378,13 @@ export default defineSchema({
 		// preview). Optional during transition — defaults to "en" at read
 		// sites until the migration backfills the singleton row.
 		defaultPrimaryLanguage: v.optional(outputLanguageValidator),
+		// Curated subset of languages shown as `+ XX` translation chips on
+		// draft cards. Optional — when undefined, every non-primary language
+		// is offered (current default behaviour). Setting a narrow list lets
+		// the operator de-clutter the chip row to the languages they actually
+		// translate into. Already-generated translations always stay visible
+		// regardless of this setting.
+		translationTargets: v.optional(v.array(outputLanguageValidator)),
 		// Legacy multi-select for displaying secondary Arabic dialects on
 		// draft cards. Superseded by `defaultPrimaryLanguage`. Kept on the
 		// schema so old rows validate; the migration drops the field.

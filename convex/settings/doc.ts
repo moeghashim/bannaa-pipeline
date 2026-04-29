@@ -141,6 +141,29 @@ export const setDefaultPrimaryLanguage = mutation({
 	},
 });
 
+export const setTranslationTargets = mutation({
+	args: { languages: v.array(canonicalLangValidator) },
+	handler: async (ctx, { languages }) => {
+		await requireUser(ctx);
+		const deduped = [...new Set(languages)];
+		const existing = await readSettings(ctx);
+		if (existing) {
+			await ctx.db.patch(existing._id, {
+				translationTargets: deduped,
+				updatedAt: Date.now(),
+			});
+			return;
+		}
+		await ctx.db.insert("settings", {
+			key: SETTINGS_SINGLETON,
+			defaultProvider: "glm",
+			defaultPrimaryLanguage: "en",
+			translationTargets: deduped,
+			updatedAt: Date.now(),
+		});
+	},
+});
+
 export const getInternal = internalQuery({
 	args: {},
 	returns: v.union(
@@ -152,6 +175,7 @@ export const getInternal = internalQuery({
 			defaultImageProvider: v.optional(imageProviderValidator),
 			overlayModel: v.optional(v.string()),
 			defaultPrimaryLanguage: v.optional(canonicalLangValidator),
+			translationTargets: v.optional(v.array(canonicalLangValidator)),
 			outputLanguages: v.optional(v.array(outputLanguageValidator)),
 			updatedAt: v.number(),
 		}),

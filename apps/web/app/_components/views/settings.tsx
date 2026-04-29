@@ -10,6 +10,7 @@ import type { ImageProvider } from "../types";
 import { SettingsBrandSection } from "./settingsBrand";
 import { SettingsOverlayModelSection } from "./settingsOverlayModel";
 import { SettingsPrimaryLanguageSection } from "./settingsPrimaryLanguage";
+import { SettingsTranslationTargetsSection } from "./settingsTranslationTargets";
 
 function fmtRelative(ms: number | undefined): string {
 	if (!ms) return "never";
@@ -475,6 +476,7 @@ export const SettingsView = ({ onOpenBrand }: { onOpenBrand: () => void }) => {
 			</div>
 
 			<SettingsPrimaryLanguageSection />
+			<SettingsTranslationTargetsSection />
 
 			<SettingsOverlayModelSection />
 

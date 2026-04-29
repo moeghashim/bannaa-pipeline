@@ -115,6 +115,7 @@ export const DraftsView = ({ channel, setChannel }: { channel: string; setChanne
 							key={d._id}
 							draft={d}
 							defaultImageProvider={defaultImageProvider}
+							translationTargetsAllow={settings?.translationTargets as OutputLanguage[] | undefined}
 							onApprove={() => approve({ id: d._id })}
 							onReject={() => reject({ id: d._id })}
 							onUnschedule={() => unschedule({ id: d._id })}
@@ -131,6 +132,7 @@ export const DraftsView = ({ channel, setChannel }: { channel: string; setChanne
 const DraftCard = ({
 	draft,
 	defaultImageProvider,
+	translationTargetsAllow,
 	onApprove,
 	onReject,
 	onUnschedule,
@@ -139,6 +141,7 @@ const DraftCard = ({
 }: {
 	draft: Doc<"drafts">;
 	defaultImageProvider: ImageProvider;
+	translationTargetsAllow: OutputLanguage[] | undefined;
 	onApprove: () => void;
 	onReject: () => void;
 	onUnschedule: () => void;
@@ -174,7 +177,7 @@ const DraftCard = ({
 	const [editError, setEditError] = useState<string | null>(null);
 	const [editSaving, setEditSaving] = useState(false);
 	const [translating, setTranslating] = useState<OutputLanguage | null>(null);
-	const translationTargets = translationTargetsForDraft(draft);
+	const translationTargets = translationTargetsForDraft(draft, translationTargetsAllow);
 	const editLocked =
 		!!draft.postizStatus && draft.postizStatus !== "failed"
 			? `Copy locked while post is ${draft.postizStatus} — unschedule first`

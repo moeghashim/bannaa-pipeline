@@ -89,9 +89,27 @@ function normalizeLegacyLang(lang: string): OutputLanguage {
 	return lang as OutputLanguage;
 }
 
-// All canonical languages except the draft's primary, suitable as translation
-// targets in the LanguageSwitcher chip row.
-export function translationTargetsForDraft(draft: Pick<Doc<"drafts">, "primaryLang">): OutputLanguage[] {
+// Canonical languages offered as translation targets in the LanguageSwitcher
+// chip row. The draft's primary is always excluded (it's shown separately as
+// the always-available primary chip). Optionally pass `allowed` to curate the
+// list down to a user-selected subset (driven by `settings.translationTargets`);
+// when undefined, every non-primary canonical language is offered.
+//
+// Languages that already have a translation on the draft remain visible
+// regardless of `allowed` — that's enforced at the LanguageSwitcher level via
+// `hasTranslation` so the operator never loses access to existing copy.
+export function translationTargetsForDraft(
+	draft: Pick<Doc<"drafts">, "primaryLang" | "translations">,
+	allowed?: OutputLanguage[] | undefined,
+): OutputLanguage[] {
 	const primary = primaryLangOf(draft);
-	return LANGUAGE_CODES.filter((c) => c !== primary);
+	const allowedSet = allowed ? new Set(allowed) : null;
+	const existingTranslations = new Set((draft.translations ?? []).map((t) => normalizeLegacyLang(t.lang)));
+	return LANGUAGE_CODES.filter((c) => {
+		if (c === primary) return false;
+		if (allowedSet === null) return true;
+		if (allowedSet.has(c)) return true;
+		// Always keep already-translated languages visible.
+		return existingTranslations.has(c);
+	});
 }
