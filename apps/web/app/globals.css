@@ -697,29 +697,15 @@ kbd.key {
 	border-color: var(--border-strong);
 }
 
-.pipeline-progress {
-	display: grid;
-	grid-template-columns: 16px 90px 1fr auto;
-	gap: 10px;
-	align-items: center;
-	padding: 10px 14px;
-	border-bottom: 1px solid var(--border-faint);
-	background: linear-gradient(90deg, var(--accent-tint) 0%, transparent 100%);
-	animation: slide-in 300ms ease-out;
-}
-@keyframes slide-in {
-	from { opacity: 0; transform: translateY(-6px); }
-	to   { opacity: 1; transform: translateY(0); }
-}
-.pipeline-progress .steps {
-	display: flex;
+.stage-track {
+	display: inline-flex;
 	align-items: center;
 	gap: 6px;
 	font-family: var(--font-mono);
 	font-size: 10.5px;
 	color: var(--muted);
 }
-.pipeline-progress .step {
+.stage-track .step {
 	display: inline-flex;
 	align-items: center;
 	gap: 5px;
@@ -728,15 +714,15 @@ kbd.key {
 	border: 1px solid var(--border);
 	background: var(--surface);
 }
-.pipeline-progress .step.done { color: var(--st-approved-fg); background: var(--st-approved-bg); border-color: transparent; }
-.pipeline-progress .step.active { color: var(--st-analyzing-fg); background: var(--st-analyzing-bg); border-color: transparent; }
-.pipeline-progress .step .dot {
+.stage-track .step.done { color: var(--st-approved-fg); background: var(--st-approved-bg); border-color: transparent; }
+.stage-track .step.active { color: var(--st-analyzing-fg); background: var(--st-analyzing-bg); border-color: transparent; }
+.stage-track .step .dot {
 	width: 5px; height: 5px; border-radius: 999px;
 	background: var(--muted-2);
 }
-.pipeline-progress .step.done .dot { background: var(--st-approved-dot); }
-.pipeline-progress .step.active .dot { background: var(--st-analyzing-dot); animation: pulse 1.2s ease-in-out infinite; }
-.pipeline-progress .arrow { color: var(--muted-2); }
+.stage-track .step.done .dot { background: var(--st-approved-dot); }
+.stage-track .step.active .dot { background: var(--st-analyzing-dot); animation: pulse 1.2s ease-in-out infinite; }
+.stage-track .arrow { color: var(--muted-2); }
 
 /* ==========================================================================
    View: Inbox

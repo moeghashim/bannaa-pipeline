@@ -162,46 +162,24 @@ const CaptureBar = ({ onCapture }: { onCapture: (p: CapturePayload, done: () => 
 	);
 };
 
-const ProgressRow = ({ item }: { item: InboxItem }) => {
+const StageTrack = ({ state }: { state: InboxItem["state"] }) => {
 	const stages = ["captured", "analyzing", "drafting"];
-	const stageIdx = item.state === "new" ? 0 : item.state === "analyzing" ? 1 : 2;
+	const stageIdx = state === "new" ? 0 : state === "analyzing" ? 1 : 2;
 	return (
-		<div className="pipeline-progress">
-			<div />
-			<SourceBadge source={item.source} handle={item.handle} compact />
-			<div className="col" style={{ gap: 6, minWidth: 0 }}>
-				<div
-					className="title"
-					style={{
-						fontSize: 12.5,
-						fontWeight: 500,
-						whiteSpace: "nowrap",
-						overflow: "hidden",
-						textOverflow: "ellipsis",
-					}}
-				>
-					{item.title}
-				</div>
-				<div className="steps">
-					{stages.map((s, i) => (
-						<span key={s} className={`step${i < stageIdx ? " done" : i === stageIdx ? " active" : ""}`}>
-							<span className="dot" /> {s}
-							{i < stages.length - 1 && <span className="arrow"> › </span>}
-						</span>
-					))}
-				</div>
-			</div>
-			<span className="mono" style={{ fontSize: 10, color: "var(--muted)" }}>
-				just now
-			</span>
-		</div>
+		<span className="stage-track">
+			{stages.map((s, i) => (
+				<span key={s} className={`step${i < stageIdx ? " done" : i === stageIdx ? " active" : ""}`}>
+					<span className="dot" /> {s}
+					{i < stages.length - 1 && <span className="arrow"> › </span>}
+				</span>
+			))}
+		</span>
 	);
 };
 
 export const InboxView = ({
 	items,
 	onCapture,
-	progressIds,
 	selected,
 	setSelected,
 	focusIdx,
@@ -218,7 +196,6 @@ export const InboxView = ({
 }: {
 	items: InboxItem[];
 	onCapture: (p: CapturePayload, done: () => void) => void;
-	progressIds: string[];
 	selected: string;
 	setSelected: (id: string) => void;
 	focusIdx: number;
@@ -249,8 +226,6 @@ export const InboxView = ({
 		setChecked(next);
 	};
 
-	const progressItems = progressIds.map((id) => items.find((i) => i.id === id)).filter((x): x is InboxItem => !!x);
-
 	return (
 		<div className="inbox-view">
 			<div className="inbox-list">
@@ -276,11 +251,7 @@ export const InboxView = ({
 					</div>
 				</div>
 
-				{progressItems.map((pi) => (
-					<ProgressRow key={pi.id} item={pi} />
-				))}
-
-				{filtered.length === 0 && progressItems.length === 0 ? (
+				{filtered.length === 0 ? (
 					<div className="empty-state">
 						<div className="icn">
 							<Icons.Inbox size={20} />
@@ -337,7 +308,7 @@ export const InboxView = ({
 									</div>
 									<div className="snippet">{it.snippet}</div>
 									<div className="row gap-2" style={{ marginTop: 4 }}>
-										<Chip state={it.state} />
+										{it.state === "analyzing" ? <StageTrack state={it.state} /> : <Chip state={it.state} />}
 										{it.lang === "ar" && (
 											<span className="mono" style={{ fontSize: 10, color: "var(--muted)" }}>
 												AR

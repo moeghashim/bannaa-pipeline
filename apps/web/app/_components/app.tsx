@@ -266,8 +266,6 @@ export function Shell() {
 		return c;
 	}, [inboxItems]);
 
-	const progressIds = useMemo(() => inboxItems.filter((i) => i.state === "analyzing").map((i) => i.id), [inboxItems]);
-
 	const onAnalyze = async (ids: string[]) => {
 		setInboxChk(new Set());
 		for (const id of ids) {
@@ -321,7 +319,6 @@ export function Shell() {
 							<InboxView
 								items={inboxItems}
 								onCapture={onCapture}
-								progressIds={progressIds}
 								selected={inboxSel || inboxItems[0]?.id || ""}
 								setSelected={setInboxSel}
 								focusIdx={inboxFocus}
