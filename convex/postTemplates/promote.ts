@@ -9,7 +9,6 @@ import { defaultBrandInput } from "../brand/defaults";
 import { mirrorProviderRun } from "../lib/analytics";
 import { requireUser } from "../lib/requireUser";
 import { renderBrandSystemPrompt } from "../generate/brandPrompt";
-import { DRAFT_PROMPT_VERSION } from "../generate/prompts";
 
 const PROMOTE_TEMPLATE_PROMPT_VERSION = "2026-04-30-a";
 
@@ -114,7 +113,7 @@ Return a compact template name and structure notes future generations can follow
 					outputTokens: result.outputTokens,
 					cost: result.cost,
 					brandVersion: brand.version,
-					promptVersion: DRAFT_PROMPT_VERSION,
+					promptVersion: PROMOTE_TEMPLATE_PROMPT_VERSION,
 				},
 				Date.now() - startedAt,
 				{ draft_id: loaded.draft._id, channel: loaded.draft.channel },

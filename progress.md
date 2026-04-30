@@ -436,3 +436,14 @@ Append-only learning log for commits and deploys. Add new entries only at the en
   - convex/metrics/postizInternal.ts
   - convex/metrics/postizSnapshots.ts
   - progress.md
+## 2026-04-30T17:21:13.246Z
+- Trigger: commit
+- Learning: Promote-template analytics must mirror the same promptVersion stored in providerRuns so PostHog and Convex agree during signoff review.
+- Context: fix(analytics): align promote template metadata
+- Branch: codex/phase-0-3-analytics-templates
+- Actor: Moe Ghashim <mohanadgh@gmail.com>
+- Changed Paths:
+  - convex/postTemplates/promote.ts
+  - package.json
+  - package-lock.json
+  - progress.md
