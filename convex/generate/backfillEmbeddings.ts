@@ -3,6 +3,7 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { internalAction } from "../_generated/server";
+import { mirrorProviderRun } from "../lib/analytics";
 import { embedText, EMBEDDING_MODEL } from "./embeddings";
 
 type BackfillReport = {
@@ -50,18 +51,34 @@ export const run = internalAction({
 		let errors = 0;
 		for (const d of missing) {
 			try {
+				const startedAt = Date.now();
 				const r = await embedText(d.primary, apiKey);
 				await ctx.runMutation(internal.generate.internal.setDraftEmbedding, {
 					id: d._id,
 					embedding: r.embedding,
 				});
-				await ctx.runMutation(internal.generate.internal.recordEmbeddingRun, {
+				const runId = await ctx.runMutation(internal.generate.internal.recordEmbeddingRun, {
 					model: EMBEDDING_MODEL,
 					itemId: d.sourceItemId,
 					inputTokens: r.inputTokens,
 					cost: r.cost,
 					purpose: "backfill-embedding",
 				});
+				await mirrorProviderRun(
+					"system",
+					{
+						runId,
+						provider: "openai-embedding",
+						model: EMBEDDING_MODEL,
+						purpose: "backfill-embedding",
+						itemId: d.sourceItemId,
+						inputTokens: r.inputTokens,
+						outputTokens: 0,
+						cost: r.cost,
+					},
+					Date.now() - startedAt,
+					{ draft_id: d._id, channel: d.channel },
+				);
 				processed += 1;
 			} catch {
 				errors += 1;

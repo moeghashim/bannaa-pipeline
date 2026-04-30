@@ -379,3 +379,71 @@ Append-only learning log for commits and deploys. Add new entries only at the en
   - apps/web/app/_components/views/designMdImport.tsx
   - convex/brand/validators.ts
   - convex/schema.ts
+## 2026-04-30T14:50:31.936Z
+- Trigger: commit
+- Learning: PostHog analytics now closes the loop from provider outcomes to X metrics and reusable post templates; X metrics need a public-only retry when non-public metric fields return authorization errors in a 200 response.
+- Context: feat(analytics): close performance template loop Repro-Prompt: Implement and verify PostHog analytics phases, X post metrics, and post templates through Phase 3.
+- Branch: codex/phase-0-3-analytics-templates
+- Actor: Moe Ghashim <mohanadgh@gmail.com>
+- Changed Paths:
+  - README.md
+  - apps/web/app/_components
+  - apps/web/app/_lib
+  - apps/web/next.config.ts
+  - apps/web/package.json
+  - apps/web/proxy.ts
+  - apps/web/providers.tsx
+  - convex
+  - package.json
+  - package-lock.json
+  - scripts/verify-posthog-events.mjs
+## 2026-04-30T15:25:04.922Z
+- Trigger: commit
+- Learning: Postiz public analytics is integration-level, so non-X channel metrics should be stored separately from per-draft postMetrics and mirrored with attribution=integration_level.
+- Context: feat(metrics): add Postiz integration snapshots
+- Branch: codex/phase-0-3-analytics-templates
+- Actor: Moe Ghashim <mohanadgh@gmail.com>
+- Changed Paths:
+  - README.md
+  - convex/_generated/api.d.ts
+  - convex/analytics/events.ts
+  - convex/crons.ts
+  - convex/lib/analytics.ts
+  - convex/schema.ts
+  - convex/metrics/postiz.ts
+  - convex/metrics/postizInternal.ts
+  - convex/metrics/postizPoll.ts
+  - progress.md
+## 2026-04-30T16:56:12.916Z
+- Trigger: commit
+- Learning: Postiz integration snapshots are useful as weak channel-level generation context, but prompts must explicitly prevent treating them as per-draft performance or causality.
+- Context: feat(metrics): add channel health loop
+- Branch: codex/phase-0-3-analytics-templates
+- Actor: Moe Ghashim <mohanadgh@gmail.com>
+- Changed Paths:
+  - apps/web/app/_components/app.tsx
+  - apps/web/app/_components/icons.tsx
+  - apps/web/app/_components/palette.tsx
+  - apps/web/app/_components/sidebar.tsx
+  - apps/web/app/_components/types.ts
+  - apps/web/app/_components/views/metrics.tsx
+  - convex/_generated/api.d.ts
+  - convex/generate/carousel.ts
+  - convex/generate/carouselPrompts.ts
+  - convex/generate/channelHealth.ts
+  - convex/generate/draft.ts
+  - convex/generate/prompts.ts
+  - convex/metrics/postizInternal.ts
+  - convex/metrics/postizSnapshots.ts
+  - progress.md
+## 2026-04-30T17:21:13.246Z
+- Trigger: commit
+- Learning: Promote-template analytics must mirror the same promptVersion stored in providerRuns so PostHog and Convex agree during signoff review.
+- Context: fix(analytics): align promote template metadata
+- Branch: codex/phase-0-3-analytics-templates
+- Actor: Moe Ghashim <mohanadgh@gmail.com>
+- Changed Paths:
+  - convex/postTemplates/promote.ts
+  - package.json
+  - package-lock.json
+  - progress.md

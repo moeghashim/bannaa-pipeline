@@ -6,8 +6,10 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { action } from "../_generated/server";
 import { callProvider, defaultProvider, type ProviderId } from "../analyze/providers";
 import { defaultBrandInput } from "../brand/defaults";
+import { mirrorProviderRun } from "../lib/analytics";
 import { requireUser } from "../lib/requireUser";
 import { renderBrandSystemPrompt } from "./brandPrompt";
+import { postizProviderForChannel, renderChannelHealthHint } from "./channelHealth";
 import {
 	buildCarouselPrompt,
 	buildCarouselSystemPrompt,
@@ -51,6 +53,7 @@ export const fromAnalysis = action({
 	args: {
 		analysisId: v.id("analyses"),
 		slideCount: v.optional(v.number()),
+		postTemplateId: v.optional(v.id("postTemplates")),
 	},
 	returns: v.union(
 		v.object({
@@ -89,16 +92,32 @@ export const fromAnalysis = action({
 		});
 		if (!analysis) return { ok: false, error: "Analysis not found" };
 
+		const postTemplate = args.postTemplateId
+			? await ctx.runQuery(internal.postTemplates.internal.load, { id: args.postTemplateId })
+			: null;
+		if (args.postTemplateId && !postTemplate) return { ok: false, error: "Template not found" };
+		if (postTemplate && postTemplate.channel !== "ig") {
+			return { ok: false, error: `Template is for ${postTemplate.channel}, not ig` };
+		}
+		const channelHealthSnapshot = await ctx.runQuery(internal.metrics.postizSnapshots.latestForProviderInternal, {
+			provider: postizProviderForChannel("ig"),
+		});
+
 		const userPrompt = buildCarouselPrompt({
 			slideCount,
 			analysisSummary: analysis.summary,
 			analysisConcepts: analysis.concepts,
 			keyPoints: analysis.keyPoints,
 			track: analysis.track,
+			postTemplate: postTemplate
+				? { name: postTemplate.name, structureNotes: postTemplate.structureNotes }
+				: undefined,
+			channelHealth: renderChannelHealthHint(channelHealthSnapshot),
 			lang,
 		});
 
 		try {
+			const startedAt = Date.now();
 			const result = await callProvider<CarouselToolOutput>({
 				provider,
 				systemPrompt: `${renderBrandSystemPrompt(brand, "ig")}\n\n${buildCarouselSystemPrompt(lang)}`,
@@ -117,7 +136,7 @@ export const fromAnalysis = action({
 
 			const slides = sanitizeSlides(out.slides, slideCount);
 
-			const draftId: Id<"drafts"> = await ctx.runMutation(
+			const inserted = await ctx.runMutation(
 				internal.generate.carouselInternal.insertCarouselDraft,
 				{
 					channelPrimary: out.channelPrimary,
@@ -128,6 +147,7 @@ export const fromAnalysis = action({
 					concepts: out.concepts ?? analysis.concepts.slice(0, 3),
 					capturedBy: userId,
 					styleAnchor: out.styleAnchor,
+					postTemplateId: args.postTemplateId,
 					provider: result.provider,
 					model: result.model,
 					inputTokens: result.inputTokens,
@@ -138,6 +158,46 @@ export const fromAnalysis = action({
 					promptVersion: CAROUSEL_PROMPT_VERSION,
 				},
 			);
+			const draftId: Id<"drafts"> = inserted.draftId;
+			await mirrorProviderRun(
+				userId,
+				{
+					runId: inserted.runId,
+					provider: result.provider,
+					model: result.model,
+					purpose: "generate-carousel",
+					itemId: analysis.itemId,
+					inputTokens: result.inputTokens,
+					outputTokens: result.outputTokens,
+					cost: result.cost,
+					brandVersion: brand.version,
+					promptVersion: CAROUSEL_PROMPT_VERSION,
+				},
+				Date.now() - startedAt,
+				{
+					draft_id: draftId,
+					channel: "ig",
+					slide_count: slides.length,
+					primary_lang: lang,
+					template_id: args.postTemplateId ?? null,
+				},
+			);
+			if (args.postTemplateId) {
+				await ctx.runMutation(internal.postTemplates.internal.incrementUsage, {
+					id: args.postTemplateId,
+				});
+				await ctx.scheduler.runAfter(0, internal.analytics.events.captureEvent, {
+					distinctId: userId,
+					event: "template.used",
+					properties: {
+						template_id: args.postTemplateId,
+						draft_id: draftId,
+						channel: "ig",
+						provider: result.provider,
+						model: result.model,
+					},
+				});
+			}
 
 			return {
 				ok: true,
@@ -149,7 +209,7 @@ export const fromAnalysis = action({
 			};
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : String(err);
-			await ctx.runMutation(internal.generate.carouselInternal.recordFailedCarouselRun, {
+			const runId = await ctx.runMutation(internal.generate.carouselInternal.recordFailedCarouselRun, {
 				provider,
 				model: "",
 				error: msg,
@@ -157,6 +217,24 @@ export const fromAnalysis = action({
 				brandVersion: brand.version,
 				promptVersion: CAROUSEL_PROMPT_VERSION,
 			});
+			await mirrorProviderRun(
+				userId,
+				{
+					runId,
+					provider,
+					model: "",
+					purpose: "generate-carousel",
+					itemId: analysis.itemId,
+					inputTokens: 0,
+					outputTokens: 0,
+					cost: 0,
+					error: msg,
+					brandVersion: brand.version,
+					promptVersion: CAROUSEL_PROMPT_VERSION,
+				},
+				0,
+				{ channel: "ig", slide_count: slideCount, template_id: args.postTemplateId ?? null },
+			);
 			return { ok: false, error: msg };
 		}
 	},

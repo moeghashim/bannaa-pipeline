@@ -4,6 +4,7 @@ import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Doc } from "../_generated/dataModel";
 import { action } from "../_generated/server";
+import { mirrorProviderRun } from "../lib/analytics";
 import { requireUser } from "../lib/requireUser";
 import { ANALYZE_PROMPT_VERSION, buildUserPrompt } from "./prompts";
 import {
@@ -30,7 +31,7 @@ export const run = action({
 		provider: v.optional(providerValidator),
 	},
 	handler: async (ctx, args): Promise<RunResult> => {
-		await requireUser(ctx);
+		const userId = await requireUser(ctx);
 
 		const env = {
 			ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
@@ -66,10 +67,11 @@ export const run = action({
 		});
 
 		try {
+			const startedAt = Date.now();
 			const result = await callProvider({ provider, userPrompt, env });
 			validateOutput(result.output);
 
-			await ctx.runMutation(internal.analyze.internal.recordSuccess, {
+			const runId = await ctx.runMutation(internal.analyze.internal.recordSuccess, {
 				itemId: args.id,
 				provider: result.provider,
 				model: result.model,
@@ -84,11 +86,27 @@ export const run = action({
 				cost: result.cost,
 				promptVersion: ANALYZE_PROMPT_VERSION,
 			});
+			await mirrorProviderRun(
+				userId,
+				{
+					runId,
+					provider: result.provider,
+					model: result.model,
+					purpose: "analyze",
+					itemId: args.id,
+					inputTokens: result.inputTokens,
+					outputTokens: result.outputTokens,
+					cost: result.cost,
+					brandVersion: undefined,
+					promptVersion: ANALYZE_PROMPT_VERSION,
+				},
+				Date.now() - startedAt,
+			);
 
 			return { ok: true as const, provider: result.provider, model: result.model, cost: result.cost };
 		} catch (err) {
 			const message = err instanceof Error ? err.message : String(err);
-			await ctx.runMutation(internal.analyze.internal.recordAudit, {
+			const runId = await ctx.runMutation(internal.analyze.internal.recordAudit, {
 				itemId: args.id,
 				provider,
 				model,
@@ -98,6 +116,23 @@ export const run = action({
 				error: message,
 				promptVersion: ANALYZE_PROMPT_VERSION,
 			});
+			await mirrorProviderRun(
+				userId,
+				{
+					runId,
+					provider,
+					model,
+					purpose: "analyze",
+					itemId: args.id,
+					inputTokens: 0,
+					outputTokens: 0,
+					cost: 0,
+					error: message,
+					brandVersion: undefined,
+					promptVersion: ANALYZE_PROMPT_VERSION,
+				},
+				0,
+			);
 			await ctx.runMutation(internal.analyze.internal.recordFailure, {
 				id: args.id,
 				error: message,

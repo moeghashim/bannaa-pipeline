@@ -75,6 +75,16 @@ export const handleWebhook = httpAction(async (ctx, request) => {
 			postizPostId,
 			error: error ?? "Postiz reported failure with no error field",
 		});
+		if (patched) {
+			await ctx.runAction(internal.analytics.events.captureEvent, {
+				distinctId: "postiz-webhook",
+				event: "publish.failed",
+				properties: {
+					postiz_post_id: postizPostId,
+					error: error ?? "Postiz reported failure with no error field",
+				},
+			});
+		}
 	}
 	// Unknown / intermediate statuses are acked with 200 but not persisted
 	// — we only model the three terminal-ish states today.

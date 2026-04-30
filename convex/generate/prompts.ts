@@ -5,6 +5,15 @@ export type Channel = "x" | "ig" | "ig-reel" | "tiktok" | "yt-shorts" | "fb-page
 
 export type Angle = "explainer" | "news" | "hot_take" | "use_case" | "debunk" | "tutorial";
 
+export type PostTemplateReference = {
+	name: string;
+	structureNotes: string;
+};
+
+export type ChannelHealthHint = {
+	summary: string;
+};
+
 export const ANGLES: readonly Angle[] = [
 	"explainer",
 	"news",
@@ -36,7 +45,7 @@ export const ANGLE_GUIDANCE: Record<Angle, string> = {
 	tutorial: "Give a short step-by-step. Numbered steps or imperative sentences.",
 };
 
-export const DRAFT_PROMPT_VERSION = "2026-04-28-a";
+export const DRAFT_PROMPT_VERSION = "2026-04-30-b";
 export const TRANSLATE_PROMPT_VERSION = "2026-04-28-a";
 
 const DIALECT_HINT: Partial<Record<OutputLanguage, string>> = {
@@ -63,6 +72,21 @@ Hard rules:
 6. Reuse concept names from the provided analysis; do not invent new ones (concept tags stay in English regardless of primary language — they're internal taxonomy).
 7. Pick the editorial angle that best fits the analysis. The angle drives tone and structure — see the user prompt for the menu.
 8. If the source analysis is outside AI education scope, still draft — the operator will reject manually.`;
+}
+
+export function renderPostTemplateReference(template: PostTemplateReference | null | undefined): string {
+	if (!template) return "";
+	return `<reference_post_template>
+Name: ${template.name}
+
+Reusable structure notes:
+${template.structureNotes}
+
+Instructions:
+- Follow the structure, pacing, hook mechanics, and CTA shape.
+- Do not copy prior wording or preserve topic-specific facts.
+- The current analysis and active brand remain the source of truth.
+</reference_post_template>`;
 }
 
 // Kept so any remaining direct importers compile; new code should call
@@ -214,6 +238,8 @@ export function buildDraftPrompt(input: {
 	outputKind: string;
 	track: string;
 	hookTemplate?: string;
+	postTemplate?: PostTemplateReference;
+	channelHealth?: ChannelHealthHint;
 	angleOverride?: Angle;
 	lang?: OutputLanguage;
 }): string {
@@ -221,6 +247,10 @@ export function buildDraftPrompt(input: {
 	const angleMenu = ANGLES.map((a) => `- ${a}: ${ANGLE_GUIDANCE[a]}`).join("\n");
 	const hookHint = input.hookTemplate
 		? `\nOPENER HINT (spirit, not verbatim — adapt to the topic):\n  «${input.hookTemplate}»\n`
+		: "";
+	const postTemplateBlock = input.postTemplate ? `\n${renderPostTemplateReference(input.postTemplate)}\n` : "";
+	const channelHealthBlock = input.channelHealth
+		? `\nCHANNEL HEALTH CONTEXT (weak signal, not per-post proof):\n${input.channelHealth.summary}\n\nUse this only as broad channel context for pacing, format, or emphasis. Do not claim that any individual draft performed because of these metrics. Do not rank, copy, or optimize for these metrics mechanically.\n`
 		: "";
 	const angleSection = input.angleOverride
 		? `\nMANDATORY ANGLE: this draft is part of a batch. You MUST set \`angle\` to "${input.angleOverride}".\nGuidance: ${ANGLE_GUIDANCE[input.angleOverride]}\n`
@@ -241,7 +271,7 @@ Concepts from the analysis (reuse only these): ${input.analysisConcepts.join(", 
 
 Suggested hook (from the analysis, you can depart from this but preserve the intent):
 "${input.outputHook}" (output kind: ${input.outputKind})
-${hookHint}${angleSection}
+${hookHint}${postTemplateBlock}${channelHealthBlock}${angleSection}
 Produce ${langName} copy fit for ${brief.label} that:
 - Follows the active brand voice
 - Honors the length budget strictly

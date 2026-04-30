@@ -1,7 +1,8 @@
 import type { ToolSpec } from "../analyze/providers";
+import { renderPostTemplateReference, type ChannelHealthHint, type PostTemplateReference } from "./prompts";
 import { LANG_NAMES, type OutputLanguage } from "./languages";
 
-export const CAROUSEL_PROMPT_VERSION = "2026-04-28-a";
+export const CAROUSEL_PROMPT_VERSION = "2026-04-30-b";
 
 const DIALECT_HINT: Partial<Record<OutputLanguage, string>> = {
 	"ar-msa": "Use Modern Standard Arabic (Fusha). Formal register, no dialect markers.",
@@ -146,6 +147,8 @@ export function buildCarouselPrompt(input: {
 	analysisConcepts: string[];
 	keyPoints: string[];
 	track: string;
+	postTemplate?: PostTemplateReference;
+	channelHealth?: ChannelHealthHint;
 	lang?: OutputLanguage;
 }): string {
 	const plan = slideRolePlan(input.slideCount);
@@ -153,6 +156,10 @@ export function buildCarouselPrompt(input: {
 		.map((role, i) => `- Slide ${i + 1} → role: ${role} — ${SLIDE_ROLE_GUIDANCE[role]}`)
 		.join("\n");
 	const langName = LANG_NAMES[input.lang ?? "en"];
+	const postTemplateBlock = input.postTemplate ? `\n${renderPostTemplateReference(input.postTemplate)}\n` : "";
+	const channelHealthBlock = input.channelHealth
+		? `\nCHANNEL HEALTH CONTEXT (weak signal, not per-post proof):\n${input.channelHealth.summary}\n\nUse this only as broad Instagram account context for pacing, slide emphasis, or caption framing. Do not claim that any individual carousel performed because of these metrics. Do not rank, copy, or optimize for these metrics mechanically.\n`
+		: "";
 	return `Target: Instagram feed carousel with exactly ${input.slideCount} slides.
 Output language for slide.primary and channelPrimary: ${langName}
 
@@ -168,6 +175,7 @@ Concepts from the analysis (reuse only these): ${input.analysisConcepts.join(", 
 
 SLIDE PLAN (assign these exact roles by orderIndex):
 ${planLines}
+${postTemplateBlock}${channelHealthBlock}
 
 Produce a coherent IG feed carousel with ${input.slideCount} slides:
 - Each slide must match the role assigned in the plan above. Set \`role\` accordingly.

@@ -5,6 +5,7 @@ import type { Doc, Id } from "@convex/_generated/dataModel";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { useMemo, useRef, useState } from "react";
 import { useMountEffect } from "../../lib/use-mount-effect";
+import { captureClientEvent, identifyClientUser, resetClientUser } from "../_lib/posthog";
 import { HintBar, TopChrome } from "./chrome";
 import { NEWSLETTER } from "./data";
 import { Palette } from "./palette";
@@ -15,9 +16,11 @@ import { AnalysesView } from "./views/analyses";
 import { BrandView } from "./views/brand";
 import { DraftsView } from "./views/drafts";
 import { InboxView } from "./views/inbox";
+import { MetricsView } from "./views/metrics";
 import { NewsletterView } from "./views/newsletter";
 import { ReelsView } from "./views/reels";
 import { SettingsView } from "./views/settings";
+import { TemplatesView } from "./views/templates";
 import { WebsiteView } from "./views/website";
 
 type Hint = { keys: string[]; label: string };
@@ -42,6 +45,14 @@ const HINTS_BY_VIEW: Record<ViewKey, Hint[]> = {
 		{ keys: ["E"], label: "edit" },
 		{ keys: ["A"], label: "approve" },
 		{ keys: ["R"], label: "reject" },
+		{ keys: ["⌘", "K"], label: "palette" },
+	],
+	templates: [
+		{ keys: ["G", "T"], label: "templates" },
+		{ keys: ["⌘", "K"], label: "palette" },
+	],
+	metrics: [
+		{ keys: ["G", "M"], label: "metrics" },
 		{ keys: ["⌘", "K"], label: "palette" },
 	],
 	reels: [
@@ -70,10 +81,18 @@ const HINTS_BY_VIEW: Record<ViewKey, Hint[]> = {
 
 const VIEW_STORAGE_KEY = "bp.view";
 
+type CurrentUser = {
+	_id: string;
+	email?: string | null;
+	name?: string | null;
+};
+
 const isViewKey = (v: string): v is ViewKey =>
 	v === "inbox" ||
 	v === "analyses" ||
 	v === "drafts" ||
+	v === "templates" ||
+	v === "metrics" ||
 	v === "reels" ||
 	v === "newsletter" ||
 	v === "website" ||
@@ -119,6 +138,35 @@ function toLocalAnalysis(doc: Doc<"analyses">): Analysis {
 	};
 }
 
+function PostHogIdentityBridge({ user }: { user: CurrentUser | null | undefined }) {
+	const userRef = useRef(user);
+	const lastUserIdRef = useRef<string | null | undefined>(undefined);
+	userRef.current = user;
+
+	useMountEffect(() => {
+		const syncIdentity = () => {
+			const current = userRef.current;
+			if (current === undefined) return;
+
+			const nextUserId = current?._id ?? null;
+			if (lastUserIdRef.current === nextUserId) return;
+
+			if (current) {
+				identifyClientUser({ id: current._id, email: current.email, name: current.name });
+			} else {
+				resetClientUser();
+			}
+			lastUserIdRef.current = nextUserId;
+		};
+
+		syncIdentity();
+		const interval = window.setInterval(syncIdentity, 500);
+		return () => window.clearInterval(interval);
+	});
+
+	return null;
+}
+
 export function Shell() {
 	const [view, setView] = useState<ViewKey>("inbox");
 	const [paletteOpen, setPaletteOpen] = useState(false);
@@ -159,6 +207,7 @@ export function Shell() {
 	stateRef.current = { view, paletteOpen, inboxItems, inboxFilter, inboxSource, inboxFocus };
 
 	const navigate = (v: ViewKey) => {
+		if (view !== v) captureClientEvent("view_changed", { from: view, to: v });
 		setView(v);
 		try {
 			window.localStorage.setItem(VIEW_STORAGE_KEY, v);
@@ -186,7 +235,11 @@ export function Shell() {
 
 			if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
 				e.preventDefault();
-				setPaletteOpen((p) => !p);
+				setPaletteOpen((p) => {
+					const next = !p;
+					if (next) captureClientEvent("palette_opened", { trigger: "shortcut" });
+					return next;
+				});
 				return;
 			}
 			if (e.key === "Escape" && s.paletteOpen) {
@@ -200,6 +253,8 @@ export function Shell() {
 					i: "inbox",
 					a: "analyses",
 					d: "drafts",
+					t: "templates",
+					m: "metrics",
 					r: "reels",
 					n: "newsletter",
 					w: "website",
@@ -304,6 +359,7 @@ export function Shell() {
 
 	return (
 		<>
+			<PostHogIdentityBridge user={me} />
 			<div className="app">
 				<Sidebar active={view} onNav={navigate} counts={counts} identity={identity} />
 				<div className="main">
@@ -312,7 +368,10 @@ export function Shell() {
 						subtitle={chrome.subtitle}
 						filters={chrome.filters}
 						actions={chrome.actions}
-						onOpenPalette={() => setPaletteOpen(true)}
+						onOpenPalette={() => {
+							captureClientEvent("palette_opened", { trigger: "click" });
+							setPaletteOpen(true);
+						}}
 					/>
 					<div className="view">
 						{view === "inbox" && (
@@ -344,6 +403,8 @@ export function Shell() {
 							/>
 						)}
 						{view === "drafts" && <DraftsView channel={draftsChannel} setChannel={setDraftsChannel} />}
+						{view === "templates" && <TemplatesView />}
+						{view === "metrics" && <MetricsView />}
 						{view === "reels" && <ReelsView />}
 						{view === "newsletter" && <NewsletterView />}
 						{view === "website" && <WebsiteView selected={wsSel} setSelected={setWsSel} />}
@@ -411,6 +472,8 @@ function resolveChrome(
 	}
 	if (view === "analyses") return { title: "Analyses", subtitle: "structured extraction · source ↔ output" };
 	if (view === "drafts") return { title: "Drafts", subtitle: "across 7 channels · review gate" };
+	if (view === "templates") return { title: "Templates", subtitle: "winning structures · reuse loop" };
+	if (view === "metrics") return { title: "Metrics", subtitle: "channel health · platform trends" };
 	if (view === "reels") return { title: "Reel Ideas", subtitle: "ideation feed · short pitch cards" };
 	if (view === "newsletter")
 		return { title: "Newsletter", subtitle: `issue #${NEWSLETTER.issue} · resend · sun 09:00 AST` };

@@ -140,6 +140,35 @@ export const recordEmbeddingRun = internalMutation({
 	},
 });
 
+export const recordProviderRun = internalMutation({
+	args: {
+		provider: providerValidator,
+		model: v.string(),
+		purpose: v.string(),
+		itemId: v.optional(v.id("inboxItems")),
+		inputTokens: v.number(),
+		outputTokens: v.number(),
+		cost: v.number(),
+		brandVersion: v.optional(v.number()),
+		promptVersion: v.optional(v.string()),
+	},
+	returns: v.id("providerRuns"),
+	handler: async (ctx, args): Promise<Id<"providerRuns">> => {
+		return await ctx.db.insert("providerRuns", {
+			provider: args.provider,
+			model: args.model,
+			purpose: args.purpose,
+			itemId: args.itemId,
+			inputTokens: args.inputTokens,
+			outputTokens: args.outputTokens,
+			cost: args.cost,
+			runAt: Date.now(),
+			brandVersion: args.brandVersion,
+			promptVersion: args.promptVersion,
+		});
+	},
+});
+
 export const listRecentDraftsForDedup = internalQuery({
 	args: { channel: channelValidator, limit: v.number() },
 	handler: async (ctx, { channel, limit }): Promise<DedupCandidate[]> => {
@@ -178,6 +207,7 @@ export const insertDraft = internalMutation({
 		embedding: v.optional(v.array(v.float64())),
 		dedupSimilarity: v.optional(v.number()),
 		dedupPriorDraftId: v.optional(v.id("drafts")),
+		postTemplateId: v.optional(v.id("postTemplates")),
 		capturedBy: v.id("users"),
 		provider: providerValidator,
 		model: v.string(),
@@ -187,8 +217,8 @@ export const insertDraft = internalMutation({
 		brandVersion: v.optional(v.number()),
 		promptVersion: v.optional(v.string()),
 	},
-	returns: v.id("drafts"),
-	handler: async (ctx, args): Promise<Id<"drafts">> => {
+	returns: v.object({ draftId: v.id("drafts"), runId: v.id("providerRuns") }),
+	handler: async (ctx, args): Promise<{ draftId: Id<"drafts">; runId: Id<"providerRuns"> }> => {
 		const runId = await ctx.db.insert("providerRuns", {
 			provider: args.provider,
 			model: args.model,
@@ -202,7 +232,7 @@ export const insertDraft = internalMutation({
 			promptVersion: args.promptVersion,
 		});
 
-		return await ctx.db.insert("drafts", {
+		const draftId = await ctx.db.insert("drafts", {
 			channel: args.channel,
 			primary: args.primary,
 			primaryLang: args.primaryLang,
@@ -216,10 +246,12 @@ export const insertDraft = internalMutation({
 			embedding: args.embedding,
 			dedupSimilarity: args.dedupSimilarity,
 			dedupPriorDraftId: args.dedupPriorDraftId,
+			postTemplateId: args.postTemplateId,
 			capturedBy: args.capturedBy,
 			createdAt: Date.now(),
 			genRunId: runId,
 		});
+		return { draftId, runId };
 	},
 });
 

@@ -23,6 +23,7 @@ import {
 	type LegacyOutputLanguage,
 	transitionalOutputLanguageValidator,
 } from "../generate/languages";
+import { capture } from "../lib/analytics";
 import { requireUser } from "../lib/requireUser";
 import { resolvePublishTarget } from "./channelMatrix";
 import { schedulePost, uploadMedia } from "./postiz";
@@ -46,26 +47,35 @@ export const scheduleDraft = action({
 		v.object({ ok: v.literal(false), error: v.string() }),
 	),
 	handler: async (ctx, { draftId, scheduledAt, selection, publishLang, integrationId }): Promise<ScheduleResult> => {
-		await requireUser(ctx);
+		const userId = await requireUser(ctx);
+		const fail = async (error: string, channel?: string): Promise<ScheduleResult> => {
+			await capture(userId, "publish.failed", {
+				draft_id: draftId,
+				channel: channel ?? null,
+				error,
+				scheduled_at: scheduledAt,
+				selection,
+				publish_lang: publishLang,
+				integration_id: integrationId,
+			});
+			return { ok: false, error };
+		};
 
 		const draft: Doc<"drafts"> | null = await ctx.runQuery(
 			internal.publish.internal.loadDraftForPublish,
 			{ draftId },
 		);
-		if (!draft) return { ok: false, error: "Draft not found" };
+		if (!draft) return await fail("Draft not found");
 		if (draft.state !== "approved") {
-			return { ok: false, error: `Draft must be approved before scheduling (state=${draft.state})` };
+			return await fail(`Draft must be approved before scheduling (state=${draft.state})`, draft.channel);
 		}
 		if (draft.postizStatus && draft.postizStatus !== "failed") {
-			return {
-				ok: false,
-				error: `Draft is already ${draft.postizStatus} — cancel before rescheduling`,
-			};
+			return await fail(`Draft is already ${draft.postizStatus} — cancel before rescheduling`, draft.channel);
 		}
 
 		const mediaKind = draft.mediaKind ?? "text";
 		const target = resolvePublishTarget(draft.channel, mediaKind);
-		if (!target.ok) return { ok: false, error: target.reason };
+		if (!target.ok) return await fail(target.reason, draft.channel);
 
 		// Text-only drafts (X / FB Page / LinkedIn Page can publish copy
 		// without media) skip the asset pipeline entirely. For everything
@@ -80,7 +90,7 @@ export const scheduleDraft = action({
 				{ draftId },
 			);
 			if (assets.length === 0) {
-				return { ok: false, error: "No ready media — generate images first" };
+				return await fail("No ready media — generate images first", draft.channel);
 			}
 			const byIndex = new Map<number, Doc<"mediaAssets">[]>();
 			for (const a of assets) {
@@ -98,10 +108,10 @@ export const scheduleDraft = action({
 				if (pick) slots.push(pick);
 			}
 			if (slots.length === 0) {
-				return {
-					ok: false,
-					error: `No ${selection} assets ready for this draft — switch selection or generate first`,
-				};
+				return await fail(
+					`No ${selection} assets ready for this draft — switch selection or generate first`,
+					draft.channel,
+				);
 			}
 
 			// Upload each slot sequentially. Postiz's /upload handles one file
@@ -109,11 +119,11 @@ export const scheduleDraft = action({
 			// and Postiz has modest rate limits on their public API.
 			for (const [i, asset] of slots.entries()) {
 				if (!asset.storageId) {
-					return { ok: false, error: `Slot ${i + 1} has no storage blob` };
+					return await fail(`Slot ${i + 1} has no storage blob`, draft.channel);
 				}
 				const blob = await ctx.storage.get(asset.storageId);
 				if (!blob) {
-					return { ok: false, error: `Slot ${i + 1} storage blob missing` };
+					return await fail(`Slot ${i + 1} storage blob missing`, draft.channel);
 				}
 				const bytes = new Uint8Array(await blob.arrayBuffer());
 				const r = await uploadMedia({
@@ -122,7 +132,7 @@ export const scheduleDraft = action({
 					filename: `${draftId}-${selection}-${i + 1}.png`,
 				});
 				if (!r.ok) {
-					return { ok: false, error: `Upload slot ${i + 1}: ${r.error}` };
+					return await fail(`Upload slot ${i + 1}: ${r.error}`, draft.channel);
 				}
 				uploaded.push({ id: r.id, path: r.path });
 			}
@@ -135,7 +145,7 @@ export const scheduleDraft = action({
 			scheduledAt,
 			settings: target.settings,
 		});
-		if (!posted.ok) return { ok: false, error: posted.error };
+		if (!posted.ok) return await fail(posted.error, draft.channel);
 
 		await ctx.runMutation(internal.publish.internal.markScheduled, {
 			draftId,
@@ -144,6 +154,17 @@ export const scheduleDraft = action({
 			publishLang,
 			publishIntegrationId: integrationId,
 			postizPostId: posted.postId,
+		});
+		await capture(userId, "publish.scheduled", {
+			draft_id: draftId,
+			channel: draft.channel,
+			postiz_post_id: posted.postId,
+			scheduled_at: scheduledAt,
+			selection,
+			publish_lang: publishLang,
+			integration_id: integrationId,
+			media_kind: mediaKind,
+			asset_count: uploaded.length,
 		});
 
 		return { ok: true, postizPostId: posted.postId, scheduledAt };

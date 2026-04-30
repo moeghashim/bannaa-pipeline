@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery } from "../_generated/server";
 
@@ -161,7 +162,7 @@ export const recordRegenerationFeedback = internalMutation({
 	handler: async (ctx, args): Promise<Id<"feedback">> => {
 		const run = await ctx.db.get(args.runId);
 		if (!run) throw new Error("Provider run not found");
-		return await ctx.db.insert("feedback", {
+		const feedbackId = await ctx.db.insert("feedback", {
 			targetKind: args.targetKind,
 			targetId: args.targetId,
 			draftId: args.draftId,
@@ -177,6 +178,25 @@ export const recordRegenerationFeedback = internalMutation({
 			runId: args.runId,
 			priorRunId: args.priorRunId,
 		});
+		await ctx.scheduler.runAfter(0, internal.analytics.events.captureEvent, {
+			distinctId: args.authorId,
+			event: "feedback.submitted",
+			properties: {
+				feedback_id: feedbackId,
+				draft_id: args.draftId,
+				target_kind: args.targetKind,
+				target_id: args.targetId,
+				rating: "neutral",
+				tag_count: args.tags.length,
+				run_id: args.runId,
+				prior_run_id: args.priorRunId,
+				provider: run.provider,
+				model: run.model,
+				brand_version: run.brandVersion ?? null,
+				prompt_version: run.promptVersion ?? null,
+			},
+		});
+		return feedbackId;
 	},
 });
 

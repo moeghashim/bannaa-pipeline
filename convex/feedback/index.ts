@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { mutation, type MutationCtx, query } from "../_generated/server";
 import { requireUser } from "../lib/requireUser";
@@ -114,13 +115,50 @@ export const rate = mutation({
 		};
 		if (mine) {
 			await ctx.db.patch(mine._id, patch);
+			await ctx.scheduler.runAfter(0, internal.analytics.events.captureEvent, {
+				distinctId: authorId,
+				event: "feedback.submitted",
+				properties: {
+					feedback_id: mine._id,
+					draft_id: context.draftId,
+					target_kind: args.targetKind,
+					target_id: args.targetId,
+					rating: args.rating,
+					tag_count: patch.tags.length,
+					run_id: context.run._id,
+					prior_run_id: args.priorRunId ?? null,
+					provider: context.provider,
+					model: context.model,
+					brand_version: context.brandVersion ?? null,
+					prompt_version: context.promptVersion ?? null,
+				},
+			});
 			return mine._id;
 		}
-		return await ctx.db.insert("feedback", {
+		const feedbackId = await ctx.db.insert("feedback", {
 			targetKind: args.targetKind,
 			targetId: args.targetId,
 			...patch,
 		});
+		await ctx.scheduler.runAfter(0, internal.analytics.events.captureEvent, {
+			distinctId: authorId,
+			event: "feedback.submitted",
+			properties: {
+				feedback_id: feedbackId,
+				draft_id: context.draftId,
+				target_kind: args.targetKind,
+				target_id: args.targetId,
+				rating: args.rating,
+				tag_count: patch.tags.length,
+				run_id: context.run._id,
+				prior_run_id: args.priorRunId ?? null,
+				provider: context.provider,
+				model: context.model,
+				brand_version: context.brandVersion ?? null,
+				prompt_version: context.promptVersion ?? null,
+			},
+		});
+		return feedbackId;
 	},
 });
 
