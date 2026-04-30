@@ -35,6 +35,23 @@ export const AnalysesView = ({
 	const analyzable = items.filter((i) => i.state !== "new" && i.state !== "rejected");
 	const sel = analyzable.find((i) => i.id === selected) || analyzable[0];
 	const analysis = sel ? (analyses.find((a) => a.itemId === sel.id) ?? null) : null;
+	const [deleteErrors, setDeleteErrors] = useState<Record<string, string>>({});
+
+	const handleDelete = async (id: string) => {
+		if (!onDelete) return;
+		setDeleteErrors((prev) => {
+			if (!(id in prev)) return prev;
+			const { [id]: _omit, ...rest } = prev;
+			return rest;
+		});
+		try {
+			await onDelete(id);
+		} catch (err) {
+			const raw = err instanceof Error ? err.message : String(err);
+			const cleaned = raw.match(/Uncaught Error:\s*(.+?)(?:\s+at\s|$)/)?.[1]?.trim() ?? raw;
+			setDeleteErrors((prev) => ({ ...prev, [id]: cleaned }));
+		}
+	};
 
 	if (analyzable.length === 0) {
 		return (
@@ -65,6 +82,7 @@ export const AnalysesView = ({
 
 				{analyzable.map((it) => {
 					const a = analyses.find((x) => x.itemId === it.id);
+					const deleteError = deleteErrors[it.id];
 					return (
 						<div
 							key={it.id}
@@ -104,12 +122,54 @@ export const AnalysesView = ({
 									title="Remove this item — cannot be undone, and it will not be re-analyzed"
 									onClick={(e) => {
 										e.stopPropagation();
-										void onDelete(it.id);
+										void handleDelete(it.id);
 									}}
 									style={{ position: "absolute", top: 8, right: 8 }}
 								>
 									<Icons.X size={11} /> remove
 								</button>
+							)}
+							{deleteError && (
+								<div
+									role="alert"
+									style={{
+										marginTop: 8,
+										padding: "6px 8px",
+										fontSize: 11.5,
+										lineHeight: 1.4,
+										color: "var(--st-rejected-fg)",
+										background: "var(--st-rejected-bg)",
+										border: "1px solid var(--st-rejected-fg)",
+										borderRadius: "var(--r-sm)",
+										display: "flex",
+										justifyContent: "space-between",
+										alignItems: "flex-start",
+										gap: 8,
+									}}
+								>
+									<span>{deleteError}</span>
+									<button
+										type="button"
+										aria-label="Dismiss"
+										onClick={(e) => {
+											e.stopPropagation();
+											setDeleteErrors((prev) => {
+												const { [it.id]: _omit, ...rest } = prev;
+												return rest;
+											});
+										}}
+										style={{
+											background: "transparent",
+											border: "none",
+											padding: 0,
+											cursor: "pointer",
+											color: "inherit",
+											display: "inline-flex",
+										}}
+									>
+										<Icons.X size={11} />
+									</button>
+								</div>
 							)}
 						</div>
 					);

@@ -342,11 +342,7 @@ export function Shell() {
 	};
 
 	const onDelete = async (id: string) => {
-		try {
-			await deleteItemMutation({ id: id as Id<"inboxItems"> });
-		} catch (err) {
-			window.alert(err instanceof Error ? err.message : String(err));
-		}
+		await deleteItemMutation({ id: id as Id<"inboxItems"> });
 	};
 
 	const onOpenAnalysis = (id: string) => {
