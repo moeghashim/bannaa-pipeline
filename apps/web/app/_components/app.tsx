@@ -179,6 +179,7 @@ export function Shell() {
 
 	const captureMutation = useMutation(api.inbox.capture.capture);
 	const rejectMutation = useMutation(api.inbox.reject.reject);
+	const deleteItemMutation = useMutation(api.inbox.destroy.deleteItem);
 	const analyzeAction = useAction(api.analyze.run.run);
 
 	const inboxItems = useMemo(() => (inboxDocs ?? []).map(toLocalInboxItem), [inboxDocs]);
@@ -340,6 +341,14 @@ export function Shell() {
 		await rejectMutation({ id: id as Id<"inboxItems"> });
 	};
 
+	const onDelete = async (id: string) => {
+		try {
+			await deleteItemMutation({ id: id as Id<"inboxItems"> });
+		} catch (err) {
+			window.alert(err instanceof Error ? err.message : String(err));
+		}
+	};
+
 	const onOpenAnalysis = (id: string) => {
 		setAnalysisSel(id);
 		navigate("analyses");
@@ -400,6 +409,7 @@ export function Shell() {
 								items={inboxItems}
 								analyses={analyses}
 								onOpenDrafts={onOpenDrafts}
+								onDelete={onDelete}
 							/>
 						)}
 						{view === "drafts" && <DraftsView channel={draftsChannel} setChannel={setDraftsChannel} />}

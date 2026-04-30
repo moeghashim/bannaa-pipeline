@@ -23,12 +23,14 @@ export const AnalysesView = ({
 	items,
 	analyses,
 	onOpenDrafts,
+	onDelete,
 }: {
 	selected: string;
 	setSelected: (id: string) => void;
 	items: InboxItem[];
 	analyses: Analysis[];
 	onOpenDrafts?: (channel: string) => void;
+	onDelete?: (id: string) => void | Promise<void>;
 }) => {
 	const analyzable = items.filter((i) => i.state !== "new" && i.state !== "rejected");
 	const sel = analyzable.find((i) => i.id === selected) || analyzable[0];
@@ -73,6 +75,7 @@ export const AnalysesView = ({
 							}}
 							role="button"
 							tabIndex={0}
+							style={{ position: "relative" }}
 						>
 							<div className="row gap-2" style={{ marginBottom: 6 }}>
 								<SourceBadge source={it.source} compact />
@@ -94,6 +97,20 @@ export const AnalysesView = ({
 									</>
 								)}
 							</div>
+							{onDelete && (
+								<button
+									type="button"
+									className="btn ghost xs"
+									title="Delete analysis (cannot be undone)"
+									onClick={(e) => {
+										e.stopPropagation();
+										void onDelete(it.id);
+									}}
+									style={{ position: "absolute", top: 8, right: 8 }}
+								>
+									<Icons.X size={11} />
+								</button>
+							)}
 						</div>
 					);
 				})}

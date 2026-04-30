@@ -64,6 +64,7 @@ import type * as generate_translate from "../generate/translate.js";
 import type * as generate_translateInternal from "../generate/translateInternal.js";
 import type * as http from "../http.js";
 import type * as inbox_capture from "../inbox/capture.js";
+import type * as inbox_destroy from "../inbox/destroy.js";
 import type * as inbox_fetch from "../inbox/fetch.js";
 import type * as inbox_fetchInternal from "../inbox/fetchInternal.js";
 import type * as inbox_fetchYoutube from "../inbox/fetchYoutube.js";
@@ -168,6 +169,7 @@ declare const fullApi: ApiFromModules<{
   "generate/translateInternal": typeof generate_translateInternal;
   http: typeof http;
   "inbox/capture": typeof inbox_capture;
+  "inbox/destroy": typeof inbox_destroy;
   "inbox/fetch": typeof inbox_fetch;
   "inbox/fetchInternal": typeof inbox_fetchInternal;
   "inbox/fetchYoutube": typeof inbox_fetchYoutube;
