@@ -94,6 +94,7 @@ export type ViewKey =
 	| "analyses"
 	| "drafts"
 	| "templates"
+	| "metrics"
 	| "reels"
 	| "newsletter"
 	| "website"

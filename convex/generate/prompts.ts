@@ -10,6 +10,10 @@ export type PostTemplateReference = {
 	structureNotes: string;
 };
 
+export type ChannelHealthHint = {
+	summary: string;
+};
+
 export const ANGLES: readonly Angle[] = [
 	"explainer",
 	"news",
@@ -41,7 +45,7 @@ export const ANGLE_GUIDANCE: Record<Angle, string> = {
 	tutorial: "Give a short step-by-step. Numbered steps or imperative sentences.",
 };
 
-export const DRAFT_PROMPT_VERSION = "2026-04-30-a";
+export const DRAFT_PROMPT_VERSION = "2026-04-30-b";
 export const TRANSLATE_PROMPT_VERSION = "2026-04-28-a";
 
 const DIALECT_HINT: Partial<Record<OutputLanguage, string>> = {
@@ -235,6 +239,7 @@ export function buildDraftPrompt(input: {
 	track: string;
 	hookTemplate?: string;
 	postTemplate?: PostTemplateReference;
+	channelHealth?: ChannelHealthHint;
 	angleOverride?: Angle;
 	lang?: OutputLanguage;
 }): string {
@@ -244,6 +249,9 @@ export function buildDraftPrompt(input: {
 		? `\nOPENER HINT (spirit, not verbatim — adapt to the topic):\n  «${input.hookTemplate}»\n`
 		: "";
 	const postTemplateBlock = input.postTemplate ? `\n${renderPostTemplateReference(input.postTemplate)}\n` : "";
+	const channelHealthBlock = input.channelHealth
+		? `\nCHANNEL HEALTH CONTEXT (weak signal, not per-post proof):\n${input.channelHealth.summary}\n\nUse this only as broad channel context for pacing, format, or emphasis. Do not claim that any individual draft performed because of these metrics. Do not rank, copy, or optimize for these metrics mechanically.\n`
+		: "";
 	const angleSection = input.angleOverride
 		? `\nMANDATORY ANGLE: this draft is part of a batch. You MUST set \`angle\` to "${input.angleOverride}".\nGuidance: ${ANGLE_GUIDANCE[input.angleOverride]}\n`
 		: `\nEditorial angles — pick the one that best fits the source and report it as \`angle\`:\n${angleMenu}\n`;
@@ -263,7 +271,7 @@ Concepts from the analysis (reuse only these): ${input.analysisConcepts.join(", 
 
 Suggested hook (from the analysis, you can depart from this but preserve the intent):
 "${input.outputHook}" (output kind: ${input.outputKind})
-${hookHint}${postTemplateBlock}${angleSection}
+${hookHint}${postTemplateBlock}${channelHealthBlock}${angleSection}
 Produce ${langName} copy fit for ${brief.label} that:
 - Follows the active brand voice
 - Honors the length budget strictly

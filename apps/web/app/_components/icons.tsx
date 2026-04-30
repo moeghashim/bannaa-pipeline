@@ -159,6 +159,14 @@ export const Icons = {
 			<path d="M11 3l1.8 5.2L18 10l-5.2 1.8L11 17l-1.8-5.2L4 10l5.2-1.8z" />
 		</Icon>
 	),
+	BarChart: (p: P) => (
+		<Icon {...p}>
+			<path d="M5 18V9" />
+			<path d="M11 18V5" />
+			<path d="M17 18v-6" />
+			<path d="M3 18h16" />
+		</Icon>
+	),
 	Language: (p: P) => (
 		<Icon {...p}>
 			<path d="M3 6h9M7 6v9M4 15l3-9 3 9M5 12h4" />

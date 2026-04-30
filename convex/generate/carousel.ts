@@ -9,6 +9,7 @@ import { defaultBrandInput } from "../brand/defaults";
 import { mirrorProviderRun } from "../lib/analytics";
 import { requireUser } from "../lib/requireUser";
 import { renderBrandSystemPrompt } from "./brandPrompt";
+import { postizProviderForChannel, renderChannelHealthHint } from "./channelHealth";
 import {
 	buildCarouselPrompt,
 	buildCarouselSystemPrompt,
@@ -98,6 +99,9 @@ export const fromAnalysis = action({
 		if (postTemplate && postTemplate.channel !== "ig") {
 			return { ok: false, error: `Template is for ${postTemplate.channel}, not ig` };
 		}
+		const channelHealthSnapshot = await ctx.runQuery(internal.metrics.postizSnapshots.latestForProviderInternal, {
+			provider: postizProviderForChannel("ig"),
+		});
 
 		const userPrompt = buildCarouselPrompt({
 			slideCount,
@@ -108,6 +112,7 @@ export const fromAnalysis = action({
 			postTemplate: postTemplate
 				? { name: postTemplate.name, structureNotes: postTemplate.structureNotes }
 				: undefined,
+			channelHealth: renderChannelHealthHint(channelHealthSnapshot),
 			lang,
 		});
 

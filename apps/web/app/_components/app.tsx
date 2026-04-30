@@ -16,6 +16,7 @@ import { AnalysesView } from "./views/analyses";
 import { BrandView } from "./views/brand";
 import { DraftsView } from "./views/drafts";
 import { InboxView } from "./views/inbox";
+import { MetricsView } from "./views/metrics";
 import { NewsletterView } from "./views/newsletter";
 import { ReelsView } from "./views/reels";
 import { SettingsView } from "./views/settings";
@@ -48,6 +49,10 @@ const HINTS_BY_VIEW: Record<ViewKey, Hint[]> = {
 	],
 	templates: [
 		{ keys: ["G", "T"], label: "templates" },
+		{ keys: ["⌘", "K"], label: "palette" },
+	],
+	metrics: [
+		{ keys: ["G", "M"], label: "metrics" },
 		{ keys: ["⌘", "K"], label: "palette" },
 	],
 	reels: [
@@ -87,6 +92,7 @@ const isViewKey = (v: string): v is ViewKey =>
 	v === "analyses" ||
 	v === "drafts" ||
 	v === "templates" ||
+	v === "metrics" ||
 	v === "reels" ||
 	v === "newsletter" ||
 	v === "website" ||
@@ -248,6 +254,7 @@ export function Shell() {
 					a: "analyses",
 					d: "drafts",
 					t: "templates",
+					m: "metrics",
 					r: "reels",
 					n: "newsletter",
 					w: "website",
@@ -397,6 +404,7 @@ export function Shell() {
 						)}
 						{view === "drafts" && <DraftsView channel={draftsChannel} setChannel={setDraftsChannel} />}
 						{view === "templates" && <TemplatesView />}
+						{view === "metrics" && <MetricsView />}
 						{view === "reels" && <ReelsView />}
 						{view === "newsletter" && <NewsletterView />}
 						{view === "website" && <WebsiteView selected={wsSel} setSelected={setWsSel} />}
@@ -465,6 +473,7 @@ function resolveChrome(
 	if (view === "analyses") return { title: "Analyses", subtitle: "structured extraction · source ↔ output" };
 	if (view === "drafts") return { title: "Drafts", subtitle: "across 7 channels · review gate" };
 	if (view === "templates") return { title: "Templates", subtitle: "winning structures · reuse loop" };
+	if (view === "metrics") return { title: "Metrics", subtitle: "channel health · platform trends" };
 	if (view === "reels") return { title: "Reel Ideas", subtitle: "ideation feed · short pitch cards" };
 	if (view === "newsletter")
 		return { title: "Newsletter", subtitle: `issue #${NEWSLETTER.issue} · resend · sun 09:00 AST` };

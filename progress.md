@@ -414,3 +414,25 @@ Append-only learning log for commits and deploys. Add new entries only at the en
   - convex/metrics/postizInternal.ts
   - convex/metrics/postizPoll.ts
   - progress.md
+## 2026-04-30T16:56:12.916Z
+- Trigger: commit
+- Learning: Postiz integration snapshots are useful as weak channel-level generation context, but prompts must explicitly prevent treating them as per-draft performance or causality.
+- Context: feat(metrics): add channel health loop
+- Branch: codex/phase-0-3-analytics-templates
+- Actor: Moe Ghashim <mohanadgh@gmail.com>
+- Changed Paths:
+  - apps/web/app/_components/app.tsx
+  - apps/web/app/_components/icons.tsx
+  - apps/web/app/_components/palette.tsx
+  - apps/web/app/_components/sidebar.tsx
+  - apps/web/app/_components/types.ts
+  - apps/web/app/_components/views/metrics.tsx
+  - convex/_generated/api.d.ts
+  - convex/generate/carousel.ts
+  - convex/generate/carouselPrompts.ts
+  - convex/generate/channelHealth.ts
+  - convex/generate/draft.ts
+  - convex/generate/prompts.ts
+  - convex/metrics/postizInternal.ts
+  - convex/metrics/postizSnapshots.ts
+  - progress.md

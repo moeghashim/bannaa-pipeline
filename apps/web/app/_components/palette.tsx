@@ -17,6 +17,7 @@ const PALETTE_COMMANDS: PaletteCommand[] = [
 	{ key: "go-analyses", label: "Go to Analyses", group: "Navigate", kbd: "G A", nav: "analyses" },
 	{ key: "go-drafts", label: "Go to Drafts", group: "Navigate", kbd: "G D", nav: "drafts" },
 	{ key: "go-templates", label: "Go to Templates", group: "Navigate", kbd: "G T", nav: "templates" },
+	{ key: "go-metrics", label: "Go to Metrics", group: "Navigate", kbd: "G M", nav: "metrics" },
 	{ key: "go-reels", label: "Go to Reel Ideas", group: "Navigate", kbd: "G R", nav: "reels" },
 	{ key: "go-newsletter", label: "Go to Newsletter", group: "Navigate", kbd: "G N", nav: "newsletter" },
 	{ key: "go-website", label: "Go to Website Proposals", group: "Navigate", kbd: "G W", nav: "website" },

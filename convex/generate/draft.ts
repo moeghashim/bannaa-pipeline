@@ -9,6 +9,7 @@ import { defaultBrandInput } from "../brand/defaults";
 import { mirrorProviderRun } from "../lib/analytics";
 import { requireUser } from "../lib/requireUser";
 import { renderBrandSystemPrompt } from "./brandPrompt";
+import { postizProviderForChannel, renderChannelHealthHint } from "./channelHealth";
 import { cosine, DEDUP_RECENT_LIMIT, DEDUP_THRESHOLD, embedText, EMBEDDING_MODEL } from "./embeddings";
 import type { OutputLanguage } from "./languages";
 import {
@@ -99,6 +100,9 @@ export const fromAnalysisOutput = action({
 		const hookTemplate = await ctx.runQuery(internal.generate.hookTemplates.pickForChannel, {
 			channel: args.channel,
 		});
+		const channelHealthSnapshot = await ctx.runQuery(internal.metrics.postizSnapshots.latestForProviderInternal, {
+			provider: postizProviderForChannel(args.channel as Channel),
+		});
 
 		const userPrompt = buildDraftPrompt({
 			channel: args.channel as Channel,
@@ -111,6 +115,7 @@ export const fromAnalysisOutput = action({
 			postTemplate: postTemplate
 				? { name: postTemplate.name, structureNotes: postTemplate.structureNotes }
 				: undefined,
+			channelHealth: renderChannelHealthHint(channelHealthSnapshot),
 			angleOverride: args.angleOverride,
 			lang,
 		});
