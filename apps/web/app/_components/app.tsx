@@ -178,7 +178,6 @@ export function Shell() {
 	const settings = useQuery(api.settings.doc.get, {});
 
 	const captureMutation = useMutation(api.inbox.capture.capture);
-	const rejectMutation = useMutation(api.inbox.reject.reject);
 	const deleteItemMutation = useMutation(api.inbox.destroy.deleteItem);
 	const analyzeAction = useAction(api.analyze.run.run);
 
@@ -337,10 +336,6 @@ export function Shell() {
 		}
 	};
 
-	const onReject = async (id: string) => {
-		await rejectMutation({ id: id as Id<"inboxItems"> });
-	};
-
 	const onDelete = async (id: string) => {
 		await deleteItemMutation({ id: id as Id<"inboxItems"> });
 	};
@@ -390,7 +385,7 @@ export function Shell() {
 								checked={inboxChk}
 								setChecked={setInboxChk}
 								onAnalyze={onAnalyze}
-								onReject={onReject}
+								onReject={onDelete}
 								onOpenAnalysis={onOpenAnalysis}
 								filter={inboxFilter}
 								sourceFilter={inboxSource}

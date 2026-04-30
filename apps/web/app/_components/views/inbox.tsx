@@ -4,7 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import { useMountEffect } from "../../../lib/use-mount-effect";
 import { fmtDateTime, timeAgo } from "../format";
 import { Icons } from "../icons";
-import { Chip, SourceBadge } from "../primitives";
+import { Chip, InlineErrorAlert, SourceBadge } from "../primitives";
 import type { CapturePayload, InboxItem, Source } from "../types";
 
 type DetectedSource = Source | null;
@@ -203,7 +203,7 @@ export const InboxView = ({
 	checked: Set<string>;
 	setChecked: (s: Set<string>) => void;
 	onAnalyze: (ids: string[]) => void;
-	onReject: (id: string) => void;
+	onReject: (id: string) => Promise<void>;
 	onOpenAnalysis: (id: string) => void;
 	filter: string;
 	sourceFilter: string;
@@ -217,6 +217,18 @@ export const InboxView = ({
 	});
 
 	const sel = filtered.find((i) => i.id === selected) || filtered[0];
+	const [rejectError, setRejectError] = useState<string | null>(null);
+
+	const handleReject = async (id: string) => {
+		setRejectError(null);
+		try {
+			await onReject(id);
+		} catch (err) {
+			const raw = err instanceof Error ? err.message : String(err);
+			const cleaned = raw.match(/Uncaught Error:\s*(.+?)(?:\s+at\s|$)/)?.[1]?.trim() ?? raw;
+			setRejectError(cleaned);
+		}
+	};
 
 	const toggleChk = (id: string, e: React.MouseEvent) => {
 		e.stopPropagation();
@@ -335,7 +347,9 @@ export const InboxView = ({
 				<InboxDetail
 					item={sel}
 					onAnalyze={() => onAnalyze([sel.id])}
-					onReject={() => onReject(sel.id)}
+					onReject={() => handleReject(sel.id)}
+					rejectError={rejectError}
+					dismissRejectError={() => setRejectError(null)}
 					onOpenAnalysis={() => onOpenAnalysis(sel.id)}
 					llmLabel={llmLabel}
 				/>
@@ -350,12 +364,16 @@ const InboxDetail = ({
 	item,
 	onAnalyze,
 	onReject,
+	rejectError,
+	dismissRejectError,
 	onOpenAnalysis,
 	llmLabel,
 }: {
 	item: InboxItem;
 	onAnalyze: () => void;
 	onReject: () => void;
+	rejectError: string | null;
+	dismissRejectError: () => void;
 	onOpenAnalysis: () => void;
 	llmLabel: string;
 }) => (
@@ -372,7 +390,12 @@ const InboxDetail = ({
 					)}
 				</div>
 				<div className="row gap-2">
-					<button type="button" className="btn ghost sm" title="Reject (R)" onClick={onReject}>
+					<button
+						type="button"
+						className="btn ghost sm"
+						title="Reject — permanently removes this item from the inbox"
+						onClick={onReject}
+					>
 						<Icons.X size={12} /> Reject
 					</button>
 					{item.state === "new" && (
@@ -402,6 +425,9 @@ const InboxDetail = ({
 					)}
 				</div>
 			</div>
+			{rejectError && (
+				<InlineErrorAlert message={rejectError} onDismiss={dismissRejectError} style={{ marginTop: 10 }} />
+			)}
 		</div>
 		<div className="inbox-detail-body">
 			<h2 style={{ textWrap: "balance" }}>{item.title}</h2>

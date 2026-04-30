@@ -70,7 +70,6 @@ import type * as inbox_fetchInternal from "../inbox/fetchInternal.js";
 import type * as inbox_fetchYoutube from "../inbox/fetchYoutube.js";
 import type * as inbox_get from "../inbox/get.js";
 import type * as inbox_list from "../inbox/list.js";
-import type * as inbox_reject from "../inbox/reject.js";
 import type * as lib_analytics from "../lib/analytics.js";
 import type * as lib_requireUser from "../lib/requireUser.js";
 import type * as mediaAssets_list from "../mediaAssets/list.js";
@@ -175,7 +174,6 @@ declare const fullApi: ApiFromModules<{
   "inbox/fetchYoutube": typeof inbox_fetchYoutube;
   "inbox/get": typeof inbox_get;
   "inbox/list": typeof inbox_list;
-  "inbox/reject": typeof inbox_reject;
   "lib/analytics": typeof lib_analytics;
   "lib/requireUser": typeof lib_requireUser;
   "mediaAssets/list": typeof mediaAssets_list;

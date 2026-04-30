@@ -6,7 +6,7 @@ import { useAction } from "convex/react";
 import { useState } from "react";
 import { fmtDateTime } from "../format";
 import { Icons } from "../icons";
-import { Chip, SourceBadge } from "../primitives";
+import { Chip, InlineErrorAlert, SourceBadge } from "../primitives";
 import type { Analysis, InboxItem, ProviderId } from "../types";
 import { PromoteCarouselRow, PromoteRow } from "./analysesPromoteRows";
 
@@ -130,46 +130,16 @@ export const AnalysesView = ({
 								</button>
 							)}
 							{deleteError && (
-								<div
-									role="alert"
-									style={{
-										marginTop: 8,
-										padding: "6px 8px",
-										fontSize: 11.5,
-										lineHeight: 1.4,
-										color: "var(--st-rejected-fg)",
-										background: "var(--st-rejected-bg)",
-										border: "1px solid var(--st-rejected-fg)",
-										borderRadius: "var(--r-sm)",
-										display: "flex",
-										justifyContent: "space-between",
-										alignItems: "flex-start",
-										gap: 8,
+								<InlineErrorAlert
+									message={deleteError}
+									onDismiss={() => {
+										setDeleteErrors((prev) => {
+											const { [it.id]: _omit, ...rest } = prev;
+											return rest;
+										});
 									}}
-								>
-									<span>{deleteError}</span>
-									<button
-										type="button"
-										aria-label="Dismiss"
-										onClick={(e) => {
-											e.stopPropagation();
-											setDeleteErrors((prev) => {
-												const { [it.id]: _omit, ...rest } = prev;
-												return rest;
-											});
-										}}
-										style={{
-											background: "transparent",
-											border: "none",
-											padding: 0,
-											cursor: "pointer",
-											color: "inherit",
-											display: "inline-flex",
-										}}
-									>
-										<Icons.X size={11} />
-									</button>
-								</div>
+									style={{ marginTop: 8, padding: "6px 8px", fontSize: 11.5 }}
+								/>
 							)}
 						</div>
 					);

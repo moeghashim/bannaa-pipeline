@@ -52,6 +52,54 @@ export const Select = ({
 	</div>
 );
 
+export const InlineErrorAlert = ({
+	message,
+	onDismiss,
+	style,
+}: {
+	message: string;
+	onDismiss: () => void;
+	style?: CSSProperties;
+}) => (
+	<div
+		role="alert"
+		style={{
+			padding: "8px 10px",
+			fontSize: 12,
+			lineHeight: 1.4,
+			color: "var(--st-rejected-fg)",
+			background: "var(--st-rejected-bg)",
+			border: "1px solid var(--st-rejected-fg)",
+			borderRadius: "var(--r-sm)",
+			display: "flex",
+			justifyContent: "space-between",
+			alignItems: "flex-start",
+			gap: 10,
+			...style,
+		}}
+	>
+		<span>{message}</span>
+		<button
+			type="button"
+			aria-label="Dismiss"
+			onClick={(e) => {
+				e.stopPropagation();
+				onDismiss();
+			}}
+			style={{
+				background: "transparent",
+				border: "none",
+				padding: 0,
+				cursor: "pointer",
+				color: "inherit",
+				display: "inline-flex",
+			}}
+		>
+			<Icons.X size={12} />
+		</button>
+	</div>
+);
+
 type FilterOption = { value: string; label: string; count?: number };
 
 export const FilterSeg = ({
