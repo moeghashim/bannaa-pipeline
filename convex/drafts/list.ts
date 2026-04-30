@@ -20,7 +20,8 @@ export const list = query({
 	handler: async (ctx, args) => {
 		await requireUser(ctx);
 		const channel = args.channel ?? "all";
-		const rows = await ctx.db.query("drafts").withIndex("by_createdAt").order("desc").collect();
+		const all = await ctx.db.query("drafts").withIndex("by_createdAt").order("desc").collect();
+		const rows = all.filter((r) => r.state !== "rejected");
 		if (channel === "all") return rows;
 		return rows.filter((r) => r.channel === channel);
 	},
@@ -30,7 +31,8 @@ export const counts = query({
 	args: {},
 	handler: async (ctx) => {
 		await requireUser(ctx);
-		const rows = await ctx.db.query("drafts").collect();
+		const all = await ctx.db.query("drafts").collect();
+		const rows = all.filter((r) => r.state !== "rejected");
 		const out: Record<string, number> = {
 			total: rows.length,
 			x: 0,
