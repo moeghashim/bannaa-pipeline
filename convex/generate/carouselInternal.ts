@@ -31,6 +31,7 @@ export const insertCarouselDraft = internalMutation({
 		concepts: v.array(v.string()),
 		capturedBy: v.id("users"),
 		styleAnchor: v.string(),
+		postTemplateId: v.optional(v.id("postTemplates")),
 		provider: providerValidator,
 		model: v.string(),
 		inputTokens: v.number(),
@@ -47,8 +48,8 @@ export const insertCarouselDraft = internalMutation({
 			}),
 		),
 	},
-	returns: v.id("drafts"),
-	handler: async (ctx, args): Promise<Id<"drafts">> => {
+	returns: v.object({ draftId: v.id("drafts"), runId: v.id("providerRuns") }),
+	handler: async (ctx, args): Promise<{ draftId: Id<"drafts">; runId: Id<"providerRuns"> }> => {
 		const runId = await ctx.db.insert("providerRuns", {
 			provider: args.provider,
 			model: args.model,
@@ -77,6 +78,7 @@ export const insertCarouselDraft = internalMutation({
 			genRunId: runId,
 			mediaKind: "carousel",
 			styleAnchor: args.styleAnchor,
+			postTemplateId: args.postTemplateId,
 		});
 
 		for (const slide of args.slides) {
@@ -93,7 +95,7 @@ export const insertCarouselDraft = internalMutation({
 			});
 		}
 
-		return draftId;
+		return { draftId, runId };
 	},
 });
 

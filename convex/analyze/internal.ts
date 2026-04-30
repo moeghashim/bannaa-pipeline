@@ -55,7 +55,8 @@ export const recordSuccess = internalMutation({
 		cost: v.number(),
 		promptVersion: v.optional(v.string()),
 	},
-	handler: async (ctx, args) => {
+	returns: v.id("providerRuns"),
+	handler: async (ctx, args): Promise<Id<"providerRuns">> => {
 		const runId = await ctx.db.insert("providerRuns", {
 			provider: args.provider,
 			model: args.model,
@@ -97,6 +98,7 @@ export const recordSuccess = internalMutation({
 		}
 
 		await ctx.db.patch(args.itemId, { state: "draft", error: undefined });
+		return runId;
 	},
 });
 

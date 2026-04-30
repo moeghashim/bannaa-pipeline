@@ -1,3 +1,5 @@
+"use node";
+
 // Single-image baked-text generation (replaces composite.ts / satori overlay).
 //
 // Given a single-image draft with a ready base asset, calls the image-edit
@@ -19,6 +21,8 @@ import { internal } from "../../_generated/api";
 import type { Doc, Id } from "../../_generated/dataModel";
 import { action } from "../../_generated/server";
 import { defaultBrandInput } from "../../brand/defaults";
+import { mirrorProviderRun } from "../../lib/analytics";
+import { requireUser } from "../../lib/requireUser";
 import {
 	canonicalizeLanguage,
 	LANG_LABELS,
@@ -26,7 +30,6 @@ import {
 	type OutputLanguage,
 	transitionalOutputLanguageValidator,
 } from "../languages";
-import { requireUser } from "../../lib/requireUser";
 import { callImageProviderEdit, type ImageProvider, type ImageProviderEnv } from "./providers";
 
 const BAKED_PROVIDER: ImageProvider = "gpt-image";
@@ -87,7 +90,7 @@ export const bakedForDraft = action({
 		v.object({ ok: v.literal(false), error: v.string() }),
 	),
 	handler: async (ctx, { draftId, targetLang }): Promise<BakedResult> => {
-		await requireUser(ctx);
+		const userId = await requireUser(ctx);
 
 		const env: ImageProviderEnv = {
 			GOOGLE_API_KEY: process.env.GOOGLE_API_KEY,
@@ -131,6 +134,7 @@ export const bakedForDraft = action({
 		});
 
 		try {
+			const startedAt = Date.now();
 			// Pull the base PNG so the edit endpoint operates on the exact
 			// bytes the operator approved — that's what makes the overlay
 			// scene identical to the base scene.
@@ -160,6 +164,28 @@ export const bakedForDraft = action({
 					promptVersion: BAKED_PROMPT_VERSION,
 				},
 			);
+			await mirrorProviderRun(
+				userId,
+				{
+					runId,
+					provider: BAKED_PROVIDER,
+					model,
+					purpose: "bake-single-image",
+					itemId: analysis.itemId,
+					inputTokens: 0,
+					outputTokens: 0,
+					cost: result.cost,
+					brandVersion: brand.version,
+					promptVersion: BAKED_PROMPT_VERSION,
+				},
+				Date.now() - startedAt,
+				{
+					draft_id: draftId,
+					channel: draft.channel,
+					base_asset_id: base._id,
+					target_lang: requested,
+				},
+			);
 
 			const assetId: Id<"mediaAssets"> = await ctx.runMutation(
 				internal.generate.image.internal.insertBakedAsset,
@@ -181,7 +207,7 @@ export const bakedForDraft = action({
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : String(err);
 			console.error(`[bakedForDraft] failed: ${msg}`);
-			await ctx.runMutation(internal.generate.image.internal.recordImageRun, {
+			const runId = await ctx.runMutation(internal.generate.image.internal.recordImageRun, {
 				provider: BAKED_PROVIDER,
 				model,
 				purpose: "bake-single-image",
@@ -191,6 +217,29 @@ export const bakedForDraft = action({
 				brandVersion: brand.version,
 				promptVersion: BAKED_PROMPT_VERSION,
 			});
+			await mirrorProviderRun(
+				userId,
+				{
+					runId,
+					provider: BAKED_PROVIDER,
+					model,
+					purpose: "bake-single-image",
+					itemId: analysis.itemId,
+					inputTokens: 0,
+					outputTokens: 0,
+					cost: 0,
+					error: msg,
+					brandVersion: brand.version,
+					promptVersion: BAKED_PROMPT_VERSION,
+				},
+				0,
+				{
+					draft_id: draftId,
+					channel: draft.channel,
+					base_asset_id: base._id,
+					target_lang: requested,
+				},
+			);
 			return { ok: false, error: msg };
 		}
 	},

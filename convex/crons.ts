@@ -9,4 +9,10 @@ crons.interval(
 	internal.x.sync.syncAll,
 );
 
+crons.interval(
+	"post metrics poll",
+	{ hours: 6 },
+	internal.metrics.poll.pollAll,
+);
+
 export default crons;

@@ -122,6 +122,8 @@ Magic-link sign-in + the default LLM provider work with **GLM + Resend** alone. 
 | Grok | `GROK_API_KEY` | xAI `grok-2-image` |
 | Ideogram | `IDEOGRAM_API_KEY` | Ideogram v3 |
 | X bookmarks | `X_CLIENT_ID`, `X_CLIENT_SECRET` | OAuth 2.0 PKCE + 15-min sync |
+| PostHog server events | `POSTHOG_API_KEY`, `POSTHOG_HOST` (`https://us.i.posthog.com`) | Convex action analytics and error tracking |
+| PostHog verification | `POSTHOG_PERSONAL_API_KEY`, optional `POSTHOG_PROJECT_ID`, optional `POSTHOG_HOST_WEB` (`https://us.posthog.com`) | Local-only query verification via `npm run verify:posthog` |
 
 Auth-layer vars (`JWKS`, `JWT_PRIVATE_KEY`, `SITE_URL`) are set automatically by `npx @convex-dev/auth` on first run.
 
@@ -131,9 +133,23 @@ Auth-layer vars (`JWKS`, `JWT_PRIVATE_KEY`, `SITE_URL`) are set automatically by
 
 ```
 NEXT_PUBLIC_CONVEX_URL=https://<your-convex-deployment>.convex.cloud
+NEXT_PUBLIC_POSTHOG_KEY=phc_<your-project-key>
+NEXT_PUBLIC_POSTHOG_HOST=/ingest
 ```
 
 Auto-written by `npx convex dev` on first run.
+
+PostHog is routed through the Next.js `/ingest/*` reverse proxy. Client analytics stay disabled in local development unless `NEXT_PUBLIC_POSTHOG_DEBUG=1` is set.
+
+To verify server-side analytics reached PostHog, use a personal API key with query/read access:
+
+```bash
+POSTHOG_PERSONAL_API_KEY=phx_... npm run verify:posthog
+```
+
+The verifier checks for `provider.run.completed` and `draft.rated` in the recent activity window. Override the window with `POSTHOG_VERIFY_WINDOW_MINUTES=180` when checking an older smoke run.
+
+If the verifier reports no matching events but the app flow succeeded, make sure the personal key is querying the same PostHog project as `NEXT_PUBLIC_POSTHOG_KEY` / Convex `POSTHOG_API_KEY`. Set `POSTHOG_PROJECT_ID=<numeric-project-id>` when the default `@current` project is not the capture project.
 
 ## Running the full stack
 

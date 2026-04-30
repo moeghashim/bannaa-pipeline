@@ -1,3 +1,5 @@
+"use node";
+
 // Carousel base-image generation (Phase 2 · B.3).
 //
 // Given a carousel draft, loops through its carouselSlides rows and generates
@@ -12,6 +14,7 @@ import { internal } from "../../_generated/api";
 import type { Doc, Id } from "../../_generated/dataModel";
 import { action } from "../../_generated/server";
 import { defaultBrandInput } from "../../brand/defaults";
+import { mirrorProviderRun } from "../../lib/analytics";
 import { requireUser } from "../../lib/requireUser";
 import { IMAGE_PROMPT_VERSION } from "./prompts";
 import { callImageProvider, defaultImageModel, type ImageProvider, type ImageProviderEnv } from "./providers";
@@ -63,7 +66,7 @@ export const generateCarouselForDraft = action({
 		v.object({ ok: v.literal(false), error: v.string() }),
 	),
 	handler: async (ctx, args): Promise<RunResult> => {
-		await requireUser(ctx);
+		const userId = await requireUser(ctx);
 
 		const env: ImageProviderEnv = {
 			GOOGLE_API_KEY: process.env.GOOGLE_API_KEY,
@@ -117,6 +120,7 @@ export const generateCarouselForDraft = action({
 			);
 
 			try {
+				const startedAt = Date.now();
 				const result = await callImageProvider({ provider, prompt, model, env });
 				const blob = new Blob([result.bytes as BlobPart], { type: "image/png" });
 				const storageId: Id<"_storage"> = await ctx.storage.store(blob);
@@ -131,6 +135,29 @@ export const generateCarouselForDraft = action({
 						sourceItemId: analysis.itemId,
 						brandVersion: brand.version,
 						promptVersion: IMAGE_PROMPT_VERSION,
+					},
+				);
+				await mirrorProviderRun(
+					userId,
+					{
+						runId,
+						provider,
+						model,
+						purpose: "generate-carousel-image",
+						itemId: analysis.itemId,
+						inputTokens: 0,
+						outputTokens: 0,
+						cost: result.cost,
+						brandVersion: brand.version,
+						promptVersion: IMAGE_PROMPT_VERSION,
+					},
+					Date.now() - startedAt,
+					{
+						draft_id: args.draftId,
+						channel: draft.channel,
+						asset_id: assetId,
+						slide_id: slide._id,
+						order_index: slide.orderIndex,
 					},
 				);
 				totalCost += result.cost;
@@ -156,6 +183,30 @@ export const generateCarouselForDraft = action({
 						error: msg,
 						brandVersion: brand.version,
 						promptVersion: IMAGE_PROMPT_VERSION,
+					},
+				);
+				await mirrorProviderRun(
+					userId,
+					{
+						runId,
+						provider,
+						model,
+						purpose: "generate-carousel-image",
+						itemId: analysis.itemId,
+						inputTokens: 0,
+						outputTokens: 0,
+						cost: 0,
+						error: msg,
+						brandVersion: brand.version,
+						promptVersion: IMAGE_PROMPT_VERSION,
+					},
+					0,
+					{
+						draft_id: args.draftId,
+						channel: draft.channel,
+						asset_id: assetId,
+						slide_id: slide._id,
+						order_index: slide.orderIndex,
 					},
 				);
 				await ctx.runMutation(internal.generate.image.internal.failAsset, {

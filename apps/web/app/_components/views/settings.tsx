@@ -526,7 +526,6 @@ export const SettingsView = ({ onOpenBrand }: { onOpenBrand: () => void }) => {
 					</div>
 				</div>
 			</div>
-
 			<div className="settings-group">
 				<h3>Cron schedule</h3>
 				<p className="sub">Automated ingestion and analysis jobs.</p>
@@ -566,7 +565,6 @@ export const SettingsView = ({ onOpenBrand }: { onOpenBrand: () => void }) => {
 					</div>
 				</div>
 			</div>
-
 			<div className="settings-group">
 				<h3>Content scope</h3>
 				<p className="sub">Strict AI-education scope. Three tracks, 94 concepts, 38 templates.</p>

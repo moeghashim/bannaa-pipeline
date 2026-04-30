@@ -19,6 +19,7 @@ import {
 } from "../generate/prompts";
 import { IMAGE_PROMPT_VERSION } from "../generate/image/prompts";
 import { callImageProvider, type ImageProvider, type ImageProviderEnv } from "../generate/image/providers";
+import { mirrorProviderRun } from "../lib/analytics";
 import { requireUser } from "../lib/requireUser";
 import { TEXT_FEEDBACK_TAGS, MEDIA_FEEDBACK_TAGS } from "./tags";
 
@@ -163,6 +164,7 @@ async function regenerateDraft(
 	].join("\n");
 
 	try {
+		const startedAt = Date.now();
 		const result = await callProvider<DraftToolOutput>({
 			provider,
 			systemPrompt: `${renderBrandSystemPrompt(brand, draft.channel as Channel)}\n\n${buildDraftSystemPrompt(lang)}`,
@@ -183,6 +185,23 @@ async function regenerateDraft(
 			brandVersion: brand.version,
 			promptVersion: DRAFT_PROMPT_VERSION,
 		});
+		await mirrorProviderRun(
+			userId,
+			{
+				runId,
+				provider: result.provider,
+				model: result.model,
+				purpose: "regenerate-draft-feedback",
+				itemId: draft.sourceItemId,
+				inputTokens: result.inputTokens,
+				outputTokens: result.outputTokens,
+				cost: result.cost,
+				brandVersion: brand.version,
+				promptVersion: DRAFT_PROMPT_VERSION,
+			},
+			Date.now() - startedAt,
+			{ draft_id: draftId, channel: draft.channel, target_kind: targetKind, target_id: targetId },
+		);
 		const feedbackId = await ctx.runMutation(internal.feedback.internal.recordRegenerationFeedback, {
 			targetKind,
 			targetId,
@@ -237,6 +256,7 @@ async function regenerateCarouselSlide(
 	].join("\n");
 
 	try {
+		const startedAt = Date.now();
 		const result = await callProvider<CarouselSlideRegenerationOutput>({
 			provider,
 			systemPrompt: `${renderBrandSystemPrompt(brand, "ig")}\n\n${buildCarouselSystemPrompt(lang)}`,
@@ -260,6 +280,23 @@ async function regenerateCarouselSlide(
 			brandVersion: brand.version,
 			promptVersion: CAROUSEL_PROMPT_VERSION,
 		});
+		await mirrorProviderRun(
+			userId,
+			{
+				runId,
+				provider: result.provider,
+				model: result.model,
+				purpose: "regenerate-carousel-slide-feedback",
+				itemId: draft.sourceItemId,
+				inputTokens: result.inputTokens,
+				outputTokens: result.outputTokens,
+				cost: result.cost,
+				brandVersion: brand.version,
+				promptVersion: CAROUSEL_PROMPT_VERSION,
+			},
+			Date.now() - startedAt,
+			{ draft_id: draftId, channel: draft.channel, slide_id: slideId, target_kind: "carouselSlide" },
+		);
 		const feedbackId = await ctx.runMutation(internal.feedback.internal.recordRegenerationFeedback, {
 			targetKind: "carouselSlide",
 			targetId: slideId,
@@ -307,6 +344,7 @@ async function regenerateMedia(
 		orderIndex: asset.orderIndex,
 	});
 	try {
+		const startedAt = Date.now();
 		const result = await callImageProvider({ provider, model: asset.model, prompt, env });
 		const blob = new Blob([result.bytes as BlobPart], { type: "image/png" });
 		const storageId = await ctx.storage.store(blob);
@@ -318,6 +356,23 @@ async function regenerateMedia(
 			brandVersion: brand.version,
 			promptVersion: IMAGE_PROMPT_VERSION,
 		});
+		await mirrorProviderRun(
+			userId,
+			{
+				runId,
+				provider,
+				model: asset.model,
+				purpose: "regenerate-media-feedback",
+				itemId: analysis.itemId,
+				inputTokens: 0,
+				outputTokens: 0,
+				cost: result.cost,
+				brandVersion: brand.version,
+				promptVersion: IMAGE_PROMPT_VERSION,
+			},
+			Date.now() - startedAt,
+			{ draft_id: draftId, asset_id: assetId, target_kind: "mediaAsset" },
+		);
 		await ctx.runMutation(internal.generate.image.internal.completeAsset, {
 			assetId: pendingId,
 			storageId,
@@ -347,6 +402,24 @@ async function regenerateMedia(
 			promptVersion: IMAGE_PROMPT_VERSION,
 			error: msg,
 		});
+		await mirrorProviderRun(
+			userId,
+			{
+				runId,
+				provider,
+				model: asset.model,
+				purpose: "regenerate-media-feedback",
+				itemId: analysis.itemId,
+				inputTokens: 0,
+				outputTokens: 0,
+				cost: 0,
+				error: msg,
+				brandVersion: brand.version,
+				promptVersion: IMAGE_PROMPT_VERSION,
+			},
+			0,
+			{ draft_id: draftId, asset_id: assetId, target_kind: "mediaAsset" },
+		);
 		await ctx.runMutation(internal.generate.image.internal.failAsset, {
 			assetId: pendingId,
 			error: msg,

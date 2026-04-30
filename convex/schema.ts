@@ -291,6 +291,7 @@ export default defineSchema({
 		),
 		postizPermalink: v.optional(v.string()),
 		postizError: v.optional(v.string()),
+		postTemplateId: v.optional(v.id("postTemplates")),
 	})
 		.index("by_analysis", ["analysisId"])
 		.index("by_state", ["state"])
@@ -362,6 +363,41 @@ export default defineSchema({
 		.index("by_draft", ["draftId"])
 		.index("by_state", ["state"])
 		.index("by_overlaidFrom", ["overlaidFrom"]),
+
+	postMetrics: defineTable({
+		draftId: v.id("drafts"),
+		channel: channelType,
+		sourcePostId: v.string(),
+		capturedAt: v.number(),
+		postAgeHours: v.number(),
+		views: v.optional(v.number()),
+		likes: v.number(),
+		comments: v.number(),
+		shares: v.number(),
+		saves: v.optional(v.number()),
+	})
+		.index("by_draft_capturedAt", ["draftId", "capturedAt"])
+		.index("by_channel_capturedAt", ["channel", "capturedAt"])
+		.index("by_sourcePostId_capturedAt", ["sourcePostId", "capturedAt"]),
+
+	postTemplates: defineTable({
+		name: v.string(),
+		channel: channelType,
+		sourceDraftId: v.id("drafts"),
+		structureNotes: v.string(),
+		exampleText: v.optional(v.string()),
+		createdBy: v.id("users"),
+		createdAt: v.number(),
+		updatedAt: v.number(),
+		usageCount: v.number(),
+		lastUsedAt: v.optional(v.number()),
+		sourceRating: v.optional(v.number()),
+		sourceViews: v.optional(v.number()),
+	})
+		.index("by_channel", ["channel"])
+		.index("by_createdBy", ["createdBy"])
+		.index("by_channel_usage", ["channel", "usageCount"])
+		.index("by_sourceDraftId", ["sourceDraftId"]),
 
 	settings: defineTable({
 		key: v.string(),

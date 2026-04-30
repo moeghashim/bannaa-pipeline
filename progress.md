@@ -379,3 +379,21 @@ Append-only learning log for commits and deploys. Add new entries only at the en
   - apps/web/app/_components/views/designMdImport.tsx
   - convex/brand/validators.ts
   - convex/schema.ts
+## 2026-04-30T14:50:31.936Z
+- Trigger: commit
+- Learning: PostHog analytics now closes the loop from provider outcomes to X metrics and reusable post templates; X metrics need a public-only retry when non-public metric fields return authorization errors in a 200 response.
+- Context: feat(analytics): close performance template loop Repro-Prompt: Implement and verify PostHog analytics phases, X post metrics, and post templates through Phase 3.
+- Branch: codex/phase-0-3-analytics-templates
+- Actor: Moe Ghashim <mohanadgh@gmail.com>
+- Changed Paths:
+  - README.md
+  - apps/web/app/_components
+  - apps/web/app/_lib
+  - apps/web/next.config.ts
+  - apps/web/package.json
+  - apps/web/proxy.ts
+  - apps/web/providers.tsx
+  - convex
+  - package.json
+  - package-lock.json
+  - scripts/verify-posthog-events.mjs

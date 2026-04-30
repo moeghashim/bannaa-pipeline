@@ -1,8 +1,11 @@
+"use node";
+
 import { v } from "convex/values";
 import { internal } from "../../_generated/api";
 import type { Doc, Id } from "../../_generated/dataModel";
 import { action } from "../../_generated/server";
 import { defaultBrandInput } from "../../brand/defaults";
+import { mirrorProviderRun } from "../../lib/analytics";
 import { requireUser } from "../../lib/requireUser";
 import type { Channel } from "../prompts";
 import { buildImagePrompt, IMAGE_PROMPT_VERSION, isVideoChannel } from "./prompts";
@@ -38,7 +41,7 @@ export const generateForDraft = action({
 		v.object({ ok: v.literal(false), error: v.string() }),
 	),
 	handler: async (ctx, args): Promise<RunResult> => {
-		await requireUser(ctx);
+		const userId = await requireUser(ctx);
 
 		const env: ImageProviderEnv = {
 			GOOGLE_API_KEY: process.env.GOOGLE_API_KEY,
@@ -91,6 +94,7 @@ export const generateForDraft = action({
 		);
 
 		try {
+			const startedAt = Date.now();
 			const result = await callImageProvider({ provider, prompt, model, env });
 
 			// V8 actions can call ctx.storage.store.
@@ -108,6 +112,27 @@ export const generateForDraft = action({
 					sourceItemId: analysis.itemId,
 					brandVersion: brand.version,
 					promptVersion: IMAGE_PROMPT_VERSION,
+				},
+			);
+			await mirrorProviderRun(
+				userId,
+				{
+					runId,
+					provider,
+					model,
+					purpose: "generate-image",
+					itemId: analysis.itemId,
+					inputTokens: 0,
+					outputTokens: 0,
+					cost: result.cost,
+					brandVersion: brand.version,
+					promptVersion: IMAGE_PROMPT_VERSION,
+				},
+				Date.now() - startedAt,
+				{
+					draft_id: args.draftId,
+					channel: draft.channel,
+					asset_id: assetId,
 				},
 			);
 
@@ -140,6 +165,28 @@ export const generateForDraft = action({
 					error: msg,
 					brandVersion: brand.version,
 					promptVersion: IMAGE_PROMPT_VERSION,
+				},
+			);
+			await mirrorProviderRun(
+				userId,
+				{
+					runId,
+					provider,
+					model,
+					purpose: "generate-image",
+					itemId: analysis.itemId,
+					inputTokens: 0,
+					outputTokens: 0,
+					cost: 0,
+					error: msg,
+					brandVersion: brand.version,
+					promptVersion: IMAGE_PROMPT_VERSION,
+				},
+				0,
+				{
+					draft_id: args.draftId,
+					channel: draft.channel,
+					asset_id: assetId,
 				},
 			);
 			await ctx.runMutation(internal.generate.image.internal.failAsset, {

@@ -1,7 +1,8 @@
 import type { ToolSpec } from "../analyze/providers";
+import { renderPostTemplateReference, type PostTemplateReference } from "./prompts";
 import { LANG_NAMES, type OutputLanguage } from "./languages";
 
-export const CAROUSEL_PROMPT_VERSION = "2026-04-28-a";
+export const CAROUSEL_PROMPT_VERSION = "2026-04-30-a";
 
 const DIALECT_HINT: Partial<Record<OutputLanguage, string>> = {
 	"ar-msa": "Use Modern Standard Arabic (Fusha). Formal register, no dialect markers.",
@@ -146,6 +147,7 @@ export function buildCarouselPrompt(input: {
 	analysisConcepts: string[];
 	keyPoints: string[];
 	track: string;
+	postTemplate?: PostTemplateReference;
 	lang?: OutputLanguage;
 }): string {
 	const plan = slideRolePlan(input.slideCount);
@@ -153,6 +155,7 @@ export function buildCarouselPrompt(input: {
 		.map((role, i) => `- Slide ${i + 1} → role: ${role} — ${SLIDE_ROLE_GUIDANCE[role]}`)
 		.join("\n");
 	const langName = LANG_NAMES[input.lang ?? "en"];
+	const postTemplateBlock = input.postTemplate ? `\n${renderPostTemplateReference(input.postTemplate)}\n` : "";
 	return `Target: Instagram feed carousel with exactly ${input.slideCount} slides.
 Output language for slide.primary and channelPrimary: ${langName}
 
@@ -168,6 +171,7 @@ Concepts from the analysis (reuse only these): ${input.analysisConcepts.join(", 
 
 SLIDE PLAN (assign these exact roles by orderIndex):
 ${planLines}
+${postTemplateBlock}
 
 Produce a coherent IG feed carousel with ${input.slideCount} slides:
 - Each slide must match the role assigned in the plan above. Set \`role\` accordingly.

@@ -6,6 +6,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { action } from "../_generated/server";
 import { callProvider, defaultProvider, type ProviderId } from "../analyze/providers";
 import { defaultBrandInput } from "../brand/defaults";
+import { mirrorProviderRun } from "../lib/analytics";
 import { requireUser } from "../lib/requireUser";
 import { renderBrandSystemPrompt } from "./brandPrompt";
 import { cosine, DEDUP_RECENT_LIMIT, DEDUP_THRESHOLD, embedText, EMBEDDING_MODEL } from "./embeddings";
@@ -50,6 +51,7 @@ export const fromAnalysisOutput = action({
 		channel: channelValidator,
 		outputIndex: v.number(),
 		angleOverride: v.optional(angleValidator),
+		postTemplateId: v.optional(v.id("postTemplates")),
 	},
 	returns: v.union(
 		v.object({
@@ -86,6 +88,14 @@ export const fromAnalysisOutput = action({
 		const output = analysis.outputs[args.outputIndex];
 		if (!output) return { ok: false, error: `Output index ${args.outputIndex} not found` };
 
+		const postTemplate = args.postTemplateId
+			? await ctx.runQuery(internal.postTemplates.internal.load, { id: args.postTemplateId })
+			: null;
+		if (args.postTemplateId && !postTemplate) return { ok: false, error: "Template not found" };
+		if (postTemplate && postTemplate.channel !== args.channel) {
+			return { ok: false, error: `Template is for ${postTemplate.channel}, not ${args.channel}` };
+		}
+
 		const hookTemplate = await ctx.runQuery(internal.generate.hookTemplates.pickForChannel, {
 			channel: args.channel,
 		});
@@ -98,6 +108,9 @@ export const fromAnalysisOutput = action({
 			outputKind: output.kind,
 			track: analysis.track,
 			hookTemplate: hookTemplate?.pattern,
+			postTemplate: postTemplate
+				? { name: postTemplate.name, structureNotes: postTemplate.structureNotes }
+				: undefined,
 			angleOverride: args.angleOverride,
 			lang,
 		});
@@ -105,6 +118,7 @@ export const fromAnalysisOutput = action({
 		const systemPrompt = `${renderBrandSystemPrompt(brand, args.channel as Channel)}\n\n${buildDraftSystemPrompt(lang)}`;
 
 		try {
+			const startedAt = Date.now();
 			const firstResult = await callProvider<DraftToolOutput>({
 				provider,
 				systemPrompt,
@@ -154,9 +168,10 @@ export const fromAnalysisOutput = action({
 			const openaiKey = process.env.OPENAI_API_KEY;
 			if (openaiKey) {
 				try {
+					const embedStartedAt = Date.now();
 					const embedResult = await embedText(result.output.primary, openaiKey);
 					embedding = embedResult.embedding;
-					await ctx.runMutation(internal.generate.internal.recordEmbeddingRun, {
+					const embeddingRunId = await ctx.runMutation(internal.generate.internal.recordEmbeddingRun, {
 						model: EMBEDDING_MODEL,
 						itemId: analysis.itemId,
 						inputTokens: embedResult.inputTokens,
@@ -165,6 +180,22 @@ export const fromAnalysisOutput = action({
 						brandVersion: brand.version,
 						promptVersion: DRAFT_PROMPT_VERSION,
 					});
+					await mirrorProviderRun(
+						userId,
+						{
+							runId: embeddingRunId,
+							provider: "openai-embedding",
+							model: EMBEDDING_MODEL,
+							purpose: "dedup-draft",
+							itemId: analysis.itemId,
+							inputTokens: embedResult.inputTokens,
+							outputTokens: 0,
+							cost: embedResult.cost,
+							brandVersion: brand.version,
+							promptVersion: DRAFT_PROMPT_VERSION,
+						},
+						Date.now() - embedStartedAt,
+					);
 					const candidates = await ctx.runQuery(internal.generate.internal.listRecentDraftsForDedup, {
 						channel: args.channel,
 						limit: DEDUP_RECENT_LIMIT,
@@ -187,7 +218,7 @@ export const fromAnalysisOutput = action({
 				}
 			}
 
-			const draftId: Id<"drafts"> = await ctx.runMutation(internal.generate.internal.insertDraft, {
+			const inserted = await ctx.runMutation(internal.generate.internal.insertDraft, {
 				channel: args.channel,
 				primary: result.output.primary,
 				primaryLang: lang,
@@ -199,6 +230,7 @@ export const fromAnalysisOutput = action({
 				embedding,
 				dedupSimilarity,
 				dedupPriorDraftId,
+				postTemplateId: args.postTemplateId,
 				capturedBy: userId,
 				provider: result.provider,
 				model: result.model,
@@ -208,10 +240,49 @@ export const fromAnalysisOutput = action({
 				brandVersion: brand.version,
 				promptVersion: DRAFT_PROMPT_VERSION,
 			});
+			const draftId: Id<"drafts"> = inserted.draftId;
+			await mirrorProviderRun(
+				userId,
+				{
+					runId: inserted.runId,
+					provider: result.provider,
+					model: result.model,
+					purpose: "generate-draft",
+					itemId: analysis.itemId,
+					inputTokens: result.inputTokens,
+					outputTokens: result.outputTokens,
+					cost: result.cost,
+					brandVersion: brand.version,
+					promptVersion: DRAFT_PROMPT_VERSION,
+				},
+				Date.now() - startedAt,
+				{
+					draft_id: draftId,
+					channel: args.channel,
+					primary_lang: lang,
+					template_id: args.postTemplateId ?? null,
+				},
+			);
 
 			if (hookTemplate) {
 				await ctx.runMutation(internal.generate.hookTemplates.incrementUsage, {
 					id: hookTemplate._id,
+				});
+			}
+			if (args.postTemplateId) {
+				await ctx.runMutation(internal.postTemplates.internal.incrementUsage, {
+					id: args.postTemplateId,
+				});
+				await ctx.scheduler.runAfter(0, internal.analytics.events.captureEvent, {
+					distinctId: userId,
+					event: "template.used",
+					properties: {
+						template_id: args.postTemplateId,
+						draft_id: draftId,
+						channel: args.channel,
+						provider: result.provider,
+						model: result.model,
+					},
 				});
 			}
 
@@ -228,7 +299,7 @@ export const fromAnalysisOutput = action({
 			};
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : String(err);
-			await ctx.runMutation(internal.generate.internal.recordFailedRun, {
+			const runId = await ctx.runMutation(internal.generate.internal.recordFailedRun, {
 				provider,
 				model: "",
 				error: msg,
@@ -236,6 +307,24 @@ export const fromAnalysisOutput = action({
 				brandVersion: brand.version,
 				promptVersion: DRAFT_PROMPT_VERSION,
 			});
+			await mirrorProviderRun(
+				userId,
+				{
+					runId,
+					provider,
+					model: "",
+					purpose: "generate-draft",
+					itemId: analysis.itemId,
+					inputTokens: 0,
+					outputTokens: 0,
+					cost: 0,
+					error: msg,
+					brandVersion: brand.version,
+					promptVersion: DRAFT_PROMPT_VERSION,
+				},
+				0,
+				{ channel: args.channel, template_id: args.postTemplateId ?? null },
+			);
 			return { ok: false, error: msg };
 		}
 	},

@@ -6,6 +6,8 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { action } from "../_generated/server";
 import { callProvider, defaultProvider, type ProviderId } from "../analyze/providers";
 import { defaultBrandInput } from "../brand/defaults";
+import { mirrorProviderRun } from "../lib/analytics";
+import { requireUser } from "../lib/requireUser";
 import { renderBrandSystemPrompt } from "./brandPrompt";
 import type { LegacyOutputLanguage, OutputLanguage } from "./languages";
 import {
@@ -15,8 +17,6 @@ import {
 	TRANSLATE_TOOL,
 	type TranslateToolOutput,
 } from "./prompts";
-import { requireUser } from "../lib/requireUser";
-
 import { transitionalOutputLanguageValidator } from "./languages";
 
 const outputLanguageValidator = transitionalOutputLanguageValidator;
@@ -50,7 +50,7 @@ export const generateTranslation = action({
 		v.object({ ok: v.literal(false), error: v.string() }),
 	),
 	handler: async (ctx, { draftId, targetLang }): Promise<TranslationResult> => {
-		await requireUser(ctx);
+		const userId = await requireUser(ctx);
 		if (targetLang === "en") {
 			return { ok: false, error: "English is the source language; pick a non-English target" };
 		}
@@ -86,6 +86,7 @@ export const generateTranslation = action({
 			: "";
 
 		try {
+			const startedAt = Date.now();
 			const result = await callProvider<TranslateToolOutput>({
 				provider,
 				systemPrompt: `${renderBrandSystemPrompt(brand, draft.channel as Channel)}\n\nTranslate the primary copy into the requested output language. Respond only with the translation tool.`,
@@ -116,6 +117,28 @@ export const generateTranslation = action({
 				brandVersion: brand.version,
 				promptVersion: TRANSLATE_PROMPT_VERSION,
 			});
+			await mirrorProviderRun(
+				userId,
+				{
+					runId,
+					provider: result.provider,
+					model: result.model,
+					purpose: "generate-translation",
+					itemId: draft.sourceItemId,
+					inputTokens: result.inputTokens,
+					outputTokens: result.outputTokens,
+					cost: result.cost,
+					brandVersion: brand.version,
+					promptVersion: TRANSLATE_PROMPT_VERSION,
+				},
+				Date.now() - startedAt,
+				{
+					draft_id: draftId,
+					channel: draft.channel,
+					source_lang: sourceLang,
+					target_lang: targetLang,
+				},
+			);
 			if (draft.mediaKind === "carousel") {
 				const slides = await ctx.runQuery(internal.generate.translateInternal.listSlidesForDraft, { draftId });
 				for (const slide of slides) {
@@ -152,7 +175,7 @@ export const generateTranslation = action({
 			return { ok: true, lang: targetLang, text, chars, runId, provider: result.provider, model: result.model, cost: result.cost };
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : String(err);
-			await ctx.runMutation(internal.generate.translateInternal.recordFailedTranslation, {
+			const runId = await ctx.runMutation(internal.generate.translateInternal.recordFailedTranslation, {
 				draftId,
 				provider,
 				model: "",
@@ -160,6 +183,29 @@ export const generateTranslation = action({
 				brandVersion: brand.version,
 				promptVersion: TRANSLATE_PROMPT_VERSION,
 			});
+			await mirrorProviderRun(
+				userId,
+				{
+					runId,
+					provider,
+					model: "",
+					purpose: "generate-translation",
+					itemId: draft.sourceItemId,
+					inputTokens: 0,
+					outputTokens: 0,
+					cost: 0,
+					error: msg,
+					brandVersion: brand.version,
+					promptVersion: TRANSLATE_PROMPT_VERSION,
+				},
+				0,
+				{
+					draft_id: draftId,
+					channel: draft.channel,
+					source_lang: sourceLang,
+					target_lang: targetLang,
+				},
+			);
 			return { ok: false, error: msg };
 		}
 	},

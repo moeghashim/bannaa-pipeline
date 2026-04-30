@@ -6,6 +6,7 @@ import type { Doc } from "../_generated/dataModel";
 import { internalAction } from "../_generated/server";
 import { callProvider, defaultProvider, type ProviderId } from "../analyze/providers";
 import { defaultBrandInput } from "../brand/defaults";
+import { capture, mirrorProviderRun } from "../lib/analytics";
 import { renderBrandSystemPrompt } from "./brandPrompt";
 import type { Channel } from "./prompts";
 import {
@@ -56,6 +57,7 @@ export const run = internalAction({
 		});
 
 		try {
+			const startedAt = Date.now();
 			const result = await callProvider<RatingToolOutput>({
 				provider,
 				systemPrompt: `${renderBrandSystemPrompt(brand, draft.channel as Channel)}\n\n${RATING_SYSTEM_PROMPT}`,
@@ -67,7 +69,7 @@ export const run = internalAction({
 			if (!o) throw new Error("Rating model returned empty output");
 			const total = o.substance + o.hook + o.accuracy + o.voiceFit;
 
-			await ctx.runMutation(internal.generate.internal.applyRating, {
+			const runId = await ctx.runMutation(internal.generate.internal.applyRating, {
 				draftId,
 				rating: total,
 				breakdown: {
@@ -84,10 +86,42 @@ export const run = internalAction({
 				brandVersion: brand.version,
 				promptVersion: RATING_PROMPT_VERSION,
 			});
+			const durationMs = Date.now() - startedAt;
+			await mirrorProviderRun(
+				draft.capturedBy,
+				{
+					runId,
+					provider: result.provider,
+					model: result.model,
+					purpose: "rate-draft",
+					itemId: draft.sourceItemId,
+					inputTokens: result.inputTokens,
+					outputTokens: result.outputTokens,
+					cost: result.cost,
+					brandVersion: brand.version,
+					promptVersion: RATING_PROMPT_VERSION,
+				},
+				durationMs,
+				{ draft_id: draftId, channel: draft.channel },
+			);
+			await capture(draft.capturedBy, "draft.rated", {
+				draft_id: draftId,
+				channel: draft.channel,
+				rating: total,
+				substance: o.substance,
+				hook: o.hook,
+				accuracy: o.accuracy,
+				voice_fit: o.voiceFit,
+				provider: result.provider,
+				model: result.model,
+				duration_ms: durationMs,
+				brand_version: brand.version,
+				prompt_version: RATING_PROMPT_VERSION,
+			});
 			return { ok: true, rating: total };
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : String(err);
-			await ctx.runMutation(internal.generate.internal.recordFailedRun, {
+			const runId = await ctx.runMutation(internal.generate.internal.recordFailedRun, {
 				provider,
 				model: "",
 				error: msg,
@@ -96,6 +130,24 @@ export const run = internalAction({
 				brandVersion: brand.version,
 				promptVersion: RATING_PROMPT_VERSION,
 			});
+			await mirrorProviderRun(
+				draft.capturedBy,
+				{
+					runId,
+					provider,
+					model: "",
+					purpose: "rate-draft",
+					itemId: draft.sourceItemId,
+					inputTokens: 0,
+					outputTokens: 0,
+					cost: 0,
+					error: msg,
+					brandVersion: brand.version,
+					promptVersion: RATING_PROMPT_VERSION,
+				},
+				0,
+				{ draft_id: draftId, channel: draft.channel },
+			);
 			return { ok: false, error: msg };
 		}
 	},

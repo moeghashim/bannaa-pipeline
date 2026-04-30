@@ -17,6 +17,7 @@ const NAV: NavItem[] = [
 	{ key: "inbox", label: "Inbox", icon: Icons.Inbox, countKey: "new" },
 	{ key: "analyses", label: "Analyses", icon: Icons.Beaker, countKey: "analyzing" },
 	{ key: "drafts", label: "Drafts", icon: Icons.Edit, countKey: "draft" },
+	{ key: "templates", label: "Templates", icon: Icons.Sparkle, countKey: null },
 	{ key: "reels", label: "Reel Ideas", icon: Icons.Film, countKey: null },
 	{ key: "newsletter", label: "Newsletter", icon: Icons.Mail, countKey: null },
 	{ key: "website", label: "Website Proposals", icon: Icons.Globe, countKey: null },
@@ -61,7 +62,7 @@ export const Sidebar = ({
 			<div className="section-h" style={{ padding: "6px 10px 6px" }}>
 				Pipeline
 			</div>
-			{NAV.slice(0, 6).map((n) => {
+			{NAV.slice(0, 7).map((n) => {
 				const I = n.icon;
 				const count = n.countKey ? counts[n.countKey] : undefined;
 				return (

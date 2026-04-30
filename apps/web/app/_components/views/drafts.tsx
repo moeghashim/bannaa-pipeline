@@ -7,10 +7,11 @@ import { useState } from "react";
 import { fmtDate, timeAgo } from "../format";
 import { Icons } from "../icons";
 import { Chip } from "../primitives";
-import type { Channel, ImageProvider } from "../types";
+import type { ImageProvider } from "../types";
 import { ArEditor } from "./draftsArEditor";
 import { BaseOverlayToggle } from "./draftsBaseOverlayToggle";
 import { CarouselStrip, carouselStatusLabel } from "./draftsCarousel";
+import { CHANNELS, channelFrame, channelLabel, isVideoChannel } from "./draftsChannels";
 import { ImageProviderPicker } from "./draftsImagePicker";
 import {
 	directionFor,
@@ -25,40 +26,10 @@ import {
 } from "./draftsLanguages";
 import { DraftMedia } from "./draftsMedia";
 import { AnglePicker, DedupBadge, type DraftAngle } from "./draftsMeta";
+import { type DraftMetric, DraftMetricsLine } from "./draftsMetrics";
 import { SchedulePopover } from "./draftsScheduler";
+import { SaveTemplateModal } from "./draftsTemplateModal";
 import { FeedbackControls } from "./feedbackControls";
-
-const CHANNELS: { value: Channel | "all"; label: string }[] = [
-	{ value: "all", label: "All channels" },
-	{ value: "x", label: "X" },
-	{ value: "ig", label: "Instagram" },
-	{ value: "ig-reel", label: "IG Reels" },
-	{ value: "tiktok", label: "TikTok" },
-	{ value: "yt-shorts", label: "YT Shorts" },
-	{ value: "fb-page", label: "FB Page" },
-	{ value: "linkedin-page", label: "LinkedIn" },
-];
-
-const VIDEO_CHANNELS: readonly Channel[] = ["ig-reel", "tiktok", "yt-shorts"];
-
-const isVideoChannel = (c: string): boolean => (VIDEO_CHANNELS as readonly string[]).includes(c);
-const channelLabel = (c: string): string => {
-	const map: Record<string, string> = {
-		x: "X",
-		ig: "Instagram",
-		"ig-reel": "Instagram Reels",
-		tiktok: "TikTok",
-		"yt-shorts": "YouTube Shorts",
-		"fb-page": "Facebook Page",
-		"linkedin-page": "LinkedIn Page",
-	};
-	return map[c] ?? c;
-};
-
-const channelFrame = (c: string): "square" | "vertical" => {
-	if (isVideoChannel(c)) return "vertical";
-	return "square";
-};
 
 export const DraftsView = ({ channel, setChannel }: { channel: string; setChannel: (c: string) => void }) => {
 	const drafts = useQuery(api.drafts.list.list, {});
@@ -73,6 +44,11 @@ export const DraftsView = ({ channel, setChannel }: { channel: string; setChanne
 	const loaded = drafts !== undefined;
 	const rows = drafts ?? [];
 	const filtered = channel === "all" ? rows : rows.filter((d) => d.channel === channel);
+	const metrics = useQuery(
+		api.drafts.metrics.latestForDrafts,
+		filtered.length > 0 ? { draftIds: filtered.map((d) => d._id) } : "skip",
+	);
+	const metricsByDraftId = new Map((metrics ?? []).map((metric) => [metric.draftId, metric]));
 	const defaultImageProvider: ImageProvider = settings?.defaultImageProvider ?? "nano-banana";
 
 	return (
@@ -114,6 +90,7 @@ export const DraftsView = ({ channel, setChannel }: { channel: string; setChanne
 						<DraftCard
 							key={d._id}
 							draft={d}
+							metric={metricsByDraftId.get(d._id)}
 							defaultImageProvider={defaultImageProvider}
 							translationTargetsAllow={settings?.translationTargets as OutputLanguage[] | undefined}
 							onApprove={() => approve({ id: d._id })}
@@ -131,6 +108,7 @@ export const DraftsView = ({ channel, setChannel }: { channel: string; setChanne
 
 const DraftCard = ({
 	draft,
+	metric,
 	defaultImageProvider,
 	translationTargetsAllow,
 	onApprove,
@@ -140,6 +118,7 @@ const DraftCard = ({
 	onSetAngle,
 }: {
 	draft: Doc<"drafts">;
+	metric: DraftMetric | undefined;
 	defaultImageProvider: ImageProvider;
 	translationTargetsAllow: OutputLanguage[] | undefined;
 	onApprove: () => void;
@@ -168,6 +147,7 @@ const DraftCard = ({
 	const [genError, setGenError] = useState<string | null>(null);
 	const [view, setView] = useState<"overlay" | "base">("overlay");
 	const [schedulerOpen, setSchedulerOpen] = useState(false);
+	const [templateOpen, setTemplateOpen] = useState(false);
 	const [editing, setEditing] = useState(false);
 	const draftPrimary: OutputLanguage = primaryLangOf(draft);
 	const [selectedLang, setSelectedLang] = useState<OutputLanguage>(draftPrimary);
@@ -482,6 +462,12 @@ const DraftCard = ({
 							<span style={{ color: "var(--accent-ink)" }}>scheduled {fmtDate(draft.scheduled)}</span>
 						</>
 					) : null}
+					{metric ? (
+						<>
+							{" · "}
+							<DraftMetricsLine metric={metric} />
+						</>
+					) : null}
 				</div>
 				<div className="row gap-1">
 					{videoChannel ? (
@@ -556,6 +542,16 @@ const DraftCard = ({
 							<Icons.X size={11} /> Unschedule
 						</button>
 					)}
+					{draft.postizStatus === "published" && (
+						<button
+							type="button"
+							className="btn ghost xs"
+							onClick={() => setTemplateOpen((open) => !open)}
+							title="Save as post template"
+						>
+							<Icons.Sparkle size={11} />
+						</button>
+					)}
 					<button
 						type="button"
 						className="btn ghost xs"
@@ -593,6 +589,7 @@ const DraftCard = ({
 						onScheduled={() => setSchedulerOpen(false)}
 					/>
 				)}
+				{templateOpen && <SaveTemplateModal draft={draft} onClose={() => setTemplateOpen(false)} />}
 			</div>
 		</div>
 	);

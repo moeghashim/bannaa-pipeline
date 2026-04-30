@@ -1,3 +1,5 @@
+"use node";
+
 // Baked-text carousel generation (Phase 2 · B.4).
 //
 // For each ready base asset, calls the image-edit endpoint with the base PNG
@@ -20,6 +22,7 @@ import { internal } from "../../_generated/api";
 import type { Doc, Id } from "../../_generated/dataModel";
 import { action } from "../../_generated/server";
 import { defaultBrandInput } from "../../brand/defaults";
+import { mirrorProviderRun } from "../../lib/analytics";
 import { requireUser } from "../../lib/requireUser";
 import {
 	canonicalizeLanguage,
@@ -81,7 +84,7 @@ export const bakedCarouselForDraft = action({
 		v.object({ ok: v.literal(false), error: v.string() }),
 	),
 	handler: async (ctx, { draftId, targetLang }): Promise<BakedResult> => {
-		await requireUser(ctx);
+		const userId = await requireUser(ctx);
 
 		const env: ImageProviderEnv = {
 			GOOGLE_API_KEY: process.env.GOOGLE_API_KEY,
@@ -145,6 +148,7 @@ export const bakedCarouselForDraft = action({
 			});
 
 			try {
+				const startedAt = Date.now();
 				// Pull the base PNG from storage so the edit endpoint operates
 				// on the exact bytes the operator approved as the base — this
 				// is the whole point of the edit-vs-regenerate switch.
@@ -174,6 +178,30 @@ export const bakedCarouselForDraft = action({
 						promptVersion: BAKED_PROMPT_VERSION,
 					},
 				);
+				await mirrorProviderRun(
+					userId,
+					{
+						runId,
+						provider: BAKED_PROVIDER,
+						model,
+						purpose: "bake-carousel-slide",
+						itemId: analysis.itemId,
+						inputTokens: 0,
+						outputTokens: 0,
+						cost: result.cost,
+						brandVersion: brand.version,
+						promptVersion: BAKED_PROMPT_VERSION,
+					},
+					Date.now() - startedAt,
+					{
+						draft_id: draftId,
+						channel: draft.channel,
+						base_asset_id: base._id,
+						slide_id: slide._id,
+						order_index: base.orderIndex,
+						target_lang: requested,
+					},
+				);
 				totalCost += result.cost;
 
 				await ctx.runMutation(internal.generate.image.internal.insertBakedAsset, {
@@ -192,7 +220,7 @@ export const bakedCarouselForDraft = action({
 			} catch (err) {
 				const msg = err instanceof Error ? err.message : String(err);
 				console.error(`[bakedCarouselForDraft] slide ${base.orderIndex} failed: ${msg}`);
-				await ctx.runMutation(internal.generate.image.internal.recordImageRun, {
+				const runId = await ctx.runMutation(internal.generate.image.internal.recordImageRun, {
 					provider: BAKED_PROVIDER,
 					model,
 					purpose: "bake-carousel-slide",
@@ -202,6 +230,31 @@ export const bakedCarouselForDraft = action({
 					brandVersion: brand.version,
 					promptVersion: BAKED_PROMPT_VERSION,
 				});
+				await mirrorProviderRun(
+					userId,
+					{
+						runId,
+						provider: BAKED_PROVIDER,
+						model,
+						purpose: "bake-carousel-slide",
+						itemId: analysis.itemId,
+						inputTokens: 0,
+						outputTokens: 0,
+						cost: 0,
+						error: msg,
+						brandVersion: brand.version,
+						promptVersion: BAKED_PROMPT_VERSION,
+					},
+					0,
+					{
+						draft_id: draftId,
+						channel: draft.channel,
+						base_asset_id: base._id,
+						slide_id: slide._id,
+						order_index: base.orderIndex,
+						target_lang: requested,
+					},
+				);
 				failed += 1;
 			}
 		}
