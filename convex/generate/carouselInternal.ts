@@ -95,6 +95,7 @@ export const insertCarouselDraft = internalMutation({
 			});
 		}
 
+		await ctx.db.patch(args.sourceItemId, { state: "draft", error: undefined });
 		return { draftId, runId };
 	},
 });

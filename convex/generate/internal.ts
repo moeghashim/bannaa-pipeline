@@ -251,6 +251,7 @@ export const insertDraft = internalMutation({
 			createdAt: Date.now(),
 			genRunId: runId,
 		});
+		await ctx.db.patch(args.sourceItemId, { state: "draft", error: undefined });
 		return { draftId, runId };
 	},
 });

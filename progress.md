@@ -447,3 +447,20 @@ Append-only learning log for commits and deploys. Add new entries only at the en
   - package.json
   - package-lock.json
   - progress.md
+## 2026-04-30T23:37:15.851Z
+- Trigger: commit
+- Learning: Inbox pipeline state now distinguishes completed analysis from generated drafts; legacy draft-marked inbox rows without draft records are normalized at read time.
+- Context: fix(pipeline): show analyzed items correctly
+- Branch: codex/fix-analysis-pipeline-state
+- Actor: Moe Ghashim <mohanadgh@gmail.com>
+- Changed Paths:
+  - apps/web/app/_components/app.tsx
+  - apps/web/app/_components/types.ts
+  - apps/web/app/_components/views/analyses.tsx
+  - apps/web/app/_components/views/inbox.tsx
+  - apps/web/app/globals.css
+  - convex/analyze/internal.ts
+  - convex/generate/carouselInternal.ts
+  - convex/generate/internal.ts
+  - convex/inbox/list.ts
+  - convex/schema.ts

@@ -1,5 +1,5 @@
 export type Source = "x" | "youtube" | "article" | "manual" | "newsletter";
-export type State = "new" | "analyzing" | "draft" | "approved" | "rejected" | "published";
+export type State = "new" | "analyzing" | "analysis" | "draft" | "approved" | "rejected" | "published";
 export type Lang = "en" | "ar";
 export type ProviderId = "claude" | "glm" | "openrouter" | "deepseek";
 // External image generators (what the user can pick to generate a base image).

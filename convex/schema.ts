@@ -13,6 +13,7 @@ const sourceType = v.union(
 const stateType = v.union(
 	v.literal("new"),
 	v.literal("analyzing"),
+	v.literal("analysis"),
 	v.literal("draft"),
 	v.literal("approved"),
 	v.literal("rejected"),

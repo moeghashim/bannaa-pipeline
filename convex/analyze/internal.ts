@@ -97,7 +97,7 @@ export const recordSuccess = internalMutation({
 			}
 		}
 
-		await ctx.db.patch(args.itemId, { state: "draft", error: undefined });
+		await ctx.db.patch(args.itemId, { state: "analysis", error: undefined });
 		return runId;
 	},
 });
