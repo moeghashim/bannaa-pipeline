@@ -101,14 +101,14 @@ export const AnalysesView = ({
 								<button
 									type="button"
 									className="btn ghost xs"
-									title="Delete analysis (cannot be undone)"
+									title="Remove this item — cannot be undone, and it will not be re-analyzed"
 									onClick={(e) => {
 										e.stopPropagation();
 										void onDelete(it.id);
 									}}
 									style={{ position: "absolute", top: 8, right: 8 }}
 								>
-									<Icons.X size={11} />
+									<Icons.X size={11} /> remove
 								</button>
 							)}
 						</div>
