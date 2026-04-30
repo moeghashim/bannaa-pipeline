@@ -14,6 +14,7 @@ const analyticsEventValidator = v.union(
 	v.literal("publish.scheduled"),
 	v.literal("publish.failed"),
 	v.literal("post.metrics.captured"),
+	v.literal("postiz.integration.metrics.captured"),
 	v.literal("template.created"),
 	v.literal("template.used"),
 	v.literal("view_changed"),

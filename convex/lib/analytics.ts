@@ -13,6 +13,7 @@ export type AnalyticsEvent =
 	| "publish.scheduled"
 	| "publish.failed"
 	| "post.metrics.captured"
+	| "postiz.integration.metrics.captured"
 	| "template.created"
 	| "template.used"
 	| "view_changed"

@@ -35,6 +35,15 @@ mediaAssets  (composite PNG, linked via `overlaidFrom`)
 
 For **Instagram feed** specifically, "Promote as IG carousel" branches into a 3–5-slide carousel: one LLM call produces a shared **styleAnchor** + per-slide AR text and image prompts; each slide renders through the same image-provider + HyperFrames stack, with an `N/M` slide-position chip in the top-right of every composite.
 
+## Metrics
+
+The app stores two different metric grains:
+
+- **Per-post X metrics** live in `postMetrics`. These are true draft/post snapshots fetched directly from X by tweet ID, then mirrored to PostHog as `post.metrics.captured`.
+- **Postiz integration metrics** live in `postizIntegrationMetrics`. Postiz's public analytics endpoint is integration/account-level (`GET /public/v1/analytics/{integration}` with a `date` window), not a documented per-post endpoint. These snapshots are therefore coarse channel/account signals for Instagram, TikTok, YouTube, Facebook, LinkedIn, and any other Postiz integration. They are mirrored to PostHog as `postiz.integration.metrics.captured` with `attribution: "integration_level"`.
+
+Do not use `postizIntegrationMetrics` to rank individual drafts. Use it for channel health and coarse platform trends until Postiz exposes per-post analytics or a direct platform adapter is added.
+
 ## Dashboard — seven tabs
 
 - **Inbox** — captured items from X bookmarks (real tweet bodies after cron) + manual entries; filter by state / source; analyze button per item

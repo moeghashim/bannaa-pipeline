@@ -397,3 +397,20 @@ Append-only learning log for commits and deploys. Add new entries only at the en
   - package.json
   - package-lock.json
   - scripts/verify-posthog-events.mjs
+## 2026-04-30T15:25:04.922Z
+- Trigger: commit
+- Learning: Postiz public analytics is integration-level, so non-X channel metrics should be stored separately from per-draft postMetrics and mirrored with attribution=integration_level.
+- Context: feat(metrics): add Postiz integration snapshots
+- Branch: codex/phase-0-3-analytics-templates
+- Actor: Moe Ghashim <mohanadgh@gmail.com>
+- Changed Paths:
+  - README.md
+  - convex/_generated/api.d.ts
+  - convex/analytics/events.ts
+  - convex/crons.ts
+  - convex/lib/analytics.ts
+  - convex/schema.ts
+  - convex/metrics/postiz.ts
+  - convex/metrics/postizInternal.ts
+  - convex/metrics/postizPoll.ts
+  - progress.md

@@ -15,4 +15,10 @@ crons.interval(
 	internal.metrics.poll.pollAll,
 );
 
+crons.interval(
+	"postiz integration metrics poll",
+	{ hours: 6 },
+	internal.metrics.postizPoll.pollAll,
+);
+
 export default crons;

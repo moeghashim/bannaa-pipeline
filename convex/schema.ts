@@ -380,6 +380,24 @@ export default defineSchema({
 		.index("by_channel_capturedAt", ["channel", "capturedAt"])
 		.index("by_sourcePostId_capturedAt", ["sourcePostId", "capturedAt"]),
 
+	postizIntegrationMetrics: defineTable({
+		integrationId: v.string(),
+		provider: v.string(),
+		name: v.string(),
+		capturedAt: v.number(),
+		windowDays: v.number(),
+		views: v.optional(v.number()),
+		likes: v.optional(v.number()),
+		comments: v.optional(v.number()),
+		shares: v.optional(v.number()),
+		saves: v.optional(v.number()),
+		followers: v.optional(v.number()),
+		reach: v.optional(v.number()),
+		rawMetricCount: v.number(),
+	})
+		.index("by_integration_capturedAt", ["integrationId", "capturedAt"])
+		.index("by_provider_capturedAt", ["provider", "capturedAt"]),
+
 	postTemplates: defineTable({
 		name: v.string(),
 		channel: channelType,
