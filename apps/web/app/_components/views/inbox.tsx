@@ -163,8 +163,8 @@ const CaptureBar = ({ onCapture }: { onCapture: (p: CapturePayload, done: () => 
 };
 
 const StageTrack = ({ state }: { state: InboxItem["state"] }) => {
-	const stages = ["captured", "analyzing", "drafting"];
-	const stageIdx = state === "new" ? 0 : state === "analyzing" ? 1 : 2;
+	const stages = ["captured", "analyzing", "analysis", "drafting"];
+	const stageIdx = state === "new" ? 0 : state === "analyzing" ? 1 : state === "analysis" ? 2 : 3;
 	return (
 		<span className="stage-track">
 			{stages.map((s, i) => (
@@ -395,7 +395,7 @@ const InboxDetail = ({
 							<Icons.Clock size={12} /> Analyzing…
 						</button>
 					)}
-					{(item.state === "draft" || item.state === "approved") && (
+					{(item.state === "analysis" || item.state === "draft" || item.state === "approved") && (
 						<button type="button" className="btn sm" onClick={onOpenAnalysis}>
 							<Icons.Arrow size={12} /> Open analysis
 						</button>

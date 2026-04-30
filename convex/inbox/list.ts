@@ -9,6 +9,7 @@ export const list = query({
 				v.literal("all"),
 				v.literal("new"),
 				v.literal("analyzing"),
+				v.literal("analysis"),
 				v.literal("draft"),
 				v.literal("approved"),
 				v.literal("rejected"),
@@ -31,8 +32,15 @@ export const list = query({
 		const source = args.source ?? "all";
 
 		const rows = await ctx.db.query("inboxItems").withIndex("by_captured").order("desc").collect();
+		const drafts = await ctx.db.query("drafts").collect();
+		const sourceItemIdsWithDrafts = new Set(drafts.map((draft) => String(draft.sourceItemId)));
+		const normalized = rows.map((row) =>
+			row.state === "draft" && !sourceItemIdsWithDrafts.has(String(row._id))
+				? { ...row, state: "analysis" as const }
+				: row,
+		);
 
-		return rows.filter((r) => {
+		return normalized.filter((r) => {
 			if (state !== "all" && r.state !== state) return false;
 			if (source !== "all" && r.source !== source) return false;
 			return true;
@@ -49,13 +57,17 @@ export const counts = query({
 			total: rows.length,
 			new: 0,
 			analyzing: 0,
+			analysis: 0,
 			draft: 0,
 			approved: 0,
 			rejected: 0,
 			published: 0,
 		};
+		const drafts = await ctx.db.query("drafts").collect();
+		const sourceItemIdsWithDrafts = new Set(drafts.map((draft) => String(draft.sourceItemId)));
 		for (const r of rows) {
-			out[r.state] = (out[r.state] ?? 0) + 1;
+			const state = r.state === "draft" && !sourceItemIdsWithDrafts.has(String(r._id)) ? "analysis" : r.state;
+			out[state] = (out[state] ?? 0) + 1;
 		}
 		return out;
 	},

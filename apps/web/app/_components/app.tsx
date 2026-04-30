@@ -454,6 +454,7 @@ function resolveChrome(
 							{ value: "all", label: "All", count: inboxItems.length },
 							{ value: "new", label: "New", count: counts.new ?? 0 },
 							{ value: "analyzing", label: "Analyzing", count: counts.analyzing ?? 0 },
+							{ value: "analysis", label: "Analysis", count: counts.analysis ?? 0 },
 							{ value: "draft", label: "Draft", count: counts.draft ?? 0 },
 							{ value: "approved", label: "Approved", count: counts.approved ?? 0 },
 							{ value: "rejected", label: "Rejected", count: counts.rejected ?? 0 },

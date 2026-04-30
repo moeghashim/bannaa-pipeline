@@ -99,7 +99,11 @@ export const AnalysesView = ({
 								<SourceBadge source={it.source} compact />
 								<span className="bullet" />
 								<Chip
-									state={it.state === "draft" || it.state === "approved" ? "draft" : "analyzing"}
+									state={
+										it.state === "analysis" || it.state === "draft" || it.state === "approved"
+											? "analysis"
+											: "analyzing"
+									}
 									label={it.state === "analyzing" ? "analyzing" : "done"}
 								/>
 							</div>
