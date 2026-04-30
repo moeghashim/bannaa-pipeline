@@ -95,7 +95,7 @@ export const FeedbackControls = ({
 				<div
 					style={{
 						position: "absolute",
-						top: "calc(100% + 4px)",
+						bottom: "calc(100% + 4px)",
 						right: 0,
 						zIndex: 7,
 						width: 260,
