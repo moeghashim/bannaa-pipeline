@@ -3,22 +3,18 @@ import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { action, type ActionCtx, internalAction } from "../_generated/server";
 import { requireUser } from "../lib/requireUser";
+import { buildTweetBody, type MediaInclude, type TweetData, tweetQueryParams } from "./parseTweet";
 import { refreshXTokenIfNeeded } from "./tokens";
 
 const MAX_PAGES_PER_SYNC = 5;
 
-type BookmarkItem = {
-	id: string;
-	text: string;
-	created_at: string;
-	author_id: string;
-};
+type BookmarkItem = TweetData & { created_at: string; author_id: string };
 
 type BookmarkUser = { id: string; username: string; name: string };
 
 type BookmarksResponse = {
 	data?: BookmarkItem[];
-	includes?: { users?: BookmarkUser[] };
+	includes?: { users?: BookmarkUser[]; media?: MediaInclude[] };
 	meta?: { result_count: number; next_token?: string };
 };
 
@@ -38,12 +34,7 @@ async function fetchBookmarksPage(
 	xUserId: string,
 	paginationToken?: string,
 ): Promise<BookmarksResponse> {
-	const params = new URLSearchParams({
-		"tweet.fields": "created_at,text,author_id",
-		expansions: "author_id",
-		"user.fields": "username,name",
-		max_results: "100",
-	});
+	const params = tweetQueryParams({ max_results: "100" });
 	if (paginationToken) params.set("pagination_token", paginationToken);
 
 	const resp = await fetch(`https://api.x.com/2/users/${xUserId}/bookmarks?${params.toString()}`, {
@@ -70,6 +61,10 @@ async function syncAccount(
 		const page: BookmarksResponse = await fetchBookmarksPage(accessToken, acc.xUserId, pageToken);
 		const users = new Map<string, BookmarkUser>();
 		for (const u of page.includes?.users ?? []) users.set(u.id, u);
+		// /2/users/:id/bookmarks returns one `media[]` array shared across all
+		// tweets on the page, so map by media_key to attribute correctly.
+		const mediaByKey = new Map<string, MediaInclude>();
+		for (const m of page.includes?.media ?? []) mediaByKey.set(m.media_key, m);
 
 		for (const tw of page.data ?? []) {
 			scanned += 1;
@@ -77,16 +72,21 @@ async function syncAccount(
 			if (existing) continue;
 			const author = users.get(tw.author_id);
 			const handle = author ? `@${author.username}` : "@unknown";
-			const firstLine = tw.text.split("\n")[0]?.slice(0, 140) ?? tw.text.slice(0, 140);
+			const mediaTypes =
+				tw.attachments?.media_keys
+					?.map((k) => mediaByKey.get(k)?.type)
+					.filter((t): t is string => Boolean(t)) ?? [];
+			const bodyText = buildTweetBody(tw, author?.username, mediaTypes);
+			const firstLine = bodyText.split("\n")[0]?.slice(0, 140) ?? bodyText.slice(0, 140);
 			await ctx.runMutation(internal.x.inbox.insertFromBookmark, {
 				userId: acc.userId,
 				xTweetId: tw.id,
 				handle,
 				title: `${handle} · ${firstLine}`,
-				snippet: tw.text,
+				snippet: bodyText,
 				url: `https://x.com/${author?.username ?? "i"}/status/${tw.id}`,
 				capturedAt: new Date(tw.created_at).getTime(),
-				wordCount: tw.text.split(/\s+/).filter(Boolean).length,
+				wordCount: bodyText.split(/\s+/).filter(Boolean).length,
 			});
 			inserted += 1;
 		}

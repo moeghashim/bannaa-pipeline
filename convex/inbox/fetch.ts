@@ -20,11 +20,15 @@ import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { action, type ActionCtx, internalAction } from "../_generated/server";
 import { requireUser } from "../lib/requireUser";
+import { buildTweetBody, type MediaInclude, type TweetData, tweetQueryParams } from "../x/parseTweet";
 import { refreshXTokenIfNeeded } from "../x/tokens";
 
 type TweetResponse = {
-	data?: { id: string; text: string; created_at?: string; author_id?: string };
-	includes?: { users?: Array<{ id: string; username: string; name: string }> };
+	data?: TweetData;
+	includes?: {
+		users?: Array<{ id: string; username: string; name: string }>;
+		media?: Array<MediaInclude>;
+	};
 	errors?: Array<{ title?: string; detail?: string; type?: string }>;
 };
 
@@ -69,14 +73,10 @@ async function fetchTweetBody(ctx: ActionCtx, itemId: Id<"inboxItems">): Promise
 
 	try {
 		const token = await refreshXTokenIfNeeded(ctx, acc);
-		const params = new URLSearchParams({
-			"tweet.fields": "created_at,text,author_id",
-			expansions: "author_id",
-			"user.fields": "username,name",
-		});
-		const resp = await fetch(`https://api.x.com/2/tweets/${tweetId}?${params.toString()}`, {
-			headers: { Authorization: `Bearer ${token}` },
-		});
+		const resp = await fetch(
+			`https://api.x.com/2/tweets/${tweetId}?${tweetQueryParams().toString()}`,
+			{ headers: { Authorization: `Bearer ${token}` } },
+		);
 		if (!resp.ok) {
 			const body = await resp.text().catch(() => "");
 			throw new Error(`X /2/tweets/${tweetId} ${resp.status}: ${body.slice(0, 200)}`);
@@ -91,15 +91,17 @@ async function fetchTweetBody(ctx: ActionCtx, itemId: Id<"inboxItems">): Promise
 
 		const author = payload.includes?.users?.[0];
 		const handle = author ? `@${author.username}` : item.handle;
-		const firstLine = data.text.split("\n")[0]?.slice(0, 140) ?? data.text.slice(0, 140);
-		const wordCount = data.text.split(/\s+/).filter(Boolean).length;
+		const mediaTypes = payload.includes?.media?.map((m) => m.type) ?? [];
+		const bodyText = buildTweetBody(data, author?.username, mediaTypes);
+		const firstLine = bodyText.split("\n")[0]?.slice(0, 140) ?? bodyText.slice(0, 140);
+		const wordCount = bodyText.split(/\s+/).filter(Boolean).length;
 
 		await ctx.runMutation(internal.inbox.fetchInternal.applyFetchedTweet, {
 			id: itemId,
 			xTweetId: tweetId,
 			handle,
 			title: `${handle} · ${firstLine}`,
-			snippet: data.text,
+			snippet: bodyText,
 			wordCount,
 		});
 	} catch (err) {
