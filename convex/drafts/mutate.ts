@@ -1,9 +1,7 @@
 import { v } from "convex/values";
 import { mutation } from "../_generated/server";
-import { transitionalOutputLanguageValidator } from "../generate/languages";
+import { outputLanguageValidator } from "../generate/languages";
 import { requireUser } from "../lib/requireUser";
-
-const outputLanguageValidator = transitionalOutputLanguageValidator;
 
 const angleValidator = v.union(
 	v.literal("explainer"),
