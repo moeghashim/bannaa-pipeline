@@ -118,22 +118,3 @@ export const outputLanguageValidator = v.union(
 	v.literal("zh-tw"),
 );
 
-// Transitional validator used at action boundaries while old UI code still
-// passes `ar-khaleeji` / `ar-levantine` literals. After all UI surfaces have
-// migrated to canonical codes (end of Phase 5), replace usages of this with
-// `outputLanguageValidator` and delete this export.
-export const transitionalOutputLanguageValidator = v.union(
-	outputLanguageValidator,
-	v.literal("ar-khaleeji"),
-	v.literal("ar-levantine"),
-);
-
-export type LegacyOutputLanguage = OutputLanguage | "ar-khaleeji" | "ar-levantine";
-
-// Maps legacy codes to their canonical replacements. `ar-khaleeji` becomes
-// `ar-saudi`; `ar-levantine` is retired and falls back to `ar-msa`.
-export function canonicalizeLanguage(lang: LegacyOutputLanguage): OutputLanguage {
-	if (lang === "ar-khaleeji") return "ar-saudi";
-	if (lang === "ar-levantine") return "ar-msa";
-	return lang;
-}

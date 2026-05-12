@@ -17,10 +17,8 @@ export { LANG_LABELS as LANGUAGE_LABELS, type OutputLanguage, directionFor, isRt
 export const FALLBACK_OUTPUT_LANGUAGES: OutputLanguage[] = ["en"];
 
 export function primaryLangOf(draft: Pick<Doc<"drafts">, "primaryLang">): OutputLanguage {
-	const value = draft.primaryLang as OutputLanguage | "ar-khaleeji" | "ar-levantine" | undefined;
+	const value = draft.primaryLang as OutputLanguage | undefined;
 	if (!value) return "en";
-	if (value === "ar-khaleeji") return "ar-saudi";
-	if (value === "ar-levantine") return "ar-msa";
 	return value;
 }
 
@@ -71,7 +69,7 @@ export const LanguageSwitcher = ({
 export function textForLanguage(draft: Doc<"drafts">, lang: OutputLanguage): string {
 	const primary = primaryLangOf(draft);
 	if (lang === primary) return draft.primary;
-	const translation = draft.translations?.find((t) => normalizeLegacyLang(t.lang) === lang);
+	const translation = draft.translations?.find((t) => t.lang === lang);
 	if (translation) return translation.text;
 	return "";
 }
@@ -79,14 +77,8 @@ export function textForLanguage(draft: Doc<"drafts">, lang: OutputLanguage): str
 export function hasTranslation(draft: Doc<"drafts">, lang: OutputLanguage): boolean {
 	const primary = primaryLangOf(draft);
 	if (lang === primary) return true;
-	if (draft.translations?.some((t) => normalizeLegacyLang(t.lang) === lang)) return true;
+	if (draft.translations?.some((t) => t.lang === lang)) return true;
 	return false;
-}
-
-function normalizeLegacyLang(lang: string): OutputLanguage {
-	if (lang === "ar-khaleeji") return "ar-saudi";
-	if (lang === "ar-levantine") return "ar-msa";
-	return lang as OutputLanguage;
 }
 
 // Canonical languages offered as translation targets in the LanguageSwitcher
@@ -104,7 +96,7 @@ export function translationTargetsForDraft(
 ): OutputLanguage[] {
 	const primary = primaryLangOf(draft);
 	const allowedSet = allowed ? new Set(allowed) : null;
-	const existingTranslations = new Set((draft.translations ?? []).map((t) => normalizeLegacyLang(t.lang)));
+	const existingTranslations = new Set<OutputLanguage>((draft.translations ?? []).map((t) => t.lang as OutputLanguage));
 	return LANGUAGE_CODES.filter((c) => {
 		if (c === primary) return false;
 		if (allowedSet === null) return true;

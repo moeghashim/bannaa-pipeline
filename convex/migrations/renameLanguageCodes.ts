@@ -59,10 +59,11 @@ export const run = mutation({
 		const drafts = await ctx.db.query("drafts").collect();
 		for (const draft of drafts) {
 			const patch: Partial<typeof draft> = {};
-			if (draft.publishLang === "ar-khaleeji") {
+			const pLang = draft.publishLang as string | undefined;
+			if (pLang === "ar-khaleeji") {
 				patch.publishLang = "ar-saudi";
 				counts.draftsPublishLang += 1;
-			} else if (draft.publishLang === "ar-levantine") {
+			} else if (pLang === "ar-levantine") {
 				patch.publishLang = "ar-msa";
 				counts.draftsPublishLang += 1;
 			}
@@ -70,11 +71,12 @@ export const run = mutation({
 				const next = [];
 				let touched = false;
 				for (const t of draft.translations) {
-					if (t.lang === "ar-khaleeji") {
+					const tLang = t.lang as string;
+					if (tLang === "ar-khaleeji") {
 						next.push({ ...t, lang: "ar-saudi" as const });
 						counts.draftsTranslationsRekeyed += 1;
 						touched = true;
-					} else if (t.lang === "ar-levantine") {
+					} else if (tLang === "ar-levantine") {
 						counts.draftsTranslationsDropped += 1;
 						touched = true;
 					} else {
@@ -94,11 +96,12 @@ export const run = mutation({
 			const next = [];
 			let touched = false;
 			for (const t of slide.translations) {
-				if (t.lang === "ar-khaleeji") {
+				const tLang = t.lang as string;
+				if (tLang === "ar-khaleeji") {
 					next.push({ ...t, lang: "ar-saudi" as const });
 					counts.carouselTranslationsRekeyed += 1;
 					touched = true;
-				} else if (t.lang === "ar-levantine") {
+				} else if (tLang === "ar-levantine") {
 					counts.carouselTranslationsDropped += 1;
 					touched = true;
 				} else {
@@ -113,8 +116,9 @@ export const run = mutation({
 		const settingsRows = await ctx.db.query("settings").collect();
 		for (const s of settingsRows) {
 			const patch: Partial<typeof s> = {};
-			if (s.outputLanguages !== undefined) {
-				patch.outputLanguages = undefined;
+			const legacyOutputLanguages = (s as Record<string, unknown>).outputLanguages;
+			if (legacyOutputLanguages !== undefined) {
+				(patch as Record<string, unknown>).outputLanguages = undefined;
 				counts.settingsCleared += 1;
 			}
 			if (s.defaultPrimaryLanguage === undefined) {

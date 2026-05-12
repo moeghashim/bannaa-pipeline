@@ -22,18 +22,6 @@ const imageProviderValidator = v.union(
 	v.literal("openrouter"),
 );
 
-// Legacy secondary-language validator. Phase 2 retires the
-// `setOutputLanguages` mutation that uses it; the union also lists the new
-// canonical Arabic codes so `getInternal` matches the wider schema validator
-// during the migration window.
-const outputLanguageValidator = v.union(
-	v.literal("ar-khaleeji"),
-	v.literal("ar-msa"),
-	v.literal("ar-levantine"),
-	v.literal("ar-saudi"),
-	v.literal("ar-egy"),
-);
-
 const SETTINGS_SINGLETON = "app";
 
 async function readSettings(ctx: QueryCtx | MutationCtx): Promise<Doc<"settings"> | null> {
@@ -124,10 +112,6 @@ export const setDefaultPrimaryLanguage = mutation({
 		if (existing) {
 			await ctx.db.patch(existing._id, {
 				defaultPrimaryLanguage: language,
-				// Drop the legacy multi-select field whenever the operator
-				// touches the primary-language setting; one-shot upgrade for
-				// rows that haven't been hit by the rename migration yet.
-				outputLanguages: undefined,
 				updatedAt: Date.now(),
 			});
 			return;
@@ -176,7 +160,6 @@ export const getInternal = internalQuery({
 			overlayModel: v.optional(v.string()),
 			defaultPrimaryLanguage: v.optional(canonicalLangValidator),
 			translationTargets: v.optional(v.array(canonicalLangValidator)),
-			outputLanguages: v.optional(v.array(outputLanguageValidator)),
 			updatedAt: v.number(),
 		}),
 		v.null(),

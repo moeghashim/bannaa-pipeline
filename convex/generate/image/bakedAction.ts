@@ -24,11 +24,9 @@ import { defaultBrandInput } from "../../brand/defaults";
 import { mirrorProviderRun } from "../../lib/analytics";
 import { requireUser } from "../../lib/requireUser";
 import {
-	canonicalizeLanguage,
 	LANG_LABELS,
-	type LegacyOutputLanguage,
 	type OutputLanguage,
-	transitionalOutputLanguageValidator,
+	outputLanguageValidator,
 } from "../languages";
 import { callImageProviderEdit, type ImageProvider, type ImageProviderEnv } from "./providers";
 
@@ -78,7 +76,7 @@ function buildBakedPrompt(input: {
 export const bakedForDraft = action({
 	args: {
 		draftId: v.id("drafts"),
-		targetLang: v.optional(transitionalOutputLanguageValidator),
+		targetLang: v.optional(outputLanguageValidator),
 	},
 	returns: v.union(
 		v.object({
@@ -124,10 +122,9 @@ export const bakedForDraft = action({
 		if (!base.storageId) return { ok: false, error: "base image has no storageId" };
 
 		const fallback: OutputLanguage = draft.primaryLang ?? "en";
-		const requested: LegacyOutputLanguage = targetLang ?? fallback;
-		const lang: OutputLanguage = canonicalizeLanguage(requested);
+		const lang: OutputLanguage = targetLang ?? fallback;
 		const prompt = buildBakedPrompt({
-			text: textForLanguage(draft, requested),
+			text: textForLanguage(draft, lang),
 			languageLabel: LANG_LABELS[lang],
 			channel: draft.channel,
 			brand,
@@ -183,7 +180,7 @@ export const bakedForDraft = action({
 					draft_id: draftId,
 					channel: draft.channel,
 					base_asset_id: base._id,
-					target_lang: requested,
+					target_lang: lang,
 				},
 			);
 
@@ -237,7 +234,7 @@ export const bakedForDraft = action({
 					draft_id: draftId,
 					channel: draft.channel,
 					base_asset_id: base._id,
-					target_lang: requested,
+					target_lang: lang,
 				},
 			);
 			return { ok: false, error: msg };
@@ -245,7 +242,7 @@ export const bakedForDraft = action({
 	},
 });
 
-function textForLanguage(draft: Doc<"drafts">, lang: LegacyOutputLanguage): string {
+function textForLanguage(draft: Doc<"drafts">, lang: OutputLanguage): string {
 	const draftLang = draft.primaryLang ?? "en";
 	if (lang === draftLang) return draft.primary;
 	if (lang === "en" && !draft.primaryLang) return draft.primary;
