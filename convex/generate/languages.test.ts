@@ -3,7 +3,6 @@ import test from "node:test";
 
 import {
 	ARABIC_DIALECTS,
-	canonicalizeLanguage,
 	descriptorFor,
 	directionFor,
 	isArabicDialect,
@@ -79,13 +78,3 @@ test("isArabicDialect agrees with ARABIC_DIALECTS membership", () => {
 	}
 });
 
-test("canonicalizeLanguage rewrites legacy codes", () => {
-	assert.equal(canonicalizeLanguage("ar-khaleeji"), "ar-saudi");
-	assert.equal(canonicalizeLanguage("ar-levantine"), "ar-msa");
-});
-
-test("canonicalizeLanguage is identity on canonical codes", () => {
-	for (const code of LANGUAGE_CODES) {
-		assert.equal(canonicalizeLanguage(code), code);
-	}
-});

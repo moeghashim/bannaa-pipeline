@@ -125,15 +125,7 @@ const brandDesignType = v.object({
 	designMd: v.optional(v.string()),
 });
 
-// Schema-level validator. Accepts the canonical wide language set plus the
-// two legacy Arabic codes (`ar-khaleeji`, `ar-levantine`) so existing rows
-// validate during the rename migration. Tighten to `outputLanguageValidator`
-// alone after `migrations/renameLanguageCodes:run` completes against prod.
-const outputLanguageType = v.union(
-	outputLanguageValidator,
-	v.literal("ar-khaleeji"),
-	v.literal("ar-levantine"),
-);
+const outputLanguageType = outputLanguageValidator;
 
 const translationType = v.object({
 	lang: outputLanguageType,
@@ -440,20 +432,6 @@ export default defineSchema({
 		// translate into. Already-generated translations always stay visible
 		// regardless of this setting.
 		translationTargets: v.optional(v.array(outputLanguageValidator)),
-		// Legacy multi-select for displaying secondary Arabic dialects on
-		// draft cards. Superseded by `defaultPrimaryLanguage`. Kept on the
-		// schema so old rows validate; the migration drops the field.
-		outputLanguages: v.optional(
-			v.array(
-				v.union(
-					v.literal("ar-khaleeji"),
-					v.literal("ar-msa"),
-					v.literal("ar-levantine"),
-					v.literal("ar-saudi"),
-					v.literal("ar-egy"),
-				),
-			),
-		),
 		updatedAt: v.number(),
 	}).index("by_key", ["key"]),
 

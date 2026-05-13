@@ -19,16 +19,13 @@ import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Doc } from "../_generated/dataModel";
 import { action } from "../_generated/server";
-import {
-	type LegacyOutputLanguage,
-	transitionalOutputLanguageValidator,
-} from "../generate/languages";
+import { outputLanguageValidator, type OutputLanguage } from "../generate/languages";
 import { capture } from "../lib/analytics";
 import { requireUser } from "../lib/requireUser";
 import { resolvePublishTarget } from "./channelMatrix";
 import { schedulePost, uploadMedia } from "./postiz";
 
-const publishLanguageValidator = transitionalOutputLanguageValidator;
+const publishLanguageValidator = outputLanguageValidator;
 
 type ScheduleResult =
 	| { ok: true; postizPostId: string; scheduledAt: number }
@@ -171,7 +168,7 @@ export const scheduleDraft = action({
 	},
 });
 
-function textForLanguage(draft: Doc<"drafts">, lang: LegacyOutputLanguage): string {
+function textForLanguage(draft: Doc<"drafts">, lang: OutputLanguage): string {
 	const draftLang = draft.primaryLang ?? "en";
 	if (lang === draftLang) return draft.primary;
 	if (lang === "en" && !draft.primaryLang) return draft.primary;
