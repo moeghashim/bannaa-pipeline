@@ -7,7 +7,7 @@
 import { v } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import { internalMutation, internalQuery } from "../_generated/server";
-import { transitionalOutputLanguageValidator } from "../generate/languages";
+import { outputLanguageValidator } from "../generate/languages";
 
 export const loadDraftForPublish = internalQuery({
 	args: { draftId: v.id("drafts") },
@@ -21,7 +21,7 @@ export const markScheduled = internalMutation({
 		draftId: v.id("drafts"),
 		scheduledAt: v.number(),
 		publishSelection: v.union(v.literal("base"), v.literal("overlay")),
-		publishLang: transitionalOutputLanguageValidator,
+		publishLang: outputLanguageValidator,
 		publishIntegrationId: v.string(),
 		postizPostId: v.string(),
 	},

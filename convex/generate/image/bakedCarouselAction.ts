@@ -24,13 +24,7 @@ import { action } from "../../_generated/server";
 import { defaultBrandInput } from "../../brand/defaults";
 import { mirrorProviderRun } from "../../lib/analytics";
 import { requireUser } from "../../lib/requireUser";
-import {
-	canonicalizeLanguage,
-	LANG_LABELS,
-	type LegacyOutputLanguage,
-	type OutputLanguage,
-	transitionalOutputLanguageValidator,
-} from "../languages";
+import { LANG_LABELS, outputLanguageValidator, type OutputLanguage } from "../languages";
 import { callImageProviderEdit, type ImageProvider, type ImageProviderEnv } from "./providers";
 
 const BAKED_PROVIDER: ImageProvider = "gpt-image";
@@ -71,7 +65,7 @@ function buildBakedSlidePrompt(input: {
 export const bakedCarouselForDraft = action({
 	args: {
 		draftId: v.id("drafts"),
-		targetLang: v.optional(transitionalOutputLanguageValidator),
+		targetLang: v.optional(outputLanguageValidator),
 	},
 	returns: v.union(
 		v.object({
@@ -137,11 +131,10 @@ export const bakedCarouselForDraft = action({
 			}
 
 			const fallback: OutputLanguage = slide.primaryLang ?? draft.primaryLang ?? "en";
-			const requested: LegacyOutputLanguage = targetLang ?? fallback;
-			const langForLabel: OutputLanguage = canonicalizeLanguage(requested);
+			const lang: OutputLanguage = targetLang ?? fallback;
 			const prompt = buildBakedSlidePrompt({
-				text: slideTextForLanguage(slide, requested),
-				languageLabel: LANG_LABELS[langForLabel],
+				text: slideTextForLanguage(slide, lang),
+				languageLabel: LANG_LABELS[lang],
 				slideIndex: base.orderIndex,
 				slideTotal,
 				brand,
@@ -199,7 +192,7 @@ export const bakedCarouselForDraft = action({
 						base_asset_id: base._id,
 						slide_id: slide._id,
 						order_index: base.orderIndex,
-						target_lang: requested,
+						target_lang: lang,
 					},
 				);
 				totalCost += result.cost;
@@ -252,7 +245,7 @@ export const bakedCarouselForDraft = action({
 						base_asset_id: base._id,
 						slide_id: slide._id,
 						order_index: base.orderIndex,
-						target_lang: requested,
+						target_lang: lang,
 					},
 				);
 				failed += 1;
@@ -263,7 +256,7 @@ export const bakedCarouselForDraft = action({
 	},
 });
 
-function slideTextForLanguage(slide: Doc<"carouselSlides">, lang: LegacyOutputLanguage): string {
+function slideTextForLanguage(slide: Doc<"carouselSlides">, lang: OutputLanguage): string {
 	const slideLang = slide.primaryLang ?? "en";
 	if (lang === slideLang) return slide.primary;
 	if (lang === "en" && !slide.primaryLang) return slide.primary;

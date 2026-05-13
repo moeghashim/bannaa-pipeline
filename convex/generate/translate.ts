@@ -9,7 +9,7 @@ import { defaultBrandInput } from "../brand/defaults";
 import { mirrorProviderRun } from "../lib/analytics";
 import { requireUser } from "../lib/requireUser";
 import { renderBrandSystemPrompt } from "./brandPrompt";
-import type { LegacyOutputLanguage, OutputLanguage } from "./languages";
+import { outputLanguageValidator, type OutputLanguage } from "./languages";
 import {
 	buildTranslatePrompt,
 	type Channel,
@@ -17,14 +17,11 @@ import {
 	TRANSLATE_TOOL,
 	type TranslateToolOutput,
 } from "./prompts";
-import { transitionalOutputLanguageValidator } from "./languages";
-
-const outputLanguageValidator = transitionalOutputLanguageValidator;
 
 type TranslationResult =
 	| {
 			ok: true;
-			lang: Exclude<LegacyOutputLanguage, "en">;
+			lang: Exclude<OutputLanguage, "en">;
 			text: string;
 			chars: number;
 			runId: Id<"providerRuns">;
@@ -80,7 +77,7 @@ export const generateTranslation = action({
 		// Brand voice presets are Arabic-dialect-specific. Apply them only
 		// when the target is one of the AR dialects; otherwise rely on the
 		// brand system prompt to carry the voice.
-		const targetIsArabic = targetLang === "ar-msa" || targetLang === "ar-saudi" || targetLang === "ar-egy" || targetLang === "ar-khaleeji" || targetLang === "ar-levantine";
+		const targetIsArabic = targetLang === "ar-msa" || targetLang === "ar-saudi" || targetLang === "ar-egy";
 		const voicePreset = targetIsArabic
 			? (brand.tone.arPresets[targetLang] ?? brand.tone.arPresets[brand.tone.activeArPreset] ?? "")
 			: "";

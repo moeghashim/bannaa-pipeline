@@ -8,11 +8,7 @@ import { directionFor, isRtl, type OutputLanguage } from "../../_lib/languages";
 import { FeedbackControls } from "./feedbackControls";
 
 function slideLangOf(slide: Pick<Doc<"carouselSlides">, "primaryLang">): OutputLanguage {
-	const v = slide.primaryLang as OutputLanguage | "ar-khaleeji" | "ar-levantine" | undefined;
-	if (!v) return "en";
-	if (v === "ar-khaleeji") return "ar-saudi";
-	if (v === "ar-levantine") return "ar-msa";
-	return v;
+	return (slide.primaryLang as OutputLanguage | undefined) ?? "en";
 }
 
 // Carousel helpers split out of drafts.tsx so the parent file stays under

@@ -17,11 +17,7 @@ export { LANG_LABELS as LANGUAGE_LABELS, type OutputLanguage, directionFor, isRt
 export const FALLBACK_OUTPUT_LANGUAGES: OutputLanguage[] = ["en"];
 
 export function primaryLangOf(draft: Pick<Doc<"drafts">, "primaryLang">): OutputLanguage {
-	const value = draft.primaryLang as OutputLanguage | "ar-khaleeji" | "ar-levantine" | undefined;
-	if (!value) return "en";
-	if (value === "ar-khaleeji") return "ar-saudi";
-	if (value === "ar-levantine") return "ar-msa";
-	return value;
+	return (draft.primaryLang as OutputLanguage | undefined) ?? "en";
 }
 
 export const LanguageSwitcher = ({
@@ -84,8 +80,6 @@ export function hasTranslation(draft: Doc<"drafts">, lang: OutputLanguage): bool
 }
 
 function normalizeLegacyLang(lang: string): OutputLanguage {
-	if (lang === "ar-khaleeji") return "ar-saudi";
-	if (lang === "ar-levantine") return "ar-msa";
 	return lang as OutputLanguage;
 }
 
